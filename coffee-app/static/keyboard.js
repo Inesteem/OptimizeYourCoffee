@@ -17,6 +17,11 @@
                 const isShift = kbd.options.layoutName !== 'shift';
                 kbd.setOptions({ layoutName: isShift ? 'shift' : 'default' });
                 setTimeout(() => { layoutChanging = false; }, 100);
+            } else if (kbd.options.layoutName === 'shift' && button !== '{backspace}' && !button.startsWith('{')) {
+                // Auto-return to lowercase after one character
+                layoutChanging = true;
+                kbd.setOptions({ layoutName: 'default' });
+                setTimeout(() => { layoutChanging = false; }, 100);
             } else if (button === '{numbers}') {
                 layoutChanging = true;
                 kbd.setOptions({ layoutName: 'numbers' });
