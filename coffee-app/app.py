@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from datetime import date, datetime
 from pathlib import Path
@@ -789,6 +790,13 @@ def api_samples():
                ORDER BY s.created_at DESC"""
         ).fetchall()
     return jsonify([dict(s) for s in samples])
+
+
+@app.route("/quit", methods=["POST"])
+def quit_app():
+    """Kill Chromium kiosk to return to desktop."""
+    os.system("pkill -f 'chromium.*kiosk' &")
+    return "<html><body style='background:#1a1a1a;color:#e8e0d6;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif'><h2>App closed.</h2></body></html>"
 
 
 if __name__ == "__main__":

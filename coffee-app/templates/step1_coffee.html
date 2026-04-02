@@ -196,7 +196,9 @@
         </div>
 
         <div class="quit-section">
-            <button class="btn-quit" onclick="window.close()">Quit App</button>
+            <form action="/quit" method="POST">
+                <button type="submit" class="btn-quit">Quit App</button>
+            </form>
         </div>
     </main>
 
