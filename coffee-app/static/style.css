@@ -874,6 +874,26 @@ header h1 {
     color: var(--accent);
 }
 
+.quit-section {
+    text-align: center;
+    margin: 20px 0 12px;
+}
+
+.btn-quit {
+    padding: 10px 32px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    background: none;
+    border: 1px solid #444;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-quit:active {
+    background: var(--danger);
+    color: #ddd;
+}
+
 /* Settings */
 .header-spacer {
     width: 36px;
