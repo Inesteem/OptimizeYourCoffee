@@ -981,6 +981,32 @@ header h1 {
     flex-shrink: 0;
 }
 
+.note-edit-name-fixed {
+    flex: 1;
+    font-size: 0.9rem;
+    color: var(--text);
+    padding: 8px 0;
+}
+
+.note-overridden {
+    border-left: 3px solid var(--accent);
+}
+
+.btn-reset-note {
+    width: 100%;
+    padding: 6px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    background: #2a2a3a;
+    border: 1px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-reset-note:active {
+    opacity: 0.7;
+}
+
 .btn-del-note {
     width: 100%;
     padding: 8px;

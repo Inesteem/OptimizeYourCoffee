@@ -667,7 +667,22 @@ def save_evaluation(sample_id):
 def settings_tasting_notes():
     with get_db() as conn:
         notes = conn.execute("SELECT * FROM custom_tasting_notes ORDER BY name").fetchall()
-    return render_template("settings_notes.html", notes=notes)
+        overrides = {r["name"].lower(): r for r in notes}
+    # Build full list: built-ins (with overrides) + pure custom
+    builtin_names = set()
+    builtin_list = []
+    for name, emoji in sorted(TASTING_EMOJIS.items()):
+        builtin_names.add(name)
+        override = overrides.get(name)
+        builtin_list.append({
+            "name": name,
+            "emoji": override["emoji"] if override else emoji,
+            "default_emoji": emoji,
+            "overridden": override is not None,
+            "id": override["id"] if override else None,
+        })
+    custom_only = [dict(n) for n in notes if n["name"].lower() not in builtin_names]
+    return render_template("settings_notes.html", builtins=builtin_list, custom=custom_only)
 
 
 @app.route("/settings/tasting-notes/add", methods=["POST"])
@@ -697,6 +712,31 @@ def edit_tasting_note(note_id):
         with get_db() as conn:
             conn.execute("UPDATE custom_tasting_notes SET name=?, emoji=? WHERE id=?",
                          (name, emoji, note_id))
+    return redirect(url_for("settings_tasting_notes"))
+
+
+@app.route("/settings/tasting-notes/override", methods=["POST"])
+def override_builtin_note():
+    name = request.form.get("name", "").strip()
+    emoji = request.form.get("emoji", "").strip()
+    if name:
+        with get_db() as conn:
+            existing = conn.execute(
+                "SELECT id FROM custom_tasting_notes WHERE LOWER(name) = LOWER(?)", (name,)
+            ).fetchone()
+            if existing:
+                conn.execute("UPDATE custom_tasting_notes SET emoji=? WHERE id=?", (emoji, existing["id"]))
+            else:
+                conn.execute("INSERT INTO custom_tasting_notes (name, emoji) VALUES (?, ?)", (name, emoji))
+    return redirect(url_for("settings_tasting_notes"))
+
+
+@app.route("/settings/tasting-notes/reset", methods=["POST"])
+def reset_builtin_note():
+    name = request.form.get("name", "").strip()
+    if name:
+        with get_db() as conn:
+            conn.execute("DELETE FROM custom_tasting_notes WHERE LOWER(name) = LOWER(?)", (name,))
     return redirect(url_for("settings_tasting_notes"))
 
 

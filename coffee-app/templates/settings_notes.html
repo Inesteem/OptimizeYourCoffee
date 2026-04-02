@@ -35,10 +35,10 @@
             <div id="emoji-picker" class="emoji-grid"></div>
         </form>
 
-        {% if notes %}
+        {% if custom %}
         <section class="history" style="margin-top:12px">
             <h2>Custom Labels</h2>
-            {% for n in notes %}
+            {% for n in custom %}
             <div class="note-card">
                 <form action="/settings/tasting-notes/{{ n.id }}/edit" method="POST" class="note-edit-form">
                     <div class="note-edit-row">
@@ -57,8 +57,24 @@
 
         <section class="history" style="margin-top:16px">
             <h2>Built-in Labels</h2>
-            <p class="freshness-detail" style="margin-bottom:8px">These are always available. Custom labels above are merged in.</p>
-            <div class="notes-list" id="builtin-notes"></div>
+            {% for b in builtins %}
+            <div class="note-card {% if b.overridden %}note-overridden{% endif %}">
+                <form action="/settings/tasting-notes/override" method="POST" class="note-edit-form">
+                    <input type="hidden" name="name" value="{{ b.name }}">
+                    <div class="note-edit-row">
+                        <input type="text" name="emoji" value="{{ b.emoji }}" class="note-edit-emoji">
+                        <span class="note-edit-name-fixed">{{ b.name }}</span>
+                        <button type="submit" class="note-save-btn">Save</button>
+                    </div>
+                </form>
+                {% if b.overridden %}
+                <form action="/settings/tasting-notes/reset" method="POST">
+                    <input type="hidden" name="name" value="{{ b.name }}">
+                    <button type="submit" class="btn-reset-note">Reset to {{ b.default_emoji }}</button>
+                </form>
+                {% endif %}
+            </div>
+            {% endfor %}
         </section>
     </main>
 
@@ -68,49 +84,34 @@
     <script src="{{ url_for('static', filename='simple-keyboard.min.js') }}"></script>
     <script src="{{ url_for('static', filename='keyboard.js') }}?v={{ v }}"></script>
     <script>
-    // Built-in notes reference
-    const BUILTIN = {
-        "dried apricot":"🍑","apricot":"🍑","lemonade":"🍋","lemon":"🍋",
-        "orange":"🍊","tangerine":"🍊","black currant":"🫐","blueberry":"🫐",
-        "strawberry":"🍓","wild strawberry":"🍓","raspberry":"🍓",
-        "raspberry jam":"🍓","cherry":"🍒","apple":"🍏","peach":"🍑",
-        "plum":"🍇","grape":"🍇","tropical":"🍍","pineapple":"🍍",
-        "mango":"🥭","passionfruit":"🍈","melon":"🍈","banana":"🍌",
-        "grapefruit":"🍊","lime":"🍋","citrus":"🍋","bergamot":"🍋",
-        "cacao nibs":"🍫","chocolate":"🍫","dark chocolate":"🍫",
-        "cocoa":"🍫","hazelnut":"🌰","almond":"🌰","walnut":"🌰",
-        "nutty":"🌰","honey":"🍯","caramel":"🍮","toffee":"🍮",
-        "brown sugar":"🍮","vanilla":"🍦","jasmine":"🌸","rose":"🌹",
-        "floral":"🌺","hibiscus":"🌺","tea":"🍵","black tea":"🍵",
-        "herbal":"🌿","mint":"🌿","cinnamon":"✨","cardamom":"✨",
-        "ginger":"✨","pepper":"🌶️","smoky":"🔥","tobacco":"🍂",
-        "wine":"🍷","red wine":"🍷","butter":"🧈","cream":"🥛",
-        "cedar":"🪵","woody":"🪵","earthy":"🌍","berry":"🫐",
-        "stone fruit":"🍑","nougat":"🍮"
-    };
-    const wrap = document.getElementById('builtin-notes');
-    Object.entries(BUILTIN).sort((a,b) => a[0].localeCompare(b[0])).forEach(([name, emoji]) => {
-        const el = document.createElement('div');
-        el.className = 'note-item builtin';
-        el.innerHTML = `<span class="note-emoji">${emoji}</span><span class="note-name">${name}</span>`;
-        wrap.appendChild(el);
-    });
+    // (Built-in labels now rendered server-side with edit support)
 
     // Emoji search/picker
     const EMOJIS = [
-        ["🍎","red apple"],["🍏","green apple"],["🍐","pear"],["🍊","orange,tangerine"],
-        ["🍋","lemon,lemonade,citrus"],["🍌","banana"],["🍉","watermelon"],["🍇","grape,plum"],
-        ["🍓","strawberry,raspberry,berry,jam"],["🫐","blueberry,currant,blackberry"],
-        ["🍈","melon,passionfruit,honeydew"],["🍒","cherry"],["🍑","peach,apricot,stone fruit"],
-        ["🥭","mango"],["🍍","pineapple,tropical"],["🥥","coconut"],["🥝","kiwi"],
+        // Fruits & berries
+        ["🍎","red apple"],["🍏","green apple"],["🍐","pear"],["🍊","orange,tangerine,mandarin"],
+        ["🍋","lemon,lemonade,citrus,lime"],["🍋‍🟩","lime,green lemon"],
+        ["🍌","banana"],["🍉","watermelon"],["🍇","grape,plum,raisin"],
+        ["🍓","strawberry,wild strawberry,berry"],["🫐","blueberry,currant,blackberry,blackcurrant"],
+        ["🍈","melon,passionfruit,honeydew,cantaloupe"],["🍒","cherry,sour cherry"],
+        ["🍑","peach,apricot,nectarine,stone fruit,dried apricot"],
+        ["🥭","mango,tropical mango"],["🍍","pineapple,tropical"],
+        ["🥥","coconut"],["🥝","kiwi,gooseberry"],
         ["🍅","tomato"],["🫒","olive"],
-        ["🍫","chocolate,cacao,cocoa,dark chocolate,milk chocolate"],
+        // Jam & preserves
+        ["🍯","jam,preserve,marmalade,fruit spread,berry jam,raspberry jam"],
+        ["🫙","jar,preserve,compote,canned fruit"],
+        // Chocolate & nuts
+        ["🍫","chocolate,cacao,cocoa,dark chocolate,milk chocolate,cacao nibs"],
         ["🍮","caramel,toffee,flan,butterscotch,brown sugar,nougat,dulce"],
         ["🍯","honey"],["🍬","candy,sweet,sugarcane"],["🍭","lollipop"],
         ["🍦","vanilla,ice cream"],["🧈","butter"],["🥛","milk,cream,yogurt"],
-        ["🌰","hazelnut,chestnut,almond,walnut,nut,nutty"],["🥜","peanut"],
-        ["🌸","jasmine,blossom,sakura"],["🌹","rose"],["🌺","hibiscus,floral,flower"],
-        ["🌻","sunflower"],["🌼","chamomile,daisy"],["💜","lavender,violet"],
+        ["🌰","hazelnut,chestnut,almond,walnut,nut,nutty,macadamia"],["🥜","peanut"],
+        // Floral
+        ["🌸","jasmine,blossom,sakura"],["🌹","rose,rosewater"],
+        ["🌺","hibiscus,floral,flower,tropical flower"],
+        ["🌻","sunflower"],["🌼","chamomile,daisy,elderflower"],["💜","lavender,violet"],
+        ["💐","bouquet,floral mix,flowers,potpourri"],
         ["🌿","herbal,mint,basil,herb,green"],["🍂","tobacco,autumn,leaf"],
         ["🍁","maple,autumn"],["🪵","cedar,wood,woody,oak"],
         ["🍵","tea,black tea,green tea,earl grey"],["☕","coffee,espresso"],
