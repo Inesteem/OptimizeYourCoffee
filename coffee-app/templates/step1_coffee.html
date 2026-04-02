@@ -112,15 +112,10 @@
                         <input type="number" id="default_grams_out" name="default_grams_out" step="0.1" min="0" placeholder="e.g. 36">
                     </div>
                 </div>
-                <div class="row">
-                    <div class="field">
-                        <label for="default_brew_min">Brew (min)</label>
-                        <input type="number" id="default_brew_min" name="default_brew_min" min="0" max="59" placeholder="0">
-                    </div>
-                    <div class="field">
-                        <label for="default_brew_sec">Brew (sec)</label>
-                        <input type="number" id="default_brew_sec" name="default_brew_sec" min="0" max="59" placeholder="30">
-                    </div>
+                <div class="field">
+                    <label for="default_brew_sec">Brew Time (seconds)</label>
+                    <input type="number" id="default_brew_sec" name="default_brew_sec" min="0" max="300" placeholder="e.g. 30">
+                    <input type="hidden" name="default_brew_min" value="0">
                 </div>
 
                 <div class="row">

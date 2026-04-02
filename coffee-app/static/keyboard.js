@@ -7,7 +7,12 @@
     const kbd = new SimpleKeyboard.default({
         onChange: value => {
             if (activeInput) {
-                activeInput.value = value;
+                // For number inputs, "1." is rejected by the browser — show "1.0" temporarily
+                if (activeInput.type === 'number' && value.endsWith('.')) {
+                    activeInput.value = value + '0';
+                } else {
+                    activeInput.value = value;
+                }
                 activeInput.dispatchEvent(new Event('input', { bubbles: true }));
                 changeListeners.forEach(fn => fn(activeInput, value));
             }
