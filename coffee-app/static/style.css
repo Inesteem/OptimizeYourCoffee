@@ -58,6 +58,7 @@ main {
 
 .field {
     margin-bottom: 10px;
+    position: relative;
 }
 
 .field label {
@@ -83,6 +84,41 @@ main {
 
 .field input:focus {
     border-color: var(--accent);
+}
+
+/* Autocomplete dropdown */
+.ac-dropdown {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    z-index: 500;
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 0 0 6px 6px;
+    max-height: 160px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.ac-dropdown.hidden {
+    display: none;
+}
+
+.ac-item {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    color: var(--text);
+    cursor: pointer;
+    border-bottom: 1px solid #3a3a3a;
+}
+
+.ac-item:active {
+    background: var(--accent);
+}
+
+.ac-item strong {
+    color: var(--accent);
 }
 
 .row {
