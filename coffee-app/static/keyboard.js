@@ -1,13 +1,14 @@
 (function() {
     let activeInput = null;
     let layoutChanging = false;
+    let ignoreNextDismiss = false;
     const kbdWrap = document.getElementById('keyboard');
 
     const kbd = new SimpleKeyboard.default({
         onChange: value => {
             if (activeInput) {
                 activeInput.value = value;
-                activeInput.dispatchEvent(new Event('input'));
+                activeInput.dispatchEvent(new Event('input', { bubbles: true }));
             }
         },
         onKeyPress: button => {
@@ -61,6 +62,12 @@
         mergeDisplay: true
     });
 
+    // Expose for autocomplete to sync state
+    window.coffeeKbd = {
+        setInput: val => kbd.setInput(val),
+        suppressDismiss: () => { ignoreNextDismiss = true; setTimeout(() => { ignoreNextDismiss = false; }, 200); }
+    };
+
     function showKeyboard(input) {
         activeInput = input;
         kbd.setInput(input.value);
@@ -87,7 +94,8 @@
     });
 
     document.addEventListener('pointerdown', e => {
-        if (layoutChanging) return;
+        if (layoutChanging || ignoreNextDismiss) return;
+        if (e.target.closest('.ac-dropdown') || e.target.closest('.chip-suggestions')) return;
         if (!kbdWrap.contains(e.target) && !e.target.matches('input')) {
             hideKeyboard();
         }

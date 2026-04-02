@@ -15,10 +15,9 @@
             "Wet Hulled","Semi-Washed","Black Honey","Red Honey","Yellow Honey",
             "White Honey","Double Washed","Swiss Water","Lactic Process"
         ],
-        variety: [] // populated from server
+        variety: []
     };
 
-    // Fetch varieties from static JSON
     fetch('/static/varieties.json')
         .then(r => r.json())
         .then(list => { DATA.variety = list; })
@@ -27,14 +26,9 @@
     let activeDropdown = null;
 
     function createDropdown(input) {
-        const wrap = document.createElement('div');
-        wrap.className = 'ac-wrap';
-        input.parentNode.style.position = 'relative';
-
         const list = document.createElement('div');
         list.className = 'ac-dropdown hidden';
         input.parentNode.appendChild(list);
-
         return list;
     }
 
@@ -47,7 +41,6 @@
             return;
         }
 
-        // Sort: starts-with first, then contains
         const startsWith = items.filter(i => i.toLowerCase().startsWith(val));
         const contains = items.filter(i =>
             !i.toLowerCase().startsWith(val) && i.toLowerCase().includes(val)
@@ -73,8 +66,12 @@
         dropdown.querySelectorAll('.ac-item').forEach(item => {
             item.addEventListener('pointerdown', e => {
                 e.preventDefault();
+                e.stopPropagation();
+                // Tell keyboard not to dismiss
+                if (window.coffeeKbd) window.coffeeKbd.suppressDismiss();
                 input.value = item.textContent;
-                input.dispatchEvent(new Event('input'));
+                // Sync SimpleKeyboard's internal buffer
+                if (window.coffeeKbd) window.coffeeKbd.setInput(item.textContent);
                 dropdown.classList.add('hidden');
                 activeDropdown = null;
             });
@@ -84,23 +81,18 @@
     function setupAutocomplete(inputId, dataKey) {
         const input = document.getElementById(inputId);
         if (!input) return;
-
         const dropdown = createDropdown(input);
-
         input.addEventListener('input', () => filterAndShow(input, dropdown, dataKey));
         input.addEventListener('focus', () => filterAndShow(input, dropdown, dataKey));
     }
 
-    // Close dropdowns on outside tap
     document.addEventListener('pointerdown', e => {
-        if (activeDropdown && !activeDropdown.contains(e.target) &&
-            !e.target.matches('.ac-dropdown, .ac-item')) {
+        if (activeDropdown && !e.target.closest('.ac-dropdown')) {
             activeDropdown.classList.add('hidden');
             activeDropdown = null;
         }
     });
 
-    // Init
     setupAutocomplete('origin_country', 'origin_country');
     setupAutocomplete('process', 'process');
     setupAutocomplete('variety', 'variety');

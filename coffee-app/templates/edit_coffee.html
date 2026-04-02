@@ -48,8 +48,14 @@
             </div>
 
             <div class="field">
-                <label for="tasting_notes">Tasting Notes (seller)</label>
-                <input type="text" id="tasting_notes" name="tasting_notes" value="{{ coffee.tasting_notes or '' }}" placeholder="e.g. Blueberry, jasmine, citrus" autocomplete="off">
+                <label>Tasting Notes (seller)</label>
+                <div class="chip-input">
+                    <input type="hidden" name="tasting_notes" value="{{ coffee.tasting_notes or '' }}">
+                    <div class="chips">
+                        <input type="text" class="chip-text-input" placeholder="Type or tap to add..." autocomplete="off">
+                    </div>
+                    <div class="chip-suggestions hidden"></div>
+                </div>
             </div>
 
             <div class="row">
@@ -76,6 +82,7 @@
     </div>
     <script src="{{ url_for('static', filename='simple-keyboard.min.js') }}"></script>
     <script src="{{ url_for('static', filename='keyboard.js') }}?v=5"></script>
-    <script src="{{ url_for('static', filename='autocomplete.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='autocomplete.js') }}?v=2"></script>
+    <script src="{{ url_for('static', filename='tastingnotes.js') }}?v=1"></script>
 </body>
 </html>
