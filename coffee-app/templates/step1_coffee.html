@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Coffee Sampler</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='simple-keyboard.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Coffee Sampler</h1>
+    </header>
+
+    <main>
+        <!-- Existing coffees -->
+        {% if coffees %}
+        <section class="coffee-list">
+            <h2>Select a Coffee</h2>
+            {% for c in coffees %}
+            <a href="/sample/{{ c.id }}" class="coffee-card">
+                <div class="coffee-label">{{ c.label }}</div>
+                <div class="coffee-meta">
+                    {% if c.roaster %}<span>{{ c.roaster }}</span>{% endif %}
+                    {% if c.origin_country %}<span>{{ c.origin_country }}</span>{% endif %}
+                    {% if c.process %}<span>{{ c.process }}</span>{% endif %}
+                    {% if c.roast_date %}<span>Roasted {{ c.roast_date }}</span>{% endif %}
+                </div>
+            </a>
+            {% endfor %}
+        </section>
+        {% endif %}
+
+        <!-- Add new coffee -->
+        <details class="new-coffee" id="newCoffeeForm">
+            <summary class="btn-new">+ New Coffee</summary>
+            <form action="/coffee/add" method="POST" class="sample-form">
+                <div class="field">
+                    <label for="roaster">Roaster</label>
+                    <input type="text" id="roaster" name="roaster" placeholder="Company name" autocomplete="off">
+                </div>
+
+                <div class="row">
+                    <div class="field">
+                        <label for="origin_country">Country</label>
+                        <input type="text" id="origin_country" name="origin_country" placeholder="e.g. Ethiopia" autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label for="origin_city">City/Region</label>
+                        <input type="text" id="origin_city" name="origin_city" placeholder="e.g. Yirgacheffe" autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="origin_producer">Producer</label>
+                    <input type="text" id="origin_producer" name="origin_producer" placeholder="Farm or cooperative" autocomplete="off">
+                </div>
+
+                <div class="row">
+                    <div class="field">
+                        <label for="variety">Variety</label>
+                        <input type="text" id="variety" name="variety" placeholder="e.g. Heirloom, SL28" autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label for="process">Process</label>
+                        <input type="text" id="process" name="process" placeholder="Washed, Natural, Honey" autocomplete="off">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="tasting_notes">Tasting Notes (seller)</label>
+                    <input type="text" id="tasting_notes" name="tasting_notes" placeholder="e.g. Blueberry, jasmine, citrus" autocomplete="off">
+                </div>
+
+                <div class="row">
+                    <div class="field">
+                        <label for="label">Label</label>
+                        <input type="text" id="label" name="label" placeholder="Auto: roaster - variety - process" autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label for="roast_date">Roast Date</label>
+                        <input type="date" id="roast_date" name="roast_date">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-add">Add Coffee</button>
+            </form>
+        </details>
+    </main>
+
+    <div id="keyboard" class="kbd hidden">
+        <div class="simple-keyboard"></div>
+    </div>
+    <script src="{{ url_for('static', filename='simple-keyboard.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='keyboard.js') }}?v=4"></script>
+</body>
+</html>

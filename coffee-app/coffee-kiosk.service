@@ -1,0 +1,14 @@
+[Unit]
+Description=Coffee Sampler Web App
+After=network.target
+
+[Service]
+User=DEPLOY_USER
+WorkingDirectory=/home/DEPLOY_USER/coffee-app
+ExecStart=/usr/bin/python3 /home/DEPLOY_USER/coffee-app/app.py
+Restart=always
+RestartSec=3
+Environment=FLASK_ENV=production
+
+[Install]
+WantedBy=multi-user.target
