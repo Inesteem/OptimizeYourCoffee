@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Evaluate Shot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=5">
+</head>
+<body>
+    <header>
+        <a href="/sample/{{ coffee.id }}" class="back-btn">&larr;</a>
+        <h1>Evaluate Shot</h1>
+    </header>
+
+    <main>
+        <!-- Shot summary -->
+        <div class="coffee-detail">
+            <span><strong>{{ coffee.label }}</strong></span>
+            <span>{{ sample.grams_in }}g &rarr; {{ sample.grams_out }}g</span>
+            <span>1:{{ "%.1f"|format(sample.ratio) if sample.ratio else "?" }}</span>
+            <span>{{ "%d:%02d"|format(sample.brew_time_sec // 60, sample.brew_time_sec % 60) }}</span>
+            <span>Grind {{ sample.grind_size }}</span>
+        </div>
+
+        {% if tips is not none %}
+        <!-- Diagnostic feedback -->
+        <div class="diagnostic">
+            {% for tip in tips %}
+            <p>{{ tip }}</p>
+            {% endfor %}
+            {% if not tips %}
+            <p>No specific issues detected.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Evaluation form -->
+        <form action="/evaluate/{{ sample.id }}/save" method="POST" class="eval-form">
+            {% for dim in dimensions %}
+            <div class="eval-row">
+                <div class="eval-header">
+                    <span class="eval-label">{{ dim.label }}</span>
+                    <span class="eval-range">{{ dim.low }} &rarr; {{ dim.high }}</span>
+                </div>
+                <div class="eval-buttons">
+                    {% for i in range(1, 6) %}
+                    <label class="eval-btn {% if evaluation and evaluation[dim.key] == i %}selected{% endif %}">
+                        <input type="radio" name="{{ dim.key }}" value="{{ i }}"
+                               {% if evaluation and evaluation[dim.key] == i %}checked{% endif %}>
+                        <span>{{ i }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="eval-actions">
+                <button type="submit" class="btn-add">Save Evaluation</button>
+                <a href="/sample/{{ coffee.id }}" class="btn-skip">Skip</a>
+            </div>
+        </form>
+    </main>
+</body>
+</html>
