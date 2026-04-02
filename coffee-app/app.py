@@ -52,6 +52,9 @@ def init_db():
                 consume_within_days INTEGER DEFAULT 50,
                 bag_weight_g REAL,
                 bag_price REAL,
+                default_grams_in REAL,
+                default_grams_out REAL,
+                default_brew_time_sec INTEGER,
                 archived INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -65,6 +68,9 @@ def init_db():
             ("consume_within_days", "INTEGER DEFAULT 50"),
             ("bag_weight_g", "REAL"),
             ("bag_price", "REAL"),
+            ("default_grams_in", "REAL"),
+            ("default_grams_out", "REAL"),
+            ("default_brew_time_sec", "INTEGER"),
             ("archived", "INTEGER DEFAULT 0"),
         ]:
             if col not in cols:
@@ -233,11 +239,19 @@ def add_coffee():
         consume_within = data.get("consume_within_days", "").strip()
         bag_weight = data.get("bag_weight_g", "").strip()
         bag_price = data.get("bag_price", "").strip()
+        def_in = data.get("default_grams_in", "").strip()
+        def_out = data.get("default_grams_out", "").strip()
+        def_min = data.get("default_brew_min", "").strip()
+        def_sec = data.get("default_brew_sec", "").strip()
+        def_time = None
+        if def_min or def_sec:
+            def_time = int(def_min or 0) * 60 + int(def_sec or 0)
         cur = conn.execute(
             """INSERT INTO coffees (roaster, origin_country, origin_city, origin_producer,
                                     variety, process, tasting_notes, label, roast_date,
-                                    best_after_days, consume_within_days, bag_weight_g, bag_price)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                    best_after_days, consume_within_days, bag_weight_g, bag_price,
+                                    default_grams_in, default_grams_out, default_brew_time_sec)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 data.get("roaster", "").strip() or None,
                 data.get("origin_country", "").strip() or None,
@@ -252,6 +266,9 @@ def add_coffee():
                 int(consume_within) if consume_within else 50,
                 float(bag_weight) if bag_weight else None,
                 float(bag_price) if bag_price else None,
+                float(def_in) if def_in else None,
+                float(def_out) if def_out else None,
+                def_time,
             ),
         )
         coffee_id = cur.lastrowid
@@ -275,12 +292,20 @@ def save_coffee(coffee_id):
     consume_within = data.get("consume_within_days", "").strip()
     bag_weight = data.get("bag_weight_g", "").strip()
     bag_price = data.get("bag_price", "").strip()
+    def_in = data.get("default_grams_in", "").strip()
+    def_out = data.get("default_grams_out", "").strip()
+    def_min = data.get("default_brew_min", "").strip()
+    def_sec = data.get("default_brew_sec", "").strip()
+    def_time = None
+    if def_min or def_sec:
+        def_time = int(def_min or 0) * 60 + int(def_sec or 0)
     with get_db() as conn:
         conn.execute(
             """UPDATE coffees SET roaster=?, origin_country=?, origin_city=?, origin_producer=?,
                                   variety=?, process=?, tasting_notes=?, label=?, roast_date=?,
                                   best_after_days=?, consume_within_days=?,
                                   bag_weight_g=?, bag_price=?,
+                                  default_grams_in=?, default_grams_out=?, default_brew_time_sec=?,
                                   updated_at=CURRENT_TIMESTAMP
                WHERE id=?""",
             (
@@ -297,6 +322,9 @@ def save_coffee(coffee_id):
                 int(consume_within) if consume_within else 50,
                 float(bag_weight) if bag_weight else None,
                 float(bag_price) if bag_price else None,
+                float(def_in) if def_in else None,
+                float(def_out) if def_out else None,
+                def_time,
                 coffee_id,
             ),
         )

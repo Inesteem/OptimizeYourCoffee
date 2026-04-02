@@ -80,6 +80,28 @@
                 </div>
             </div>
 
+            <h3 class="form-section-title">Roaster's Recipe</h3>
+            <div class="row">
+                <div class="field">
+                    <label for="default_grams_in">Dose In (g)</label>
+                    <input type="number" id="default_grams_in" name="default_grams_in" step="0.1" min="0" value="{{ coffee.default_grams_in or '' }}" placeholder="e.g. 18">
+                </div>
+                <div class="field">
+                    <label for="default_grams_out">Yield Out (g)</label>
+                    <input type="number" id="default_grams_out" name="default_grams_out" step="0.1" min="0" value="{{ coffee.default_grams_out or '' }}" placeholder="e.g. 36">
+                </div>
+            </div>
+            <div class="row">
+                <div class="field">
+                    <label for="default_brew_min">Brew (min)</label>
+                    <input type="number" id="default_brew_min" name="default_brew_min" min="0" max="59" value="{{ (coffee.default_brew_time_sec // 60) if coffee.default_brew_time_sec else '' }}">
+                </div>
+                <div class="field">
+                    <label for="default_brew_sec">Brew (sec)</label>
+                    <input type="number" id="default_brew_sec" name="default_brew_sec" min="0" max="59" value="{{ (coffee.default_brew_time_sec % 60) if coffee.default_brew_time_sec else '' }}">
+                </div>
+            </div>
+
             <div class="row">
                 <div class="field">
                     <label for="best_after_days">Best After (days)</label>
