@@ -22,10 +22,9 @@
 
         <form action="/settings/tasting-notes/add" method="POST" class="sample-form">
             <div class="row">
-                <div class="field" style="flex:1;position:relative">
+                <div class="field" style="flex:1">
                     <label for="emoji">Emoji</label>
-                    <input type="text" id="emoji" name="emoji" placeholder="Search..." autocomplete="off" style="text-align:center">
-                    <div id="emoji-picker" class="ac-dropdown hidden"></div>
+                    <input type="text" id="emoji" name="emoji" placeholder="Tap..." autocomplete="off" style="text-align:center" readonly>
                 </div>
                 <div class="field" style="flex:3">
                     <label for="name">Note name</label>
@@ -33,6 +32,7 @@
                 </div>
             </div>
             <button type="submit" class="btn-add">Add Label</button>
+            <div id="emoji-picker" class="emoji-grid"></div>
         </form>
 
         {% if notes %}
@@ -128,65 +128,58 @@
 
     const emojiInput = document.getElementById('emoji');
     const picker = document.getElementById('emoji-picker');
-    let pickerActive = false;
 
-    function showEmojis(query) {
-        query = query.toLowerCase().trim();
+    function renderPicker(query) {
+        query = (query || '').toLowerCase().trim();
         let matches;
         if (!query) {
-            matches = EMOJIS.slice(0, 20);
+            matches = EMOJIS;
         } else {
-            matches = EMOJIS.filter(([em, tags]) =>
-                tags.toLowerCase().includes(query)
-            ).slice(0, 16);
-        }
-
-        if (matches.length === 0) {
-            picker.classList.add('hidden');
-            return;
+            matches = EMOJIS.filter(([em, tags]) => tags.toLowerCase().includes(query));
         }
 
         picker.innerHTML = matches.map(([em, tags]) => {
             const label = tags.split(',')[0];
-            return `<div class="emoji-pick-item"><span class="emoji-pick-em">${em}</span><span class="emoji-pick-label">${label}</span></div>`;
+            return `<div class="emoji-grid-item" data-em="${em}"><span class="emoji-grid-em">${em}</span><span class="emoji-grid-label">${label}</span></div>`;
         }).join('');
-        picker.classList.remove('hidden');
-        pickerActive = true;
 
-        picker.querySelectorAll('.emoji-pick-item').forEach(el => {
+        picker.querySelectorAll('.emoji-grid-item').forEach(el => {
             el.addEventListener('pointerdown', e => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (window.coffeeKbd) window.coffeeKbd.suppressDismiss();
-                const em = el.querySelector('.emoji-pick-em').textContent;
-                emojiInput.value = em;
-                if (window.coffeeKbd) window.coffeeKbd.setInput(em);
-                picker.classList.add('hidden');
-                pickerActive = false;
+                emojiInput.value = el.dataset.em;
+                if (window.coffeeKbd) window.coffeeKbd.setInput(el.dataset.em);
+                picker.innerHTML = '';
             });
         });
     }
 
     if (emojiInput) {
-        emojiInput.addEventListener('focus', () => showEmojis(emojiInput.value));
-        // Hook into keyboard changes
+        emojiInput.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            if (picker.children.length > 0) {
+                picker.innerHTML = '';
+            } else {
+                renderPicker('');
+            }
+        });
+
+        // Search filtering via keyboard
         function waitKbd() {
             if (window.coffeeKbd && window.coffeeKbd.onChange) {
                 window.coffeeKbd.onChange((input, value) => {
-                    if (input === emojiInput) showEmojis(value);
+                    if (input === emojiInput) renderPicker(value);
                 });
             } else {
                 setTimeout(waitKbd, 50);
             }
         }
         waitKbd();
-        emojiInput.addEventListener('input', () => showEmojis(emojiInput.value));
     }
 
     document.addEventListener('pointerdown', e => {
-        if (pickerActive && !e.target.closest('#emoji-picker') && e.target !== emojiInput) {
-            picker.classList.add('hidden');
-            pickerActive = false;
+        if (picker.children.length > 0 && !picker.contains(e.target) && e.target !== emojiInput) {
+            picker.innerHTML = '';
         }
     });
     </script>

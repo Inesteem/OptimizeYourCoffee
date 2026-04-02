@@ -104,28 +104,42 @@ main {
     background-position: right 12px center;
 }
 
-/* Autocomplete suggestions (inline chips) */
+/* Autocomplete suggestions (overlay chips) */
 .ac-sugbox {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    z-index: 900;
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    padding: 4px 0;
-    min-height: 0;
+    gap: 4px;
+    padding: 6px;
+    background: rgba(30, 30, 30, 0.95);
+    border: 1px solid #555;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    max-height: 120px;
+    overflow-y: auto;
 }
 
 .ac-sugbox:empty {
-    display: none;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    height: 0;
+    overflow: hidden;
 }
 
 .ac-chip {
     display: inline-block;
-    padding: 6px 12px;
-    background: #3a3a3a;
-    border: 1px solid #555;
-    border-radius: 16px;
-    font-size: 0.8rem;
+    padding: 5px 10px;
+    background: #444;
+    border-radius: 12px;
+    font-size: 0.75rem;
     color: var(--text);
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .ac-chip:active {
@@ -134,6 +148,10 @@ main {
 
 .ac-chip strong {
     color: var(--accent);
+}
+
+.field.ac-active {
+    z-index: 901;
 }
 
 /* Chip / tag input for tasting notes */
@@ -979,28 +997,43 @@ header h1 {
     opacity: 0.7;
 }
 
-/* Emoji picker */
-.emoji-pick-item {
+/* Emoji picker grid */
+.emoji-grid {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    cursor: pointer;
-    border-bottom: 1px solid #3a3a3a;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 0;
+    max-height: 180px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
-.emoji-pick-item:active {
+.emoji-grid:empty {
+    padding: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+.emoji-grid-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: #3a3a3a;
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.emoji-grid-item:active {
     background: var(--accent);
 }
 
-.emoji-pick-em {
-    font-size: 1.4rem;
-    width: 30px;
-    text-align: center;
+.emoji-grid-em {
+    font-size: 1.2rem;
 }
 
-.emoji-pick-label {
-    font-size: 0.85rem;
+.emoji-grid-label {
+    font-size: 0.7rem;
     color: var(--text-muted);
 }
 

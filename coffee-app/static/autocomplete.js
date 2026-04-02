@@ -43,13 +43,13 @@
     const registry = {};
 
     function createSugBox(input) {
-        // Insert a regular div RIGHT AFTER the input's parent .field
         const box = document.createElement('div');
         box.className = 'ac-sugbox';
-        // Insert after the .field div
+        // Put inside the .field so absolute positioning works
         const field = input.closest('.field');
-        if (field && field.parentNode) {
-            field.parentNode.insertBefore(box, field.nextSibling);
+        if (field) {
+            field.appendChild(box);
+            box._field = field;
         } else {
             input.parentNode.appendChild(box);
         }
@@ -60,7 +60,7 @@
         const val = input.value.toLowerCase().trim();
         const items = DATA[dataKey] || [];
 
-        if (!val) { box.innerHTML = ''; return; }
+        if (!val) { box.innerHTML = ''; if (box._field) box._field.classList.remove('ac-active'); return; }
 
         const sw = items.filter(i => i.toLowerCase().startsWith(val));
         const co = items.filter(i => !i.toLowerCase().startsWith(val) && i.toLowerCase().includes(val));
@@ -68,9 +68,11 @@
 
         if (matches.length === 0 || (matches.length === 1 && matches[0].toLowerCase() === val)) {
             box.innerHTML = '';
+            if (box._field) box._field.classList.remove('ac-active');
             return;
         }
 
+        if (box._field) box._field.classList.add('ac-active');
         box.innerHTML = matches.map(m => {
             const idx = m.toLowerCase().indexOf(val);
             const before = m.slice(0, idx);
@@ -87,6 +89,7 @@
                 input.value = el.textContent;
                 if (window.coffeeKbd) window.coffeeKbd.setInput(el.textContent);
                 box.innerHTML = '';
+                if (box._field) box._field.classList.remove('ac-active');
             });
         });
     }
