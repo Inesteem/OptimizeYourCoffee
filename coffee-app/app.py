@@ -462,6 +462,20 @@ def api_custom_tasting_notes():
 
 # --- API ---
 
+@app.route("/api/autocomplete")
+def api_autocomplete():
+    """Return unique values per field from existing coffees for autocomplete."""
+    fields = ["roaster", "origin_country", "origin_city", "origin_producer", "variety", "process"]
+    result = {}
+    with get_db() as conn:
+        for f in fields:
+            rows = conn.execute(
+                f"SELECT DISTINCT {f} FROM coffees WHERE {f} IS NOT NULL AND {f} != '' ORDER BY {f}"
+            ).fetchall()
+            result[f] = [r[0] for r in rows]
+    return jsonify(result)
+
+
 @app.route("/api/coffees")
 def api_coffees():
     with get_db() as conn:

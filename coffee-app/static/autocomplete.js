@@ -1,5 +1,6 @@
 (function() {
     const DATA = {
+        roaster: [],
         origin_country: [
             "Brazil","Colombia","Ethiopia","Guatemala","Honduras","Costa Rica",
             "Kenya","Indonesia","Mexico","Peru","El Salvador","Nicaragua",
@@ -10,6 +11,8 @@
             "Zimbabwe","Cameroon","Ivory Coast","Madagascar","Nepal",
             "East Timor","Australia","Sumatra","Java","Sulawesi"
         ],
+        origin_city: [],
+        origin_producer: [],
         process: [
             "Washed","Natural","Honey","Anaerobic","Carbonic Maceration",
             "Wet Hulled","Semi-Washed","Black Honey","Red Honey","Yellow Honey",
@@ -18,9 +21,31 @@
         variety: []
     };
 
+    function mergeUnique(existing, incoming) {
+        const seen = new Set(existing.map(s => s.toLowerCase()));
+        incoming.forEach(val => {
+            if (!seen.has(val.toLowerCase())) {
+                existing.push(val);
+                seen.add(val.toLowerCase());
+            }
+        });
+    }
+
     fetch('/static/varieties.json')
         .then(r => r.json())
-        .then(list => { DATA.variety = list; })
+        .then(list => mergeUnique(DATA.variety, list))
+        .catch(() => {});
+
+    // Merge values from existing DB entries
+    fetch('/api/autocomplete')
+        .then(r => r.json())
+        .then(dbData => {
+            for (const key in dbData) {
+                if (DATA[key] !== undefined) {
+                    mergeUnique(DATA[key], dbData[key]);
+                }
+            }
+        })
         .catch(() => {});
 
     let activeDropdown = null;
@@ -113,7 +138,10 @@
         }
     });
 
+    setupAutocomplete('roaster', 'roaster');
     setupAutocomplete('origin_country', 'origin_country');
+    setupAutocomplete('origin_city', 'origin_city');
+    setupAutocomplete('origin_producer', 'origin_producer');
     setupAutocomplete('process', 'process');
     setupAutocomplete('variety', 'variety');
 
