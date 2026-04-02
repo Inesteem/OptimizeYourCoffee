@@ -497,6 +497,22 @@ body.kbd-open main {
     margin-top: 3px;
 }
 
+.coffee-tasting-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.mini-chip {
+    font-size: 0.65rem;
+    background: #333;
+    padding: 1px 6px;
+    border-radius: 8px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
 .coffee-dates {
     display: flex;
     gap: 12px;

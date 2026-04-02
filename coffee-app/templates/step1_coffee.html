@@ -14,51 +14,6 @@
     </header>
 
     <main>
-        <!-- Existing coffees -->
-        {% if coffees %}
-        <section class="coffee-list">
-            <h2>{% if show_archived %}Archived Coffees{% else %}Select a Coffee{% endif %}</h2>
-            {% for c in coffees %}
-            <div class="coffee-card-wrap">
-                <a href="/sample/{{ c.id }}" class="coffee-card">
-                    <div class="coffee-card-top">
-                        <div class="coffee-label">{{ c.label }}</div>
-                        {% if c.freshness %}
-                        <span class="freshness-badge {{ c.freshness.css }}">{{ c.freshness.stage }}</span>
-                        {% endif %}
-                    </div>
-                    <div class="coffee-meta">
-                        {% if c.roaster %}<span>{{ c.roaster }}</span>{% endif %}
-                        {% if c.origin_country %}<span>{{ c.origin_country }}</span>{% endif %}
-                        {% if c.process %}<span>{{ c.process }}</span>{% endif %}
-                        {% if c.roast_date %}<span>Roasted {{ c.roast_date }}</span>{% endif %}
-                        {% if c.bag_price %}<span>{{ "%.2f"|format(c.bag_price) }} &euro;</span>{% endif %}
-                    </div>
-                    {% if c.freshness %}
-                    <div class="freshness-detail">{{ c.freshness.detail }}</div>
-                    {% endif %}
-                    <div class="coffee-dates">
-                        {% if c.grams_left is not none %}
-                        <span>~{{ "%.0f"|format(c.grams_left) }}g left of {{ "%.0f"|format(c.bag_weight_g) }}g</span>
-                        {% endif %}
-                        <span>Added {{ c.created_at[:10] }}</span>
-                    </div>
-                </a>
-                <a href="/coffee/{{ c.id }}/edit" class="card-edit-btn" title="Edit">&#9998;</a>
-            </div>
-            {% endfor %}
-        </section>
-        {% endif %}
-
-        <!-- Archive toggle -->
-        <div class="archive-toggle">
-            {% if show_archived %}
-            <a href="/">Show active coffees</a>
-            {% else %}
-            <a href="/?archived=1">Show archived coffees</a>
-            {% endif %}
-        </div>
-
         <!-- Add new coffee -->
         <details class="new-coffee" id="newCoffeeForm">
             <summary class="btn-new">+ New Coffee</summary>
@@ -182,6 +137,54 @@
                 <button type="submit" class="btn-add">Add Coffee</button>
             </form>
         </details>
+
+        <!-- Existing coffees -->
+        {% if coffees %}
+        <section class="coffee-list">
+            <h2>{% if show_archived %}Archived Coffees{% else %}Select a Coffee{% endif %}</h2>
+            {% for c in coffees %}
+            <div class="coffee-card-wrap">
+                <a href="/sample/{{ c.id }}" class="coffee-card">
+                    <div class="coffee-card-top">
+                        <div class="coffee-label">{{ c.label }}</div>
+                        {% if c.freshness %}
+                        <span class="freshness-badge {{ c.freshness.css }}">{{ c.freshness.stage }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="coffee-meta">
+                        {% if c.roaster %}<span>{{ c.roaster }}</span>{% endif %}
+                        {% if c.origin_country %}<span>{{ c.origin_country }}</span>{% endif %}
+                        {% if c.process %}<span>{{ c.process }}</span>{% endif %}
+                        {% if c.roast_date %}<span>Roasted {{ c.roast_date }}</span>{% endif %}
+                        {% if c.bag_price %}<span>{{ "%.2f"|format(c.bag_price) }} &euro;</span>{% endif %}
+                    </div>
+                    {% if c.freshness %}
+                    <div class="freshness-detail">{{ c.freshness.detail }}</div>
+                    {% endif %}
+                    <div class="coffee-dates">
+                        {% if c.grams_left is not none %}
+                        <span>~{{ "%.0f"|format(c.grams_left) }}g left of {{ "%.0f"|format(c.bag_weight_g) }}g</span>
+                        {% endif %}
+                        <span>Added {{ c.created_at[:10] }}</span>
+                    </div>
+                    {% if c.tasting_chips %}
+                    <div class="coffee-tasting-chips">{% for t in c.tasting_chips %}<span class="mini-chip">{{ t }}</span>{% endfor %}</div>
+                    {% endif %}
+                </a>
+                <a href="/coffee/{{ c.id }}/edit" class="card-edit-btn" title="Edit">&#9998;</a>
+            </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+
+        <!-- Archive toggle -->
+        <div class="archive-toggle">
+            {% if show_archived %}
+            <a href="/">Show active coffees</a>
+            {% else %}
+            <a href="/?archived=1">Show archived coffees</a>
+            {% endif %}
+        </div>
     </main>
 
     <div id="keyboard" class="kbd hidden">

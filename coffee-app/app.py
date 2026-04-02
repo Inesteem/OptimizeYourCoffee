@@ -110,6 +110,49 @@ def init_db():
         """)
 
 
+TASTING_EMOJIS = {
+    "dried apricot": "🍑", "apricot": "🍑", "lemonade": "🍋", "lemon": "🍋",
+    "orange": "🍊", "tangerine": "🍊", "black currant": "🫐", "blueberry": "🫐",
+    "strawberry": "🍓", "wild strawberry": "🍓", "raspberry": "🍓",
+    "raspberry jam": "🍓", "cherry": "🍒", "apple": "🍏", "peach": "🍑",
+    "plum": "🍇", "grape": "🍇", "tropical": "🍍", "pineapple": "🍍",
+    "mango": "🥭", "passionfruit": "🍈", "melon": "🍈", "banana": "🍌",
+    "grapefruit": "🍊", "lime": "🍋", "citrus": "🍋", "bergamot": "🍋",
+    "cacao nibs": "🍫", "chocolate": "🍫", "dark chocolate": "🍫", "cocoa": "🍫",
+    "hazelnut": "🌰", "almond": "🌰", "walnut": "🌰", "nutty": "🌰",
+    "honey": "🍯", "caramel": "🍮", "toffee": "🍮", "brown sugar": "🍮",
+    "vanilla": "🍦", "jasmine": "🌸", "rose": "🌹", "floral": "🌺",
+    "hibiscus": "🌺", "tea": "🍵", "black tea": "🍵", "herbal": "🌿",
+    "mint": "🌿", "cinnamon": "✨", "cardamom": "✨", "ginger": "✨",
+    "pepper": "🌶️", "smoky": "🔥", "tobacco": "🍂", "wine": "🍷",
+    "red wine": "🍷", "butter": "🧈", "cream": "🥛", "cedar": "🪵",
+    "woody": "🪵", "earthy": "🌍", "berry": "🫐", "stone fruit": "🍑",
+    "nougat": "🍮",
+}
+
+
+def render_tasting_notes(notes_str):
+    """Convert comma-separated tasting notes to emoji + name pairs."""
+    if not notes_str:
+        return []
+    # Merge custom notes from DB
+    try:
+        with get_db() as conn:
+            for row in conn.execute("SELECT name, emoji FROM custom_tasting_notes"):
+                key = row["name"].lower().strip()
+                if key not in TASTING_EMOJIS and row["emoji"]:
+                    TASTING_EMOJIS[key] = row["emoji"]
+    except Exception:
+        pass
+    result = []
+    for note in notes_str.split(","):
+        note = note.strip()
+        if note:
+            emoji = TASTING_EMOJIS.get(note.lower(), "")
+            result.append(f"{emoji} {note}" if emoji else note)
+    return result
+
+
 def make_label(data):
     parts = [data.get("roaster", ""), data.get("variety", ""), data.get("process", "")]
     label = " - ".join(p.strip() for p in parts if p and p.strip())
@@ -290,6 +333,7 @@ def index():
     for c in coffees:
         cd = dict(c)
         cd["freshness"] = freshness_status(c)
+        cd["tasting_chips"] = render_tasting_notes(c["tasting_notes"])
         cd["grams_used"] = usage.get(c["id"], 0)
         if c["bag_weight_g"]:
             cd["grams_left"] = max(0, c["bag_weight_g"] - cd["grams_used"])
