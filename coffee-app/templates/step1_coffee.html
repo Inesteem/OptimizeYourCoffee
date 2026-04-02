@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Coffee Sampler</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ v }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='simple-keyboard.css') }}">
 </head>
 <body>
@@ -148,8 +148,8 @@
         <div class="simple-keyboard"></div>
     </div>
     <script src="{{ url_for('static', filename='simple-keyboard.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='keyboard.js') }}?v=5"></script>
-    <script src="{{ url_for('static', filename='autocomplete.js') }}?v=3"></script>
-    <script src="{{ url_for('static', filename='tastingnotes.js') }}?v=1"></script>
+    <script src="{{ url_for('static', filename='keyboard.js') }}?v={{ v }}"></script>
+    <script src="{{ url_for('static', filename='autocomplete.js') }}?v={{ v }}"></script>
+    <script src="{{ url_for('static', filename='tastingnotes.js') }}?v={{ v }}"></script>
 </body>
 </html>

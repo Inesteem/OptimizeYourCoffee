@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Tasting Note Labels</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=7">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ v }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='simple-keyboard.css') }}">
 </head>
 <body>
@@ -63,7 +63,7 @@
         <div class="simple-keyboard"></div>
     </div>
     <script src="{{ url_for('static', filename='simple-keyboard.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='keyboard.js') }}?v=7"></script>
+    <script src="{{ url_for('static', filename='keyboard.js') }}?v={{ v }}"></script>
     <script>
     // Built-in notes reference
     const BUILTIN = {

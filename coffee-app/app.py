@@ -7,6 +7,15 @@ DB_PATH = Path(__file__).parent / "coffee.db"
 
 app = Flask(__name__)
 
+import time
+APP_VERSION = str(int(time.time()))
+
+
+@app.context_processor
+def inject_version():
+    return {"v": APP_VERSION}
+
+
 EVAL_DIMENSIONS = [
     {"key": "aroma", "label": "Aroma", "low": "None", "high": "Complex"},
     {"key": "acidity", "label": "Acidity", "low": "Flat", "high": "Bright"},
