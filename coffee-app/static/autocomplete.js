@@ -142,7 +142,6 @@
     setupAutocomplete('origin_country', 'origin_country');
     setupAutocomplete('origin_city', 'origin_city');
     setupAutocomplete('origin_producer', 'origin_producer');
-    setupAutocomplete('process', 'process');
     setupAutocomplete('variety', 'variety');
 
 })();
