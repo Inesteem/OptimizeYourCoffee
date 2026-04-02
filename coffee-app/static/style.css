@@ -397,6 +397,15 @@ body.kbd-open main {
     color: var(--text);
 }
 
+.section-title-center {
+    text-align: center;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+}
+
 /* Step 1: Coffee list */
 .coffee-list {
     margin-bottom: 12px;
@@ -497,11 +506,19 @@ body.kbd-open main {
     margin-top: 3px;
 }
 
+.coffee-bottom-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+    gap: 8px;
+}
+
 .coffee-tasting-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 4px;
+    gap: 3px;
+    justify-content: flex-end;
 }
 
 .mini-chip {
@@ -538,6 +555,7 @@ body.kbd-open main {
 /* New coffee toggle */
 .new-coffee {
     margin-top: 8px;
+    margin-bottom: 8px;
 }
 
 .new-coffee .sample-form {

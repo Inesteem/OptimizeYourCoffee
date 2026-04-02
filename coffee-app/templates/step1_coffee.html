@@ -14,6 +14,10 @@
     </header>
 
     <main>
+        {% if coffees %}
+        <h2 class="section-title-center">{% if show_archived %}Archived Coffees{% else %}Select a Coffee{% endif %}</h2>
+        {% endif %}
+
         <!-- Add new coffee -->
         <details class="new-coffee" id="newCoffeeForm">
             <summary class="btn-new">+ New Coffee</summary>
@@ -136,7 +140,6 @@
         <!-- Existing coffees -->
         {% if coffees %}
         <section class="coffee-list">
-            <h2>{% if show_archived %}Archived Coffees{% else %}Select a Coffee{% endif %}</h2>
             {% for c in coffees %}
             <div class="coffee-card-wrap">
                 <a href="/sample/{{ c.id }}" class="coffee-card">
@@ -156,15 +159,17 @@
                     {% if c.freshness %}
                     <div class="freshness-detail">{{ c.freshness.detail }}</div>
                     {% endif %}
-                    <div class="coffee-dates">
-                        {% if c.grams_left is not none %}
-                        <span>~{{ "%.0f"|format(c.grams_left) }}g left of {{ "%.0f"|format(c.bag_weight_g) }}g</span>
+                    <div class="coffee-bottom-row">
+                        <div class="coffee-dates">
+                            {% if c.grams_left is not none %}
+                            <span>~{{ "%.0f"|format(c.grams_left) }}g left of {{ "%.0f"|format(c.bag_weight_g) }}g</span>
+                            {% endif %}
+                            <span>Added {{ c.created_at[:10] }}</span>
+                        </div>
+                        {% if c.tasting_chips %}
+                        <div class="coffee-tasting-chips">{% for t in c.tasting_chips %}<span class="mini-chip">{{ t }}</span>{% endfor %}</div>
                         {% endif %}
-                        <span>Added {{ c.created_at[:10] }}</span>
                     </div>
-                    {% if c.tasting_chips %}
-                    <div class="coffee-tasting-chips">{% for t in c.tasting_chips %}<span class="mini-chip">{{ t }}</span>{% endfor %}</div>
-                    {% endif %}
                 </a>
                 <a href="/coffee/{{ c.id }}/edit" class="card-edit-btn" title="Edit">&#9998;</a>
             </div>
