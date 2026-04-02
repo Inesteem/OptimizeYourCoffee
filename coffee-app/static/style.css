@@ -443,7 +443,8 @@ body.kbd-open main {
     flex-shrink: 0;
 }
 
-.fresh-degas { background: #4a3a20; color: #e0a840; }
+.fresh-degas { background: #4a2020; color: #e07050; }
+.fresh-rest { background: #4a3a20; color: #e0a840; }
 .fresh-peak { background: #1a4a1a; color: #5ae05a; }
 .fresh-good { background: #1a3a4a; color: #5ac0e0; }
 .fresh-fading { background: #4a3a20; color: #c09050; }

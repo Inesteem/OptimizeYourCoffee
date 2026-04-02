@@ -88,7 +88,16 @@ def make_label(data):
 
 
 def freshness_status(coffee):
-    """Compute freshness status from roast_date, best_after_days, consume_within_days."""
+    """Compute freshness status from roast_date, best_after_days, consume_within_days.
+
+    Stages based on specialty coffee research (SCA, WBC consensus):
+    - Degassing (day 0-2): high CO2, shots unstable/sour
+    - Resting (day 3 to best_after): CO2 releasing, flavor developing
+    - Peak (best_after to best_after+11): origin character vibrant, crema rich
+    - Good (to best_after+25): some volatiles fading, still pleasant
+    - Fading (to consume_within): noticeably flat, papery notes emerging
+    - Stale (beyond consume_within): cardboard/musty, not recommended
+    """
     if not coffee["roast_date"]:
         return None
     try:
@@ -97,31 +106,37 @@ def freshness_status(coffee):
         return None
 
     days = (date.today() - roast).days
-    best_after = coffee["best_after_days"] or 10
-    consume_within = coffee["consume_within_days"] or 90
+    best_after = coffee["best_after_days"] or 7
+    consume_within = coffee["consume_within_days"] or 50
 
-    # Define stages relative to best_after and consume_within
-    peak_start = best_after
-    peak_end = best_after + 14          # ~2 weeks of peak after rest
-    good_end = best_after + 42          # ~6 weeks still good
+    # Stage boundaries
+    degas_end = min(3, best_after)        # first 3 days: heavy CO2
+    rest_end = best_after                 # resting until best_after
+    peak_end = best_after + 11            # ~11 days of peak after rest
+    good_end = best_after + 25            # ~3.5 weeks still good
     fading_end = consume_within
 
     if days < 0:
         return {"stage": "not roasted yet", "css": "fresh-future", "days": days,
                 "detail": f"Roast date is {-days} days from now"}
-    elif days < peak_start:
-        remaining = peak_start - days
+    elif days < degas_end:
         return {"stage": "degassing", "css": "fresh-degas", "days": days,
-                "detail": f"Too fresh — rest {remaining} more day{'s' if remaining != 1 else ''}"}
+                "detail": f"High CO2 — shots will be sour and unstable (day {days})"}
+    elif days < rest_end:
+        remaining = rest_end - days
+        return {"stage": "resting", "css": "fresh-rest", "days": days,
+                "detail": f"Almost ready — {remaining} more day{'s' if remaining != 1 else ''} to go"}
     elif days <= peak_end:
         return {"stage": "peak", "css": "fresh-peak", "days": days,
                 "detail": f"Peak flavor window (day {days})"}
     elif days <= good_end:
+        remaining = good_end - days
         return {"stage": "good", "css": "fresh-good", "days": days,
-                "detail": f"Still great — {good_end - days} days of prime left"}
+                "detail": f"Still great — {remaining} days of prime left"}
     elif days <= fading_end:
+        remaining = fading_end - days
         return {"stage": "fading", "css": "fresh-fading", "days": days,
-                "detail": f"Fading — best used within {fading_end - days} days"}
+                "detail": f"Fading — use within {remaining} days"}
     else:
         over = days - fading_end
         return {"stage": "stale", "css": "fresh-stale", "days": days,
