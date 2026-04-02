@@ -72,6 +72,7 @@
                 <table>
                     <thead>
                         <tr>
+                            <th>Date</th>
                             <th>Grind</th>
                             <th>In</th>
                             <th>Out</th>
@@ -84,11 +85,12 @@
                     <tbody>
                         {% for s in samples %}
                         <tr>
+                            <td>{{ s.created_at[:10] }}</td>
                             <td>{{ s.grind_size }}</td>
                             <td>{{ s.grams_in }}g</td>
                             <td>{{ s.grams_out }}g</td>
                             <td>1:{{ "%.1f"|format(s.ratio) if s.ratio else "?" }}</td>
-                            <td>{{ "%d:%02d"|format(s.brew_time_sec // 60, s.brew_time_sec % 60) }}</td>
+                            <td>{{ s.brew_time_sec }}s</td>
                             <td>{% if s.overall %}<a href="/evaluate/{{ s.id }}" class="score-link">{{ s.overall }}/5</a>{% else %}<a href="/evaluate/{{ s.id }}" class="score-link dim">rate</a>{% endif %}</td>
                             <td>
                                 <form action="/sample/{{ s.id }}/delete" method="POST" class="inline">
