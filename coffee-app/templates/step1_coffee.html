@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Coffee Sampler</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=5">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=6">
     <link rel="stylesheet" href="{{ url_for('static', filename='simple-keyboard.css') }}">
 </head>
 <body>
@@ -18,15 +18,24 @@
         <section class="coffee-list">
             <h2>Select a Coffee</h2>
             {% for c in coffees %}
-            <a href="/sample/{{ c.id }}" class="coffee-card">
-                <div class="coffee-label">{{ c.label }}</div>
-                <div class="coffee-meta">
-                    {% if c.roaster %}<span>{{ c.roaster }}</span>{% endif %}
-                    {% if c.origin_country %}<span>{{ c.origin_country }}</span>{% endif %}
-                    {% if c.process %}<span>{{ c.process }}</span>{% endif %}
-                    {% if c.roast_date %}<span>Roasted {{ c.roast_date }}</span>{% endif %}
-                </div>
-            </a>
+            <div class="coffee-card-wrap">
+                <a href="/sample/{{ c.id }}" class="coffee-card">
+                    <div class="coffee-label">{{ c.label }}</div>
+                    <div class="coffee-meta">
+                        {% if c.roaster %}<span>{{ c.roaster }}</span>{% endif %}
+                        {% if c.origin_country %}<span>{{ c.origin_country }}</span>{% endif %}
+                        {% if c.process %}<span>{{ c.process }}</span>{% endif %}
+                        {% if c.roast_date %}<span>Roasted {{ c.roast_date }}</span>{% endif %}
+                    </div>
+                    <div class="coffee-dates">
+                        <span>Added {{ c.created_at[:10] }}</span>
+                        {% if c.updated_at and c.updated_at != c.created_at %}
+                        <span>Updated {{ c.updated_at[:10] }}</span>
+                        {% endif %}
+                    </div>
+                </a>
+                <a href="/coffee/{{ c.id }}/edit" class="card-edit-btn" title="Edit">&#9998;</a>
+            </div>
             {% endfor %}
         </section>
         {% endif %}

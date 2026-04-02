@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Edit {{ coffee.label }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=6">
+    <link rel="stylesheet" href="{{ url_for('static', filename='simple-keyboard.css') }}">
+</head>
+<body>
+    <header>
+        <a href="/" class="back-btn">&larr;</a>
+        <h1>Edit Coffee</h1>
+    </header>
+
+    <main>
+        <form action="/coffee/{{ coffee.id }}/edit" method="POST" class="sample-form">
+            <div class="field">
+                <label for="roaster">Roaster</label>
+                <input type="text" id="roaster" name="roaster" value="{{ coffee.roaster or '' }}" placeholder="Company name" autocomplete="off">
+            </div>
+
+            <div class="row">
+                <div class="field">
+                    <label for="origin_country">Country</label>
+                    <input type="text" id="origin_country" name="origin_country" value="{{ coffee.origin_country or '' }}" placeholder="e.g. Ethiopia" autocomplete="off">
+                </div>
+                <div class="field">
+                    <label for="origin_city">City/Region</label>
+                    <input type="text" id="origin_city" name="origin_city" value="{{ coffee.origin_city or '' }}" placeholder="e.g. Yirgacheffe" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="origin_producer">Producer</label>
+                <input type="text" id="origin_producer" name="origin_producer" value="{{ coffee.origin_producer or '' }}" placeholder="Farm or cooperative" autocomplete="off">
+            </div>
+
+            <div class="row">
+                <div class="field">
+                    <label for="variety">Variety</label>
+                    <input type="text" id="variety" name="variety" value="{{ coffee.variety or '' }}" placeholder="e.g. Heirloom, SL28" autocomplete="off">
+                </div>
+                <div class="field">
+                    <label for="process">Process</label>
+                    <input type="text" id="process" name="process" value="{{ coffee.process or '' }}" placeholder="Washed, Natural, Honey" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="tasting_notes">Tasting Notes (seller)</label>
+                <input type="text" id="tasting_notes" name="tasting_notes" value="{{ coffee.tasting_notes or '' }}" placeholder="e.g. Blueberry, jasmine, citrus" autocomplete="off">
+            </div>
+
+            <div class="row">
+                <div class="field">
+                    <label for="label">Label</label>
+                    <input type="text" id="label" name="label" value="{{ coffee.label }}" placeholder="Auto: roaster - variety - process" autocomplete="off">
+                </div>
+                <div class="field">
+                    <label for="roast_date">Roast Date</label>
+                    <input type="date" id="roast_date" name="roast_date" value="{{ coffee.roast_date or '' }}">
+                </div>
+            </div>
+
+            <button type="submit" class="btn-add">Save Changes</button>
+        </form>
+
+        <form action="/coffee/{{ coffee.id }}/delete" method="POST" class="delete-form">
+            <button type="submit" class="btn-delete-coffee" onclick="return confirm('Delete this coffee and all its samples?')">Delete Coffee</button>
+        </form>
+    </main>
+
+    <div id="keyboard" class="kbd hidden">
+        <div class="simple-keyboard"></div>
+    </div>
+    <script src="{{ url_for('static', filename='simple-keyboard.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='keyboard.js') }}?v=5"></script>
+</body>
+</html>

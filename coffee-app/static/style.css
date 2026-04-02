@@ -259,20 +259,54 @@ body.kbd-open main {
     letter-spacing: 0.5px;
 }
 
+.coffee-card-wrap {
+    display: flex;
+    align-items: stretch;
+    margin-bottom: 8px;
+    gap: 0;
+}
+
 .coffee-card {
     display: block;
+    flex: 1;
     background: var(--surface);
-    border-radius: var(--radius);
+    border-radius: var(--radius) 0 0 var(--radius);
     padding: 12px 14px;
-    margin-bottom: 8px;
     text-decoration: none;
     color: var(--text);
     border-left: 3px solid var(--accent);
     transition: background 0.15s;
+    min-width: 0;
 }
 
 .coffee-card:active {
     background: #333;
+}
+
+.card-edit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    background: #333;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.card-edit-btn:active {
+    background: var(--accent);
+    color: #fff;
+}
+
+.coffee-dates {
+    display: flex;
+    gap: 12px;
+    font-size: 0.65rem;
+    color: #666;
+    margin-top: 4px;
 }
 
 .coffee-label {
@@ -463,6 +497,26 @@ header h1 {
 
 .btn-skip:active {
     background: #333;
+}
+
+.delete-form {
+    margin-top: 10px;
+}
+
+.btn-delete-coffee {
+    width: 100%;
+    padding: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #ddd;
+    background: var(--danger);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-delete-coffee:active {
+    opacity: 0.7;
 }
 
 /* Diagnostic feedback */

@@ -38,9 +38,14 @@ def init_db():
                 tasting_notes TEXT,
                 label TEXT NOT NULL,
                 roast_date TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # migrate existing DBs missing updated_at
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(coffees)").fetchall()]
+        if "updated_at" not in cols:
+            conn.execute("ALTER TABLE coffees ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS samples (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,6 +138,41 @@ def add_coffee():
             ),
         )
         coffee_id = cur.lastrowid
+    return redirect(url_for("new_sample", coffee_id=coffee_id))
+
+
+@app.route("/coffee/<int:coffee_id>/edit")
+def edit_coffee(coffee_id):
+    with get_db() as conn:
+        coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (coffee_id,)).fetchone()
+    if not coffee:
+        return redirect(url_for("index"))
+    return render_template("edit_coffee.html", coffee=coffee)
+
+
+@app.route("/coffee/<int:coffee_id>/edit", methods=["POST"])
+def save_coffee(coffee_id):
+    data = request.form
+    label = data.get("label", "").strip() or make_label(data)
+    with get_db() as conn:
+        conn.execute(
+            """UPDATE coffees SET roaster=?, origin_country=?, origin_city=?, origin_producer=?,
+                                  variety=?, process=?, tasting_notes=?, label=?, roast_date=?,
+                                  updated_at=CURRENT_TIMESTAMP
+               WHERE id=?""",
+            (
+                data.get("roaster", "").strip() or None,
+                data.get("origin_country", "").strip() or None,
+                data.get("origin_city", "").strip() or None,
+                data.get("origin_producer", "").strip() or None,
+                data.get("variety", "").strip() or None,
+                data.get("process", "").strip() or None,
+                data.get("tasting_notes", "").strip() or None,
+                label,
+                data.get("roast_date", "").strip() or None,
+                coffee_id,
+            ),
+        )
     return redirect(url_for("new_sample", coffee_id=coffee_id))
 
 
