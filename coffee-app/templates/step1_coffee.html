@@ -20,13 +20,21 @@
             {% for c in coffees %}
             <div class="coffee-card-wrap">
                 <a href="/sample/{{ c.id }}" class="coffee-card">
-                    <div class="coffee-label">{{ c.label }}</div>
+                    <div class="coffee-card-top">
+                        <div class="coffee-label">{{ c.label }}</div>
+                        {% if c.freshness %}
+                        <span class="freshness-badge {{ c.freshness.css }}">{{ c.freshness.stage }}</span>
+                        {% endif %}
+                    </div>
                     <div class="coffee-meta">
                         {% if c.roaster %}<span>{{ c.roaster }}</span>{% endif %}
                         {% if c.origin_country %}<span>{{ c.origin_country }}</span>{% endif %}
                         {% if c.process %}<span>{{ c.process }}</span>{% endif %}
                         {% if c.roast_date %}<span>Roasted {{ c.roast_date }}</span>{% endif %}
                     </div>
+                    {% if c.freshness %}
+                    <div class="freshness-detail">{{ c.freshness.detail }}</div>
+                    {% endif %}
                     <div class="coffee-dates">
                         <span>Added {{ c.created_at[:10] }}</span>
                         {% if c.updated_at and c.updated_at != c.created_at %}
@@ -95,6 +103,17 @@
                     <div class="field">
                         <label for="roast_date">Roast Date</label>
                         <input type="date" id="roast_date" name="roast_date">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="field">
+                        <label for="best_after_days">Best After (days)</label>
+                        <input type="number" id="best_after_days" name="best_after_days" value="10" min="0" max="60">
+                    </div>
+                    <div class="field">
+                        <label for="consume_within_days">Use Within (days)</label>
+                        <input type="number" id="consume_within_days" name="consume_within_days" value="90" min="1" max="365">
                     </div>
                 </div>
 

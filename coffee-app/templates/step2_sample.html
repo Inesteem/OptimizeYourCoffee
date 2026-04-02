@@ -22,6 +22,7 @@
             {% if coffee.process %}<span>{{ coffee.process }}</span>{% endif %}
             {% if coffee.tasting_notes %}<span class="tasting">"{{ coffee.tasting_notes }}"</span>{% endif %}
             {% if coffee.roast_date %}<span>Roasted {{ coffee.roast_date }}</span>{% endif %}
+            {% if freshness %}<span class="freshness-badge {{ freshness.css }}">{{ freshness.stage }}</span> <span class="freshness-detail">{{ freshness.detail }}</span>{% endif %}
         </div>
 
         <!-- Sample form -->

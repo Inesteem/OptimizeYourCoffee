@@ -425,6 +425,37 @@ body.kbd-open main {
     color: #fff;
 }
 
+.coffee-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.freshness-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+}
+
+.fresh-degas { background: #4a3a20; color: #e0a840; }
+.fresh-peak { background: #1a4a1a; color: #5ae05a; }
+.fresh-good { background: #1a3a4a; color: #5ac0e0; }
+.fresh-fading { background: #4a3a20; color: #c09050; }
+.fresh-stale { background: #4a2020; color: #e06060; }
+.fresh-future { background: #303050; color: #8888cc; }
+
+.freshness-detail {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 3px;
+}
+
 .coffee-dates {
     display: flex;
     gap: 12px;

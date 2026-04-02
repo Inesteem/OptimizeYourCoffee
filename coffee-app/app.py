@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import date, datetime
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 
@@ -38,14 +39,20 @@ def init_db():
                 tasting_notes TEXT,
                 label TEXT NOT NULL,
                 roast_date TEXT,
+                best_after_days INTEGER DEFAULT 10,
+                consume_within_days INTEGER DEFAULT 90,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        # migrate existing DBs missing updated_at
+        # migrate existing DBs
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(coffees)").fetchall()]
         if "updated_at" not in cols:
             conn.execute("ALTER TABLE coffees ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+        if "best_after_days" not in cols:
+            conn.execute("ALTER TABLE coffees ADD COLUMN best_after_days INTEGER DEFAULT 10")
+        if "consume_within_days" not in cols:
+            conn.execute("ALTER TABLE coffees ADD COLUMN consume_within_days INTEGER DEFAULT 90")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS samples (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,6 +85,47 @@ def make_label(data):
     parts = [data.get("roaster", ""), data.get("variety", ""), data.get("process", "")]
     label = " - ".join(p.strip() for p in parts if p and p.strip())
     return label or "Unnamed Coffee"
+
+
+def freshness_status(coffee):
+    """Compute freshness status from roast_date, best_after_days, consume_within_days."""
+    if not coffee["roast_date"]:
+        return None
+    try:
+        roast = datetime.strptime(coffee["roast_date"], "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
+
+    days = (date.today() - roast).days
+    best_after = coffee["best_after_days"] or 10
+    consume_within = coffee["consume_within_days"] or 90
+
+    # Define stages relative to best_after and consume_within
+    peak_start = best_after
+    peak_end = best_after + 14          # ~2 weeks of peak after rest
+    good_end = best_after + 42          # ~6 weeks still good
+    fading_end = consume_within
+
+    if days < 0:
+        return {"stage": "not roasted yet", "css": "fresh-future", "days": days,
+                "detail": f"Roast date is {-days} days from now"}
+    elif days < peak_start:
+        remaining = peak_start - days
+        return {"stage": "degassing", "css": "fresh-degas", "days": days,
+                "detail": f"Too fresh — rest {remaining} more day{'s' if remaining != 1 else ''}"}
+    elif days <= peak_end:
+        return {"stage": "peak", "css": "fresh-peak", "days": days,
+                "detail": f"Peak flavor window (day {days})"}
+    elif days <= good_end:
+        return {"stage": "good", "css": "fresh-good", "days": days,
+                "detail": f"Still great — {good_end - days} days of prime left"}
+    elif days <= fading_end:
+        return {"stage": "fading", "css": "fresh-fading", "days": days,
+                "detail": f"Fading — best used within {fading_end - days} days"}
+    else:
+        over = days - fading_end
+        return {"stage": "stale", "css": "fresh-stale", "days": days,
+                "detail": f"Past prime by {over} day{'s' if over != 1 else ''}"}
 
 
 def diagnose(ev):
@@ -113,7 +161,12 @@ def index():
         coffees = conn.execute(
             "SELECT * FROM coffees ORDER BY created_at DESC"
         ).fetchall()
-    return render_template("step1_coffee.html", coffees=coffees)
+    coffee_data = []
+    for c in coffees:
+        cd = dict(c)
+        cd["freshness"] = freshness_status(c)
+        coffee_data.append(cd)
+    return render_template("step1_coffee.html", coffees=coffee_data)
 
 
 @app.route("/coffee/add", methods=["POST"])
@@ -121,10 +174,13 @@ def add_coffee():
     data = request.form
     label = data.get("label", "").strip() or make_label(data)
     with get_db() as conn:
+        best_after = data.get("best_after_days", "").strip()
+        consume_within = data.get("consume_within_days", "").strip()
         cur = conn.execute(
             """INSERT INTO coffees (roaster, origin_country, origin_city, origin_producer,
-                                    variety, process, tasting_notes, label, roast_date)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                    variety, process, tasting_notes, label, roast_date,
+                                    best_after_days, consume_within_days)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 data.get("roaster", "").strip() or None,
                 data.get("origin_country", "").strip() or None,
@@ -135,6 +191,8 @@ def add_coffee():
                 data.get("tasting_notes", "").strip() or None,
                 label,
                 data.get("roast_date", "").strip() or None,
+                int(best_after) if best_after else 10,
+                int(consume_within) if consume_within else 90,
             ),
         )
         coffee_id = cur.lastrowid
@@ -154,10 +212,13 @@ def edit_coffee(coffee_id):
 def save_coffee(coffee_id):
     data = request.form
     label = data.get("label", "").strip() or make_label(data)
+    best_after = data.get("best_after_days", "").strip()
+    consume_within = data.get("consume_within_days", "").strip()
     with get_db() as conn:
         conn.execute(
             """UPDATE coffees SET roaster=?, origin_country=?, origin_city=?, origin_producer=?,
                                   variety=?, process=?, tasting_notes=?, label=?, roast_date=?,
+                                  best_after_days=?, consume_within_days=?,
                                   updated_at=CURRENT_TIMESTAMP
                WHERE id=?""",
             (
@@ -170,6 +231,8 @@ def save_coffee(coffee_id):
                 data.get("tasting_notes", "").strip() or None,
                 label,
                 data.get("roast_date", "").strip() or None,
+                int(best_after) if best_after else 10,
+                int(consume_within) if consume_within else 90,
                 coffee_id,
             ),
         )
@@ -198,7 +261,8 @@ def new_sample(coffee_id):
         ).fetchall()
     if not coffee:
         return redirect(url_for("index"))
-    return render_template("step2_sample.html", coffee=coffee, samples=samples)
+    freshness = freshness_status(coffee)
+    return render_template("step2_sample.html", coffee=coffee, samples=samples, freshness=freshness)
 
 
 @app.route("/sample/<int:coffee_id>/add", methods=["POST"])
