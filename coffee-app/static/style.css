@@ -763,6 +763,31 @@ header h1 {
     font-size: 0.9rem;
 }
 
+/* Emoji picker */
+.emoji-pick-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #3a3a3a;
+}
+
+.emoji-pick-item:active {
+    background: var(--accent);
+}
+
+.emoji-pick-em {
+    font-size: 1.4rem;
+    width: 30px;
+    text-align: center;
+}
+
+.emoji-pick-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
 /* Diagnostic feedback */
 .diagnostic {
     background: #2a3a2a;

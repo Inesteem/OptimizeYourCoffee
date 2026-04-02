@@ -14,11 +14,18 @@
     </header>
 
     <main>
+        {% if request.args.get('error') == 'duplicate' %}
+        <div class="diagnostic" style="border-left-color:#e06060;background:#4a2020;margin-bottom:12px">
+            <p>That label already exists.</p>
+        </div>
+        {% endif %}
+
         <form action="/settings/tasting-notes/add" method="POST" class="sample-form">
             <div class="row">
-                <div class="field" style="flex:1">
+                <div class="field" style="flex:1;position:relative">
                     <label for="emoji">Emoji</label>
-                    <input type="text" id="emoji" name="emoji" placeholder="e.g. 🍓" autocomplete="off" style="text-align:center">
+                    <input type="text" id="emoji" name="emoji" placeholder="Search..." autocomplete="off" style="text-align:center">
+                    <div id="emoji-picker" class="ac-dropdown hidden"></div>
                 </div>
                 <div class="field" style="flex:3">
                     <label for="name">Note name</label>
@@ -56,9 +63,9 @@
         <div class="simple-keyboard"></div>
     </div>
     <script src="{{ url_for('static', filename='simple-keyboard.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='keyboard.js') }}?v=6"></script>
+    <script src="{{ url_for('static', filename='keyboard.js') }}?v=7"></script>
     <script>
-    // Show built-in notes for reference
+    // Built-in notes reference
     const BUILTIN = {
         "dried apricot":"🍑","apricot":"🍑","lemonade":"🍋","lemon":"🍋",
         "orange":"🍊","tangerine":"🍊","black currant":"🫐","blueberry":"🫐",
@@ -84,6 +91,100 @@
         el.className = 'note-item builtin';
         el.innerHTML = `<span class="note-emoji">${emoji}</span><span class="note-name">${name}</span>`;
         wrap.appendChild(el);
+    });
+
+    // Emoji search/picker
+    const EMOJIS = [
+        ["🍎","red apple"],["🍏","green apple"],["🍐","pear"],["🍊","orange,tangerine"],
+        ["🍋","lemon,lemonade,citrus"],["🍌","banana"],["🍉","watermelon"],["🍇","grape,plum"],
+        ["🍓","strawberry,raspberry,berry,jam"],["🫐","blueberry,currant,blackberry"],
+        ["🍈","melon,passionfruit,honeydew"],["🍒","cherry"],["🍑","peach,apricot,stone fruit"],
+        ["🥭","mango"],["🍍","pineapple,tropical"],["🥥","coconut"],["🥝","kiwi"],
+        ["🍅","tomato"],["🫒","olive"],
+        ["🍫","chocolate,cacao,cocoa,dark chocolate,milk chocolate"],
+        ["🍮","caramel,toffee,flan,butterscotch,brown sugar,nougat,dulce"],
+        ["🍯","honey"],["🍬","candy,sweet,sugarcane"],["🍭","lollipop"],
+        ["🍦","vanilla,ice cream"],["🧈","butter"],["🥛","milk,cream,yogurt"],
+        ["🌰","hazelnut,chestnut,almond,walnut,nut,nutty"],["🥜","peanut"],
+        ["🌸","jasmine,blossom,sakura"],["🌹","rose"],["🌺","hibiscus,floral,flower"],
+        ["🌻","sunflower"],["🌼","chamomile,daisy"],["💜","lavender,violet"],
+        ["🌿","herbal,mint,basil,herb,green"],["🍂","tobacco,autumn,leaf"],
+        ["🍁","maple,autumn"],["🪵","cedar,wood,woody,oak"],
+        ["🍵","tea,black tea,green tea,earl grey"],["☕","coffee,espresso"],
+        ["🍷","wine,red wine,port"],["🥃","whiskey,rum,bourbon,spirit"],
+        ["🔥","smoky,smoke,fire,roast"],["✨","spice,cinnamon,clove,cardamom,nutmeg,star anise"],
+        ["🌶️","pepper,spicy,chili"],["🌍","earthy,earth,soil"],
+        ["🧂","salt,salty,mineral"],["🥧","pie,pastry,baked"],
+        ["🍞","bread,toast,biscuit,grain,cereal"],
+        ["🥐","croissant,pastry,buttery"],["🎯","target,bullseye,precise"],
+        ["⭐","star,bright"],["💧","water,clean,crisp"],["🧊","ice,cool,refreshing"],
+        ["☁️","cloud,soft,mild"],["🌊","wave,ocean,fresh"],
+        ["💐","bouquet,floral,flowers"],["🫧","bubbly,sparkling,effervescent"],
+        ["🥄","syrup,thick,viscous"],["🏔️","alpine,mountain,highland"]
+    ];
+
+    const emojiInput = document.getElementById('emoji');
+    const picker = document.getElementById('emoji-picker');
+    let pickerActive = false;
+
+    function showEmojis(query) {
+        query = query.toLowerCase().trim();
+        let matches;
+        if (!query) {
+            matches = EMOJIS.slice(0, 20);
+        } else {
+            matches = EMOJIS.filter(([em, tags]) =>
+                tags.toLowerCase().includes(query)
+            ).slice(0, 16);
+        }
+
+        if (matches.length === 0) {
+            picker.classList.add('hidden');
+            return;
+        }
+
+        picker.innerHTML = matches.map(([em, tags]) => {
+            const label = tags.split(',')[0];
+            return `<div class="emoji-pick-item"><span class="emoji-pick-em">${em}</span><span class="emoji-pick-label">${label}</span></div>`;
+        }).join('');
+        picker.classList.remove('hidden');
+        pickerActive = true;
+
+        picker.querySelectorAll('.emoji-pick-item').forEach(el => {
+            el.addEventListener('pointerdown', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (window.coffeeKbd) window.coffeeKbd.suppressDismiss();
+                const em = el.querySelector('.emoji-pick-em').textContent;
+                emojiInput.value = em;
+                if (window.coffeeKbd) window.coffeeKbd.setInput(em);
+                picker.classList.add('hidden');
+                pickerActive = false;
+            });
+        });
+    }
+
+    if (emojiInput) {
+        emojiInput.addEventListener('focus', () => showEmojis(emojiInput.value));
+        // Hook into keyboard changes
+        function waitKbd() {
+            if (window.coffeeKbd && window.coffeeKbd.onChange) {
+                window.coffeeKbd.onChange((input, value) => {
+                    if (input === emojiInput) showEmojis(value);
+                });
+            } else {
+                setTimeout(waitKbd, 50);
+            }
+        }
+        waitKbd();
+        emojiInput.addEventListener('input', () => showEmojis(emojiInput.value));
+    }
+
+    document.addEventListener('pointerdown', e => {
+        if (pickerActive && !e.target.closest('#emoji-picker') && e.target !== emojiInput) {
+            picker.classList.add('hidden');
+            pickerActive = false;
+        }
     });
     </script>
 </body>

@@ -439,10 +439,16 @@ def add_tasting_note():
     emoji = request.form.get("emoji", "").strip()
     if name:
         with get_db() as conn:
+            # Case-insensitive duplicate check (DB + built-in)
+            existing = conn.execute(
+                "SELECT id FROM custom_tasting_notes WHERE LOWER(name) = LOWER(?)", (name,)
+            ).fetchone()
+            if existing:
+                return redirect(url_for("settings_tasting_notes", error="duplicate"))
             try:
                 conn.execute("INSERT INTO custom_tasting_notes (name, emoji) VALUES (?, ?)", (name, emoji))
             except sqlite3.IntegrityError:
-                pass  # duplicate
+                return redirect(url_for("settings_tasting_notes", error="duplicate"))
     return redirect(url_for("settings_tasting_notes"))
 
 
