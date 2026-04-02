@@ -9,6 +9,7 @@
             if (activeInput) {
                 activeInput.value = value;
                 activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                changeListeners.forEach(fn => fn(activeInput, value));
             }
         },
         onKeyPress: button => {
@@ -67,10 +68,13 @@
         mergeDisplay: true
     });
 
-    // Expose for autocomplete to sync state
+    // Expose for autocomplete/chips to sync state and get change notifications
+    const changeListeners = [];
     window.coffeeKbd = {
         setInput: val => kbd.setInput(val),
-        suppressDismiss: () => { ignoreNextDismiss = true; setTimeout(() => { ignoreNextDismiss = false; }, 200); }
+        suppressDismiss: () => { ignoreNextDismiss = true; setTimeout(() => { ignoreNextDismiss = false; }, 200); },
+        onChange: fn => changeListeners.push(fn),
+        getActiveInput: () => activeInput
     };
 
     function showKeyboard(input) {

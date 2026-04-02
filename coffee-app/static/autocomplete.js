@@ -24,6 +24,7 @@
         .catch(() => {});
 
     let activeDropdown = null;
+    const registry = {}; // inputId -> { dropdown, dataKey }
 
     function createDropdown(input) {
         const list = document.createElement('div');
@@ -67,10 +68,8 @@
             item.addEventListener('pointerdown', e => {
                 e.preventDefault();
                 e.stopPropagation();
-                // Tell keyboard not to dismiss
                 if (window.coffeeKbd) window.coffeeKbd.suppressDismiss();
                 input.value = item.textContent;
-                // Sync SimpleKeyboard's internal buffer
                 if (window.coffeeKbd) window.coffeeKbd.setInput(item.textContent);
                 dropdown.classList.add('hidden');
                 activeDropdown = null;
@@ -82,10 +81,31 @@
         const input = document.getElementById(inputId);
         if (!input) return;
         const dropdown = createDropdown(input);
+        registry[inputId] = { input, dropdown, dataKey };
+
+        // Also listen for native input events (physical keyboard fallback)
         input.addEventListener('input', () => filterAndShow(input, dropdown, dataKey));
-        input.addEventListener('focus', () => filterAndShow(input, dropdown, dataKey));
     }
 
+    // Hook into virtual keyboard changes directly
+    function waitForKeyboard() {
+        if (window.coffeeKbd && window.coffeeKbd.onChange) {
+            window.coffeeKbd.onChange((activeInput, value) => {
+                // Find which autocomplete field is active
+                for (const id in registry) {
+                    if (registry[id].input === activeInput) {
+                        filterAndShow(activeInput, registry[id].dropdown, registry[id].dataKey);
+                        return;
+                    }
+                }
+            });
+        } else {
+            setTimeout(waitForKeyboard, 50);
+        }
+    }
+    waitForKeyboard();
+
+    // Close dropdowns on outside tap
     document.addEventListener('pointerdown', e => {
         if (activeDropdown && !e.target.closest('.ac-dropdown')) {
             activeDropdown.classList.add('hidden');
@@ -96,4 +116,5 @@
     setupAutocomplete('origin_country', 'origin_country');
     setupAutocomplete('process', 'process');
     setupAutocomplete('variety', 'variety');
+
 })();
