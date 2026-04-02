@@ -197,6 +197,75 @@ def diagnose(ev):
     return tips
 
 
+def suggest_grind(coffee_id, conn):
+    """Suggest optimal grind size based on past evaluated shots using quadratic regression."""
+    rows = conn.execute(
+        """SELECT s.grind_size, e.overall
+           FROM samples s JOIN evaluations e ON e.sample_id = s.id
+           WHERE s.coffee_id = ? AND e.overall IS NOT NULL
+           ORDER BY s.created_at""",
+        (coffee_id,),
+    ).fetchall()
+
+    if len(rows) < 3:
+        # Not enough data for regression — return best shot's grind if any
+        if rows:
+            best = max(rows, key=lambda r: r["overall"])
+            return {
+                "grind": best["grind_size"],
+                "confidence": "low",
+                "detail": f"Best so far: grind {best['grind_size']} scored {best['overall']}/5 ({len(rows)} shot{'s' if len(rows) != 1 else ''} evaluated)",
+            }
+        return None
+
+    import numpy as np
+    grinds = np.array([r["grind_size"] for r in rows], dtype=float)
+    scores = np.array([r["overall"] for r in rows], dtype=float)
+
+    try:
+        coeffs = np.polyfit(grinds, scores, 2)
+    except (np.linalg.LinAlgError, ValueError):
+        best = max(rows, key=lambda r: r["overall"])
+        return {
+            "grind": best["grind_size"],
+            "confidence": "low",
+            "detail": f"Best so far: grind {best['grind_size']} scored {best['overall']}/5",
+        }
+
+    a, b, c = coeffs
+
+    # Quadratic must open downward (a < 0) for a maximum
+    if a >= 0:
+        best = max(rows, key=lambda r: r["overall"])
+        return {
+            "grind": best["grind_size"],
+            "confidence": "low",
+            "detail": f"No clear peak yet — best: grind {best['grind_size']} ({best['overall']}/5)",
+        }
+
+    optimal = -b / (2 * a)
+    predicted = a * optimal**2 + b * optimal + c
+    gmin, gmax = float(grinds.min()), float(grinds.max())
+
+    if optimal < gmin - 5 or optimal > gmax + 5:
+        direction = "finer" if optimal < gmin else "coarser"
+        return {
+            "grind": round(optimal, 1),
+            "confidence": "low",
+            "detail": f"Model suggests going {direction} (grind ~{optimal:.1f}) — try extending your range",
+        }
+
+    n = len(rows)
+    conf = "medium" if n < 6 else "high"
+    best_actual = max(rows, key=lambda r: r["overall"])
+
+    return {
+        "grind": round(optimal, 1),
+        "confidence": conf,
+        "detail": f"Suggested grind: {optimal:.1f} (predicted {predicted:.1f}/5 from {n} shots, best actual: {best_actual['grind_size']} → {best_actual['overall']}/5)",
+    }
+
+
 # --- Step 1: Select or define coffee ---
 
 @app.route("/")
@@ -366,7 +435,11 @@ def new_sample(coffee_id):
     if not coffee:
         return redirect(url_for("index"))
     freshness = freshness_status(coffee)
-    return render_template("step2_sample.html", coffee=coffee, samples=samples, freshness=freshness)
+    grind_hint = None
+    with get_db() as conn:
+        grind_hint = suggest_grind(coffee_id, conn)
+    return render_template("step2_sample.html", coffee=coffee, samples=samples,
+                           freshness=freshness, grind_hint=grind_hint)
 
 
 @app.route("/sample/<int:coffee_id>/add", methods=["POST"])

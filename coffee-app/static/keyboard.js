@@ -120,7 +120,7 @@
 
     document.addEventListener('pointerdown', e => {
         if (layoutChanging || ignoreNextDismiss) return;
-        if (e.target.closest('.ac-dropdown') || e.target.closest('.chip-suggestions')) return;
+        if (e.target.closest('.ac-dropdown') || e.target.closest('.chip-suggestions') || e.target.closest('#emoji-picker')) return;
         if (!kbdWrap.contains(e.target) && !e.target.matches('input')) {
             hideKeyboard();
         }

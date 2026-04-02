@@ -44,7 +44,7 @@
                     <span class="note-emoji">{{ n.emoji or '' }}</span>
                     <span class="note-name">{{ n.name }}</span>
                     <form action="/settings/tasting-notes/{{ n.id }}/delete" method="POST" class="inline">
-                        <button type="submit" class="btn-del" title="Remove">x</button>
+                        <button type="submit" class="btn-del-note" title="Remove">Delete</button>
                     </form>
                 </div>
                 {% endfor %}

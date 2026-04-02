@@ -25,13 +25,20 @@
             {% if freshness %}<span class="freshness-badge {{ freshness.css }}">{{ freshness.stage }}</span> <span class="freshness-detail">{{ freshness.detail }}</span>{% endif %}
         </div>
 
+        <!-- Grind suggestion -->
+        {% if grind_hint %}
+        <div class="grind-hint grind-{{ grind_hint.confidence }}">
+            <span class="grind-hint-text">{{ grind_hint.detail }}</span>
+        </div>
+        {% endif %}
+
         <!-- Sample form -->
         <form action="/sample/{{ coffee.id }}/add" method="POST" class="sample-form">
             <div class="row">
                 <div class="field">
-                    <label for="grind_size">Grind</label>
+                    <label for="grind_size">Grind{% if grind_hint %} (suggested: {{ grind_hint.grind }}){% endif %}</label>
                     <input type="number" id="grind_size" name="grind_size" required
-                           step="0.1" min="0" placeholder="e.g. 15">
+                           step="0.1" min="0" placeholder="{% if grind_hint %}{{ grind_hint.grind }}{% else %}e.g. 15{% endif %}">
                 </div>
                 <div class="field">
                     <label for="grams_in">In (g)</label>
@@ -47,23 +54,12 @@
                 </div>
             </div>
 
-            <div class="row">
-                <div class="field">
-                    <label for="brew_min">Time (min)</label>
-                    <input type="number" id="brew_min" name="brew_min"
-                           min="0" max="59" value="{{ (coffee.default_brew_time_sec // 60) if coffee.default_brew_time_sec else 0 }}">
-                </div>
-                <div class="field">
-                    <label for="brew_sec">Time (sec)</label>
-                    <input type="number" id="brew_sec" name="brew_sec"
-                           min="0" max="59" value="{{ (coffee.default_brew_time_sec % 60) if coffee.default_brew_time_sec else 0 }}">
-                </div>
-            </div>
-
             <div class="field">
-                <label for="notes">Notes</label>
-                <input type="text" id="notes" name="notes"
-                       placeholder="Your tasting notes" autocomplete="off">
+                <label for="brew_sec">Time (seconds)</label>
+                <input type="number" id="brew_sec" name="brew_sec"
+                       min="0" max="300" value="{{ coffee.default_brew_time_sec or '' }}"
+                       placeholder="e.g. 30">
+                <input type="hidden" name="brew_min" value="0">
             </div>
 
             <button type="submit" class="btn-add">Save Sample</button>

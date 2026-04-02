@@ -478,6 +478,19 @@ body.kbd-open main {
 .fresh-stale { background: #4a2020; color: #e06060; }
 .fresh-future { background: #303050; color: #8888cc; }
 
+/* Grind suggestion */
+.grind-hint {
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.grind-low { background: #2a2a3a; border-left: 3px solid #6a6aaa; color: #aab; }
+.grind-medium { background: #2a3a2a; border-left: 3px solid #5a9a5a; color: #adb; }
+.grind-high { background: #1a4a1a; border-left: 3px solid #3aba3a; color: #8e8; }
+
 .freshness-detail {
     font-size: 0.7rem;
     color: var(--text-muted);
@@ -788,6 +801,21 @@ header h1 {
 .note-name {
     flex: 1;
     font-size: 0.9rem;
+}
+
+.btn-del-note {
+    background: var(--danger);
+    color: #ddd;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.btn-del-note:active {
+    opacity: 0.7;
 }
 
 /* Emoji picker */
