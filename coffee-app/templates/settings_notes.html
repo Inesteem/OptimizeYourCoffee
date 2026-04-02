@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Tasting Note Labels</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=7">
+    <link rel="stylesheet" href="{{ url_for('static', filename='simple-keyboard.css') }}">
+</head>
+<body>
+    <header>
+        <a href="/" class="back-btn">&larr;</a>
+        <h1>Tasting Note Labels</h1>
+    </header>
+
+    <main>
+        <form action="/settings/tasting-notes/add" method="POST" class="sample-form">
+            <div class="row">
+                <div class="field" style="flex:1">
+                    <label for="emoji">Emoji</label>
+                    <input type="text" id="emoji" name="emoji" placeholder="e.g. 🍓" autocomplete="off" style="text-align:center">
+                </div>
+                <div class="field" style="flex:3">
+                    <label for="name">Note name</label>
+                    <input type="text" id="name" name="name" required placeholder="e.g. wild strawberry" autocomplete="off">
+                </div>
+            </div>
+            <button type="submit" class="btn-add">Add Label</button>
+        </form>
+
+        {% if notes %}
+        <section class="history" style="margin-top:12px">
+            <h2>Custom Labels</h2>
+            <div class="notes-list">
+                {% for n in notes %}
+                <div class="note-item">
+                    <span class="note-emoji">{{ n.emoji or '' }}</span>
+                    <span class="note-name">{{ n.name }}</span>
+                    <form action="/settings/tasting-notes/{{ n.id }}/delete" method="POST" class="inline">
+                        <button type="submit" class="btn-del" title="Remove">x</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <section class="history" style="margin-top:16px">
+            <h2>Built-in Labels</h2>
+            <p class="freshness-detail" style="margin-bottom:8px">These are always available. Custom labels above are merged in.</p>
+            <div class="notes-list" id="builtin-notes"></div>
+        </section>
+    </main>
+
+    <div id="keyboard" class="kbd hidden">
+        <div class="simple-keyboard"></div>
+    </div>
+    <script src="{{ url_for('static', filename='simple-keyboard.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='keyboard.js') }}?v=6"></script>
+    <script>
+    // Show built-in notes for reference
+    const BUILTIN = {
+        "dried apricot":"🍑","apricot":"🍑","lemonade":"🍋","lemon":"🍋",
+        "orange":"🍊","tangerine":"🍊","black currant":"🫐","blueberry":"🫐",
+        "strawberry":"🍓","wild strawberry":"🍓","raspberry":"🍓",
+        "raspberry jam":"🍓","cherry":"🍒","apple":"🍏","peach":"🍑",
+        "plum":"🍇","grape":"🍇","tropical":"🍍","pineapple":"🍍",
+        "mango":"🥭","passionfruit":"🍈","melon":"🍈","banana":"🍌",
+        "grapefruit":"🍊","lime":"🍋","citrus":"🍋","bergamot":"🍋",
+        "cacao nibs":"🍫","chocolate":"🍫","dark chocolate":"🍫",
+        "cocoa":"🍫","hazelnut":"🌰","almond":"🌰","walnut":"🌰",
+        "nutty":"🌰","honey":"🍯","caramel":"🍮","toffee":"🍮",
+        "brown sugar":"🍮","vanilla":"🍦","jasmine":"🌸","rose":"🌹",
+        "floral":"🌺","hibiscus":"🌺","tea":"🍵","black tea":"🍵",
+        "herbal":"🌿","mint":"🌿","cinnamon":"✨","cardamom":"✨",
+        "ginger":"✨","pepper":"🌶️","smoky":"🔥","tobacco":"🍂",
+        "wine":"🍷","red wine":"🍷","butter":"🧈","cream":"🥛",
+        "cedar":"🪵","woody":"🪵","earthy":"🌍","berry":"🫐",
+        "stone fruit":"🍑","nougat":"🍮"
+    };
+    const wrap = document.getElementById('builtin-notes');
+    Object.entries(BUILTIN).sort((a,b) => a[0].localeCompare(b[0])).forEach(([name, emoji]) => {
+        const el = document.createElement('div');
+        el.className = 'note-item builtin';
+        el.innerHTML = `<span class="note-emoji">${emoji}</span><span class="note-name">${name}</span>`;
+        wrap.appendChild(el);
+    });
+    </script>
+</body>
+</html>

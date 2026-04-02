@@ -86,6 +86,13 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS custom_tasting_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                emoji TEXT DEFAULT ''
+            )
+        """)
 
 
 def make_label(data):
@@ -415,6 +422,42 @@ def save_evaluation(sample_id):
         coffee=coffee, sample=sample, evaluation=evaluation,
         dimensions=EVAL_DIMENSIONS, tips=tips,
     )
+
+
+# --- Settings: Custom tasting notes ---
+
+@app.route("/settings/tasting-notes")
+def settings_tasting_notes():
+    with get_db() as conn:
+        notes = conn.execute("SELECT * FROM custom_tasting_notes ORDER BY name").fetchall()
+    return render_template("settings_notes.html", notes=notes)
+
+
+@app.route("/settings/tasting-notes/add", methods=["POST"])
+def add_tasting_note():
+    name = request.form.get("name", "").strip()
+    emoji = request.form.get("emoji", "").strip()
+    if name:
+        with get_db() as conn:
+            try:
+                conn.execute("INSERT INTO custom_tasting_notes (name, emoji) VALUES (?, ?)", (name, emoji))
+            except sqlite3.IntegrityError:
+                pass  # duplicate
+    return redirect(url_for("settings_tasting_notes"))
+
+
+@app.route("/settings/tasting-notes/<int:note_id>/delete", methods=["POST"])
+def delete_tasting_note(note_id):
+    with get_db() as conn:
+        conn.execute("DELETE FROM custom_tasting_notes WHERE id = ?", (note_id,))
+    return redirect(url_for("settings_tasting_notes"))
+
+
+@app.route("/api/custom-tasting-notes")
+def api_custom_tasting_notes():
+    with get_db() as conn:
+        notes = conn.execute("SELECT name, emoji FROM custom_tasting_notes ORDER BY name").fetchall()
+    return jsonify([dict(n) for n in notes])
 
 
 # --- API ---

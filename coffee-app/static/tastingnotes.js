@@ -11,7 +11,9 @@
         "blackcurrant":     "🫐",
         "blueberry":        "🫐",
         "strawberry":       "🍓",
+        "wild strawberry":  "🍓",
         "raspberry":        "🍓",
+        "raspberry jam":    "🍓",
         "cherry":           "🍒",
         "apple":            "🍏",
         "green apple":      "🍏",
@@ -102,8 +104,21 @@
         "nougat":           "🍮"
     };
 
-    // Get all known note names for suggestions
-    const ALL_NOTES = [...new Set(Object.keys(NOTES))].sort();
+    // Merge custom notes from DB
+    let ALL_NOTES = [...new Set(Object.keys(NOTES))].sort();
+
+    fetch('/api/custom-tasting-notes')
+        .then(r => r.json())
+        .then(custom => {
+            custom.forEach(n => {
+                const key = n.name.toLowerCase().trim();
+                if (!NOTES[key]) {
+                    NOTES[key] = n.emoji || '';
+                }
+            });
+            ALL_NOTES = [...new Set(Object.keys(NOTES))].sort();
+        })
+        .catch(() => {});
 
     function getEmoji(note) {
         const key = note.toLowerCase().trim();
