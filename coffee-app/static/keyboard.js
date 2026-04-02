@@ -31,28 +31,43 @@
                 layoutChanging = true;
                 kbd.setOptions({ layoutName: 'default' });
                 setTimeout(() => { layoutChanging = false; }, 100);
+            } else if (button === '{special}') {
+                layoutChanging = true;
+                kbd.setOptions({ layoutName: 'special' });
+                setTimeout(() => { layoutChanging = false; }, 100);
+            } else if (kbd.options.layoutName === 'special' && !button.startsWith('{')) {
+                // Auto-return to default after typing one special char
+                layoutChanging = true;
+                kbd.setOptions({ layoutName: 'default' });
+                setTimeout(() => { layoutChanging = false; }, 100);
             } else if (button === '{done}') {
                 hideKeyboard();
             }
         },
         layout: {
             'default': [
-                'q w e r t y u i o p',
-                'a s d f g h j k l',
+                'q w e r t y u i o p ü',
+                'a s d f g h j k l ö ä',
                 '{shift} z x c v b n m {backspace}',
-                '{numbers} , {space} . {done}'
+                '{numbers} {special} , {space} . {done}'
             ],
             'shift': [
-                'Q W E R T Y U I O P',
-                'A S D F G H J K L',
+                'Q W E R T Y U I O P Ü',
+                'A S D F G H J K L Ö Ä',
                 '{lock} Z X C V B N M {backspace}',
-                '{numbers} , {space} . {done}'
+                '{numbers} {special} , {space} . {done}'
             ],
             'numbers': [
                 '1 2 3 4 5 6 7 8 9 0',
                 '- / : ; ( ) & @ "',
                 '{abc} . , ? ! \' {backspace}',
                 '{abc} {space} . {done}'
+            ],
+            'special': [
+                'ä ö ü ß à á â ã å æ',
+                'è é ê ë ì í î ï ñ ò',
+                'ó ô õ ø ù ú û ý ç ð',
+                '{abc} , {space} . {done}'
             ]
         },
         display: {
@@ -62,7 +77,8 @@
             '{space}': ' ',
             '{done}': 'Done',
             '{numbers}': '123',
-            '{abc}': 'ABC'
+            '{abc}': 'ABC',
+            '{special}': 'àü'
         },
         theme: 'hg-theme-default hg-layout-default coffee-kbd',
         mergeDisplay: true
