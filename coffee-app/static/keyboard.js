@@ -1,5 +1,6 @@
 (function() {
     let activeInput = null;
+    let layoutChanging = false;
     const kbdWrap = document.getElementById('keyboard');
 
     const kbd = new SimpleKeyboard.default({
@@ -11,12 +12,18 @@
         },
         onKeyPress: button => {
             if (button === '{shift}' || button === '{lock}') {
+                layoutChanging = true;
                 const isShift = kbd.options.layoutName !== 'shift';
                 kbd.setOptions({ layoutName: isShift ? 'shift' : 'default' });
+                setTimeout(() => { layoutChanging = false; }, 100);
             } else if (button === '{numbers}') {
+                layoutChanging = true;
                 kbd.setOptions({ layoutName: 'numbers' });
+                setTimeout(() => { layoutChanging = false; }, 100);
             } else if (button === '{abc}') {
+                layoutChanging = true;
                 kbd.setOptions({ layoutName: 'default' });
+                setTimeout(() => { layoutChanging = false; }, 100);
             } else if (button === '{done}') {
                 hideKeyboard();
             }
@@ -80,6 +87,7 @@
     });
 
     document.addEventListener('pointerdown', e => {
+        if (layoutChanging) return;
         if (!kbdWrap.contains(e.target) && !e.target.matches('input')) {
             hideKeyboard();
         }
