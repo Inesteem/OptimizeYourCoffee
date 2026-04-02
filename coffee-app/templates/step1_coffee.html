@@ -145,10 +145,18 @@
                 <a href="/sample/{{ c.id }}" class="coffee-card">
                     <div class="coffee-card-top">
                         <div class="coffee-label">{{ c.label }}</div>
-                        {% if c.freshness %}
-                        <span class="freshness-badge {{ c.freshness.css }}">{{ c.freshness.stage }}</span>
-                        {% endif %}
+                        <div class="card-badges">
+                            {% if c.rating %}
+                            <span class="rating-badge {{ c.rating.css }}">{{ c.rating.avg_taste }}/5</span>
+                            {% endif %}
+                            {% if c.freshness %}
+                            <span class="freshness-badge {{ c.freshness.css }}">{{ c.freshness.stage }}</span>
+                            {% endif %}
+                        </div>
                     </div>
+                    {% if c.rating %}
+                    <div class="coffee-rating-line">{{ c.rating.tier }} — {{ c.rating.profile }} ({{ c.rating.n }} rep. shot{{ "s" if c.rating.n != 1 }})</div>
+                    {% endif %}
                     <div class="coffee-meta">
                         {% if c.roaster %}<span>{{ c.roaster }}</span>{% endif %}
                         {% if c.origin_country %}<span>{{ c.origin_country }}</span>{% endif %}

@@ -18,8 +18,9 @@
             <span><strong>{{ coffee.label }}</strong></span>
             <span>{{ sample.grams_in }}g &rarr; {{ sample.grams_out }}g</span>
             <span>1:{{ "%.1f"|format(sample.ratio) if sample.ratio else "?" }}</span>
-            <span>{{ "%d:%02d"|format(sample.brew_time_sec // 60, sample.brew_time_sec % 60) }}</span>
+            <span>{{ sample.brew_time_sec }}s</span>
             <span>Grind {{ sample.grind_size }}</span>
+            {% if freshness %}<span class="freshness-badge {{ freshness.css }}">{{ freshness.stage }}</span>{% endif %}
         </div>
 
         {% if tips is not none %}
@@ -53,6 +54,14 @@
                 </div>
             </div>
             {% endfor %}
+
+            <!-- Representative checkbox -->
+            <label class="representative-toggle">
+                <input type="checkbox" name="representative" value="1"
+                       {% if evaluation and evaluation.representative %}checked{% endif %}>
+                <span class="repr-check"></span>
+                <span>Representative shot for this coffee</span>
+            </label>
 
             <div class="eval-actions">
                 <button type="submit" class="btn-add">Save Evaluation</button>

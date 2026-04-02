@@ -98,9 +98,14 @@ def init_db():
                 body INTEGER CHECK(body BETWEEN 1 AND 5),
                 balance INTEGER CHECK(balance BETWEEN 1 AND 5),
                 overall INTEGER CHECK(overall BETWEEN 1 AND 5),
+                representative INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # migrate evaluations
+        eval_cols = [r["name"] for r in conn.execute("PRAGMA table_info(evaluations)").fetchall()]
+        if "representative" not in eval_cols:
+            conn.execute("ALTER TABLE evaluations ADD COLUMN representative INTEGER DEFAULT 0")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS custom_tasting_notes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -240,6 +245,78 @@ def diagnose(ev):
     return tips
 
 
+def coffee_rating(coffee_id, conn):
+    """Compute aggregate rating from representative evaluated shots."""
+    rows = conn.execute(
+        """SELECT e.aroma, e.acidity, e.sweetness, e.body, e.balance, e.overall
+           FROM evaluations e JOIN samples s ON e.sample_id = s.id
+           WHERE s.coffee_id = ? AND e.representative = 1
+             AND e.aroma IS NOT NULL""",
+        (coffee_id,),
+    ).fetchall()
+
+    if not rows:
+        return None
+
+    dims = ["aroma", "acidity", "sweetness", "body", "balance"]
+    totals = {d: 0 for d in dims}
+    overall_sum = 0
+    for r in rows:
+        for d in dims:
+            totals[d] += r[d] or 0
+        overall_sum += r["overall"] or 0
+    n = len(rows)
+    avgs = {d: totals[d] / n for d in dims}
+    avg_overall = overall_sum / n
+    avg_taste = sum(avgs.values()) / len(dims)
+
+    # Flavor profile descriptor
+    descriptors = []
+    if avgs["acidity"] >= 3.5:
+        descriptors.append("Bright")
+    elif avgs["acidity"] <= 2:
+        descriptors.append("Mellow")
+    if avgs["sweetness"] >= 3.5:
+        descriptors.append("Sweet")
+    if avgs["body"] >= 3.5:
+        descriptors.append("Full-bodied")
+    elif avgs["body"] <= 2:
+        descriptors.append("Light")
+    if avgs["balance"] >= 4:
+        descriptors.append("Well-balanced")
+    if avgs["aroma"] >= 4:
+        descriptors.append("Aromatic")
+
+    # Rating tier based on average taste score (1-5)
+    if avg_taste >= 4.5:
+        tier = "Outstanding"
+        css = "tier-outstanding"
+    elif avg_taste >= 3.8:
+        tier = "Excellent"
+        css = "tier-excellent"
+    elif avg_taste >= 3.0:
+        tier = "Very Good"
+        css = "tier-verygood"
+    elif avg_taste >= 2.2:
+        tier = "Good"
+        css = "tier-good"
+    else:
+        tier = "Below Average"
+        css = "tier-below"
+
+    profile = ", ".join(descriptors) if descriptors else "Neutral profile"
+
+    return {
+        "tier": tier,
+        "css": css,
+        "avg_taste": round(avg_taste, 1),
+        "avg_overall": round(avg_overall, 1),
+        "profile": profile,
+        "avgs": {d: round(avgs[d], 1) for d in dims},
+        "n": n,
+    }
+
+
 def suggest_grind(coffee_id, conn):
     """Suggest optimal grind size based on past evaluated shots using quadratic regression."""
     rows = conn.execute(
@@ -330,16 +407,18 @@ def index():
         ).fetchall():
             usage[row["coffee_id"]] = row["total_used"]
     coffee_data = []
-    for c in coffees:
-        cd = dict(c)
-        cd["freshness"] = freshness_status(c)
-        cd["tasting_chips"] = render_tasting_notes(c["tasting_notes"])
-        cd["grams_used"] = usage.get(c["id"], 0)
-        if c["bag_weight_g"]:
-            cd["grams_left"] = max(0, c["bag_weight_g"] - cd["grams_used"])
-        else:
-            cd["grams_left"] = None
-        coffee_data.append(cd)
+    with get_db() as conn2:
+        for c in coffees:
+            cd = dict(c)
+            cd["freshness"] = freshness_status(c)
+            cd["tasting_chips"] = render_tasting_notes(c["tasting_notes"])
+            cd["rating"] = coffee_rating(c["id"], conn2)
+            cd["grams_used"] = usage.get(c["id"], 0)
+            if c["bag_weight_g"]:
+                cd["grams_left"] = max(0, c["bag_weight_g"] - cd["grams_used"])
+            else:
+                cd["grams_left"] = None
+            coffee_data.append(cd)
     return render_template("step1_coffee.html", coffees=coffee_data, show_archived=show_archived)
 
 
@@ -531,10 +610,11 @@ def evaluate_sample(sample_id):
             return redirect(url_for("index"))
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
         existing = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
+    freshness = freshness_status(coffee)
     return render_template(
         "step3_evaluate.html",
         coffee=coffee, sample=sample, evaluation=existing,
-        dimensions=EVAL_DIMENSIONS, tips=None,
+        dimensions=EVAL_DIMENSIONS, tips=None, freshness=freshness,
     )
 
 
@@ -545,6 +625,7 @@ def save_evaluation(sample_id):
     for dim in EVAL_DIMENSIONS:
         val = data.get(dim["key"])
         scores[dim["key"]] = int(val) if val else None
+    representative = 1 if data.get("representative") else 0
 
     with get_db() as conn:
         sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
@@ -555,26 +636,28 @@ def save_evaluation(sample_id):
         existing = conn.execute("SELECT id FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
         if existing:
             conn.execute(
-                """UPDATE evaluations SET aroma=?, acidity=?, sweetness=?, body=?, balance=?, overall=?
-                   WHERE sample_id=?""",
+                """UPDATE evaluations SET aroma=?, acidity=?, sweetness=?, body=?, balance=?, overall=?,
+                   representative=? WHERE sample_id=?""",
                 (scores["aroma"], scores["acidity"], scores["sweetness"],
-                 scores["body"], scores["balance"], scores["overall"], sample_id),
+                 scores["body"], scores["balance"], scores["overall"],
+                 representative, sample_id),
             )
         else:
             conn.execute(
-                """INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall, representative)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (sample_id, scores["aroma"], scores["acidity"], scores["sweetness"],
-                 scores["body"], scores["balance"], scores["overall"]),
+                 scores["body"], scores["balance"], scores["overall"], representative),
             )
 
         evaluation = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
+        freshness = freshness_status(coffee)
 
     tips = diagnose(scores)
     return render_template(
         "step3_evaluate.html",
         coffee=coffee, sample=sample, evaluation=evaluation,
-        dimensions=EVAL_DIMENSIONS, tips=tips,
+        dimensions=EVAL_DIMENSIONS, tips=tips, freshness=freshness,
     )
 
 
@@ -603,6 +686,17 @@ def add_tasting_note():
                 conn.execute("INSERT INTO custom_tasting_notes (name, emoji) VALUES (?, ?)", (name, emoji))
             except sqlite3.IntegrityError:
                 return redirect(url_for("settings_tasting_notes", error="duplicate"))
+    return redirect(url_for("settings_tasting_notes"))
+
+
+@app.route("/settings/tasting-notes/<int:note_id>/edit", methods=["POST"])
+def edit_tasting_note(note_id):
+    name = request.form.get("name", "").strip()
+    emoji = request.form.get("emoji", "").strip()
+    if name:
+        with get_db() as conn:
+            conn.execute("UPDATE custom_tasting_notes SET name=?, emoji=? WHERE id=?",
+                         (name, emoji, note_id))
     return redirect(url_for("settings_tasting_notes"))
 
 
