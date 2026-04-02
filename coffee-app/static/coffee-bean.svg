@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <radialGradient id="beanGrad" cx="42%" cy="38%" r="58%" fx="38%" fy="34%">
+      <stop offset="0%"   stop-color="#A0693A"/>
+      <stop offset="45%"  stop-color="#6F4E37"/>
+      <stop offset="100%" stop-color="#3E2210"/>
+    </radialGradient>
+    <radialGradient id="highlightGrad" cx="38%" cy="30%" r="45%">
+      <stop offset="0%"   stop-color="#8B6914" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#8B6914" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#1A0A00" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+
+  <!-- Bean body -->
+  <ellipse
+    cx="64" cy="64"
+    rx="36" ry="50"
+    fill="url(#beanGrad)"
+    filter="url(#shadow)"
+  />
+
+  <!-- Crease (characteristic coffee-bean line) -->
+  <!-- Two offset paths create a subtle groove with shadow + lighter inner edge -->
+  <path
+    d="M 64 18
+       C 44 34, 44 56, 64 64
+       C 84 72, 84 94, 64 110"
+    fill="none"
+    stroke="#3E2210"
+    stroke-width="4.5"
+    stroke-linecap="round"
+    opacity="0.85"
+  />
+  <path
+    d="M 64 18
+       C 44 34, 44 56, 64 64
+       C 84 72, 84 94, 64 110"
+    fill="none"
+    stroke="#5C3D2E"
+    stroke-width="2.8"
+    stroke-linecap="round"
+    opacity="0.9"
+  />
+
+  <!-- Highlight overlay -->
+  <ellipse
+    cx="64" cy="64"
+    rx="36" ry="50"
+    fill="url(#highlightGrad)"
+  />
+</svg>

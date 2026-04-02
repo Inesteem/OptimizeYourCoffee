@@ -15,6 +15,13 @@
     </header>
 
     <main>
+        {% if undo_label %}
+        <form action="/undo" method="POST" class="undo-banner">
+            <span>{{ undo_label }}</span>
+            <button type="submit" class="undo-btn">Undo</button>
+        </form>
+        {% endif %}
+
         {% if coffees %}
         <h2 class="section-title-center">{% if show_archived %}Archived Coffees{% else %}Select a Coffee{% endif %}</h2>
         {% endif %}

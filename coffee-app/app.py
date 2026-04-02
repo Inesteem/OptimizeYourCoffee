@@ -1,20 +1,50 @@
+import json
 import os
+import shutil
 import sqlite3
-from datetime import date, datetime
+import time
+from datetime import date, datetime, timedelta
 from pathlib import Path
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 
 DB_PATH = Path(__file__).parent / "coffee.db"
+BACKUP_DIR = Path(__file__).parent / "backups"
+BACKUP_MAX_DAYS = 60
 
 app = Flask(__name__)
+app.secret_key = "coffee-sampler-2026"
 
-import time
 APP_VERSION = str(int(time.time()))
 
 
+def backup_db():
+    """Create a daily backup of the database. Prune backups older than BACKUP_MAX_DAYS."""
+    BACKUP_DIR.mkdir(exist_ok=True)
+    today = date.today().isoformat()
+    backup_file = BACKUP_DIR / f"coffee-{today}.db"
+    if not backup_file.exists() and DB_PATH.exists():
+        shutil.copy2(DB_PATH, backup_file)
+    # Prune old backups
+    cutoff = datetime.now() - timedelta(days=BACKUP_MAX_DAYS)
+    for f in BACKUP_DIR.glob("coffee-*.db"):
+        try:
+            fdate = datetime.strptime(f.stem.replace("coffee-", ""), "%Y-%m-%d")
+            if fdate < cutoff:
+                f.unlink()
+        except ValueError:
+            pass
+
+
 @app.context_processor
-def inject_version():
-    return {"v": APP_VERSION}
+def inject_globals():
+    undo = session.get("undo")
+    undo_label = None
+    if undo:
+        if undo["type"] == "coffee":
+            undo_label = f"Deleted coffee: {undo['coffee'].get('label', '?')}"
+        elif undo["type"] == "sample":
+            undo_label = "Deleted sample"
+    return {"v": APP_VERSION, "undo_label": undo_label}
 
 
 EVAL_DIMENSIONS = [
@@ -538,6 +568,21 @@ def archive_coffee(coffee_id):
 @app.route("/coffee/<int:coffee_id>/delete", methods=["POST"])
 def delete_coffee(coffee_id):
     with get_db() as conn:
+        # Store for undo
+        coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (coffee_id,)).fetchone()
+        samples = conn.execute("SELECT * FROM samples WHERE coffee_id = ?", (coffee_id,)).fetchall()
+        evals = []
+        for s in samples:
+            ev = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (s["id"],)).fetchone()
+            if ev:
+                evals.append(dict(ev))
+        if coffee:
+            session["undo"] = {
+                "type": "coffee",
+                "coffee": {k: coffee[k] for k in coffee.keys()},
+                "samples": [{k: s[k] for k in s.keys()} for s in samples],
+                "evaluations": evals,
+            }
         conn.execute("DELETE FROM evaluations WHERE sample_id IN (SELECT id FROM samples WHERE coffee_id = ?)", (coffee_id,))
         conn.execute("DELETE FROM samples WHERE coffee_id = ?", (coffee_id,))
         conn.execute("DELETE FROM coffees WHERE id = ?", (coffee_id,))
@@ -593,11 +638,74 @@ def add_sample(coffee_id):
 @app.route("/sample/<int:sample_id>/delete", methods=["POST"])
 def delete_sample(sample_id):
     with get_db() as conn:
-        row = conn.execute("SELECT coffee_id FROM samples WHERE id = ?", (sample_id,)).fetchone()
+        sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
+        ev = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
+        if sample:
+            session["undo"] = {
+                "type": "sample",
+                "sample": {k: sample[k] for k in sample.keys()},
+                "evaluation": dict(ev) if ev else None,
+            }
+        coffee_id = sample["coffee_id"] if sample else None
         conn.execute("DELETE FROM evaluations WHERE sample_id = ?", (sample_id,))
         conn.execute("DELETE FROM samples WHERE id = ?", (sample_id,))
-    if row:
-        return redirect(url_for("new_sample", coffee_id=row["coffee_id"]))
+    if coffee_id:
+        return redirect(url_for("new_sample", coffee_id=coffee_id))
+    return redirect(url_for("index"))
+
+
+@app.route("/undo", methods=["POST"])
+def undo_delete():
+    undo = session.pop("undo", None)
+    if not undo:
+        return redirect(url_for("index"))
+
+    with get_db() as conn:
+        if undo["type"] == "coffee":
+            c = undo["coffee"]
+            cols = [k for k in c if k != "id"]
+            placeholders = ",".join("?" for _ in cols)
+            conn.execute(
+                f"INSERT INTO coffees ({','.join(cols)}) VALUES ({placeholders})",
+                [c[k] for k in cols],
+            )
+            new_cid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            for s in undo.get("samples", []):
+                old_sid = s["id"]
+                s_cols = [k for k in s if k not in ("id", "ratio")]
+                s_cols_fixed = ["coffee_id" if k == "coffee_id" else k for k in s_cols]
+                s_vals = [new_cid if k == "coffee_id" else s[k] for k in s_cols]
+                conn.execute(
+                    f"INSERT INTO samples ({','.join(s_cols_fixed)}) VALUES ({','.join('?' for _ in s_cols)})",
+                    s_vals,
+                )
+                new_sid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+                for ev in undo.get("evaluations", []):
+                    if ev.get("sample_id") == old_sid:
+                        ev_cols = [k for k in ev if k not in ("id", "sample_id")]
+                        conn.execute(
+                            f"INSERT INTO evaluations (sample_id,{','.join(ev_cols)}) VALUES (?,{','.join('?' for _ in ev_cols)})",
+                            [new_sid] + [ev[k] for k in ev_cols],
+                        )
+            return redirect(url_for("new_sample", coffee_id=new_cid))
+
+        elif undo["type"] == "sample":
+            s = undo["sample"]
+            s_cols = [k for k in s if k not in ("id", "ratio")]
+            conn.execute(
+                f"INSERT INTO samples ({','.join(s_cols)}) VALUES ({','.join('?' for _ in s_cols)})",
+                [s[k] for k in s_cols],
+            )
+            new_sid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+            ev = undo.get("evaluation")
+            if ev:
+                ev_cols = [k for k in ev if k not in ("id", "sample_id")]
+                conn.execute(
+                    f"INSERT INTO evaluations (sample_id,{','.join(ev_cols)}) VALUES (?,{','.join('?' for _ in ev_cols)})",
+                    [new_sid] + [ev[k] for k in ev_cols],
+                )
+            return redirect(url_for("new_sample", coffee_id=s["coffee_id"]))
+
     return redirect(url_for("index"))
 
 
@@ -801,4 +909,5 @@ def quit_app():
 
 if __name__ == "__main__":
     init_db()
+    backup_db()
     app.run(host="0.0.0.0", port=5000, debug=True)
