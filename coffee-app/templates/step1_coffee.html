@@ -16,7 +16,7 @@
         <!-- Existing coffees -->
         {% if coffees %}
         <section class="coffee-list">
-            <h2>Select a Coffee</h2>
+            <h2>{% if show_archived %}Archived Coffees{% else %}Select a Coffee{% endif %}</h2>
             {% for c in coffees %}
             <div class="coffee-card-wrap">
                 <a href="/sample/{{ c.id }}" class="coffee-card">
@@ -31,15 +31,16 @@
                         {% if c.origin_country %}<span>{{ c.origin_country }}</span>{% endif %}
                         {% if c.process %}<span>{{ c.process }}</span>{% endif %}
                         {% if c.roast_date %}<span>Roasted {{ c.roast_date }}</span>{% endif %}
+                        {% if c.bag_price %}<span>{{ "%.2f"|format(c.bag_price) }} &euro;</span>{% endif %}
                     </div>
                     {% if c.freshness %}
                     <div class="freshness-detail">{{ c.freshness.detail }}</div>
                     {% endif %}
                     <div class="coffee-dates">
-                        <span>Added {{ c.created_at[:10] }}</span>
-                        {% if c.updated_at and c.updated_at != c.created_at %}
-                        <span>Updated {{ c.updated_at[:10] }}</span>
+                        {% if c.grams_left is not none %}
+                        <span>~{{ "%.0f"|format(c.grams_left) }}g left of {{ "%.0f"|format(c.bag_weight_g) }}g</span>
                         {% endif %}
+                        <span>Added {{ c.created_at[:10] }}</span>
                     </div>
                 </a>
                 <a href="/coffee/{{ c.id }}/edit" class="card-edit-btn" title="Edit">&#9998;</a>
@@ -47,6 +48,15 @@
             {% endfor %}
         </section>
         {% endif %}
+
+        <!-- Archive toggle -->
+        <div class="archive-toggle">
+            {% if show_archived %}
+            <a href="/">Show active coffees</a>
+            {% else %}
+            <a href="/?archived=1">Show archived coffees</a>
+            {% endif %}
+        </div>
 
         <!-- Add new coffee -->
         <details class="new-coffee" id="newCoffeeForm">
@@ -103,6 +113,17 @@
                     <div class="field">
                         <label for="roast_date">Roast Date</label>
                         <input type="date" id="roast_date" name="roast_date">
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="field">
+                        <label for="bag_weight_g">Bag (g)</label>
+                        <input type="number" id="bag_weight_g" name="bag_weight_g" step="1" min="0" placeholder="e.g. 250">
+                    </div>
+                    <div class="field">
+                        <label for="bag_price">Price (&euro;)</label>
+                        <input type="number" id="bag_price" name="bag_price" step="0.01" min="0" placeholder="e.g. 14.90">
                     </div>
                 </div>
 

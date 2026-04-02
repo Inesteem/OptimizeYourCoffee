@@ -71,21 +71,39 @@
 
             <div class="row">
                 <div class="field">
+                    <label for="bag_weight_g">Bag (g)</label>
+                    <input type="number" id="bag_weight_g" name="bag_weight_g" step="1" min="0" value="{{ coffee.bag_weight_g or '' }}" placeholder="e.g. 250">
+                </div>
+                <div class="field">
+                    <label for="bag_price">Price (&euro;)</label>
+                    <input type="number" id="bag_price" name="bag_price" step="0.01" min="0" value="{{ coffee.bag_price or '' }}" placeholder="e.g. 14.90">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="field">
                     <label for="best_after_days">Best After (days)</label>
-                    <input type="number" id="best_after_days" name="best_after_days" value="{{ coffee.best_after_days or 10 }}" min="0" max="60">
+                    <input type="number" id="best_after_days" name="best_after_days" value="{{ coffee.best_after_days or 7 }}" min="0" max="60">
                 </div>
                 <div class="field">
                     <label for="consume_within_days">Use Within (days)</label>
-                    <input type="number" id="consume_within_days" name="consume_within_days" value="{{ coffee.consume_within_days or 90 }}" min="1" max="365">
+                    <input type="number" id="consume_within_days" name="consume_within_days" value="{{ coffee.consume_within_days or 50 }}" min="1" max="365">
                 </div>
             </div>
 
             <button type="submit" class="btn-add">Save Changes</button>
         </form>
 
-        <form action="/coffee/{{ coffee.id }}/delete" method="POST" class="delete-form">
-            <button type="submit" class="btn-delete-coffee" onclick="return confirm('Delete this coffee and all its samples?')">Delete Coffee</button>
-        </form>
+        <div class="edit-actions-row">
+            <form action="/coffee/{{ coffee.id }}/archive" method="POST" class="inline">
+                <button type="submit" class="btn-archive">
+                    {% if coffee.archived %}Unarchive{% else %}Archive (empty bag){% endif %}
+                </button>
+            </form>
+            <form action="/coffee/{{ coffee.id }}/delete" method="POST" class="inline">
+                <button type="submit" class="btn-delete-coffee" onclick="return confirm('Delete this coffee and all its samples?')">Delete</button>
+            </form>
+        </div>
     </main>
 
     <div id="keyboard" class="kbd hidden">

@@ -39,20 +39,27 @@ def init_db():
                 tasting_notes TEXT,
                 label TEXT NOT NULL,
                 roast_date TEXT,
-                best_after_days INTEGER DEFAULT 10,
-                consume_within_days INTEGER DEFAULT 90,
+                best_after_days INTEGER DEFAULT 7,
+                consume_within_days INTEGER DEFAULT 50,
+                bag_weight_g REAL,
+                bag_price REAL,
+                archived INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         # migrate existing DBs
         cols = [r["name"] for r in conn.execute("PRAGMA table_info(coffees)").fetchall()]
-        if "updated_at" not in cols:
-            conn.execute("ALTER TABLE coffees ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-        if "best_after_days" not in cols:
-            conn.execute("ALTER TABLE coffees ADD COLUMN best_after_days INTEGER DEFAULT 10")
-        if "consume_within_days" not in cols:
-            conn.execute("ALTER TABLE coffees ADD COLUMN consume_within_days INTEGER DEFAULT 90")
+        for col, definition in [
+            ("updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"),
+            ("best_after_days", "INTEGER DEFAULT 7"),
+            ("consume_within_days", "INTEGER DEFAULT 50"),
+            ("bag_weight_g", "REAL"),
+            ("bag_price", "REAL"),
+            ("archived", "INTEGER DEFAULT 0"),
+        ]:
+            if col not in cols:
+                conn.execute(f"ALTER TABLE coffees ADD COLUMN {col} {definition}")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS samples (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -172,16 +179,33 @@ def diagnose(ev):
 
 @app.route("/")
 def index():
+    show_archived = request.args.get("archived") == "1"
     with get_db() as conn:
-        coffees = conn.execute(
-            "SELECT * FROM coffees ORDER BY created_at DESC"
-        ).fetchall()
+        if show_archived:
+            coffees = conn.execute(
+                "SELECT * FROM coffees WHERE archived = 1 ORDER BY updated_at DESC"
+            ).fetchall()
+        else:
+            coffees = conn.execute(
+                "SELECT * FROM coffees WHERE archived = 0 ORDER BY created_at DESC"
+            ).fetchall()
+        # Compute used grams per coffee
+        usage = {}
+        for row in conn.execute(
+            "SELECT coffee_id, SUM(grams_in) as total_used FROM samples GROUP BY coffee_id"
+        ).fetchall():
+            usage[row["coffee_id"]] = row["total_used"]
     coffee_data = []
     for c in coffees:
         cd = dict(c)
         cd["freshness"] = freshness_status(c)
+        cd["grams_used"] = usage.get(c["id"], 0)
+        if c["bag_weight_g"]:
+            cd["grams_left"] = max(0, c["bag_weight_g"] - cd["grams_used"])
+        else:
+            cd["grams_left"] = None
         coffee_data.append(cd)
-    return render_template("step1_coffee.html", coffees=coffee_data)
+    return render_template("step1_coffee.html", coffees=coffee_data, show_archived=show_archived)
 
 
 @app.route("/coffee/add", methods=["POST"])
@@ -191,11 +215,13 @@ def add_coffee():
     with get_db() as conn:
         best_after = data.get("best_after_days", "").strip()
         consume_within = data.get("consume_within_days", "").strip()
+        bag_weight = data.get("bag_weight_g", "").strip()
+        bag_price = data.get("bag_price", "").strip()
         cur = conn.execute(
             """INSERT INTO coffees (roaster, origin_country, origin_city, origin_producer,
                                     variety, process, tasting_notes, label, roast_date,
-                                    best_after_days, consume_within_days)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                    best_after_days, consume_within_days, bag_weight_g, bag_price)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 data.get("roaster", "").strip() or None,
                 data.get("origin_country", "").strip() or None,
@@ -206,8 +232,10 @@ def add_coffee():
                 data.get("tasting_notes", "").strip() or None,
                 label,
                 data.get("roast_date", "").strip() or None,
-                int(best_after) if best_after else 10,
-                int(consume_within) if consume_within else 90,
+                int(best_after) if best_after else 7,
+                int(consume_within) if consume_within else 50,
+                float(bag_weight) if bag_weight else None,
+                float(bag_price) if bag_price else None,
             ),
         )
         coffee_id = cur.lastrowid
@@ -229,11 +257,14 @@ def save_coffee(coffee_id):
     label = data.get("label", "").strip() or make_label(data)
     best_after = data.get("best_after_days", "").strip()
     consume_within = data.get("consume_within_days", "").strip()
+    bag_weight = data.get("bag_weight_g", "").strip()
+    bag_price = data.get("bag_price", "").strip()
     with get_db() as conn:
         conn.execute(
             """UPDATE coffees SET roaster=?, origin_country=?, origin_city=?, origin_producer=?,
                                   variety=?, process=?, tasting_notes=?, label=?, roast_date=?,
                                   best_after_days=?, consume_within_days=?,
+                                  bag_weight_g=?, bag_price=?,
                                   updated_at=CURRENT_TIMESTAMP
                WHERE id=?""",
             (
@@ -246,17 +277,31 @@ def save_coffee(coffee_id):
                 data.get("tasting_notes", "").strip() or None,
                 label,
                 data.get("roast_date", "").strip() or None,
-                int(best_after) if best_after else 10,
-                int(consume_within) if consume_within else 90,
+                int(best_after) if best_after else 7,
+                int(consume_within) if consume_within else 50,
+                float(bag_weight) if bag_weight else None,
+                float(bag_price) if bag_price else None,
                 coffee_id,
             ),
         )
     return redirect(url_for("new_sample", coffee_id=coffee_id))
 
 
+@app.route("/coffee/<int:coffee_id>/archive", methods=["POST"])
+def archive_coffee(coffee_id):
+    with get_db() as conn:
+        coffee = conn.execute("SELECT archived FROM coffees WHERE id = ?", (coffee_id,)).fetchone()
+        if coffee:
+            new_state = 0 if coffee["archived"] else 1
+            conn.execute("UPDATE coffees SET archived = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                         (new_state, coffee_id))
+    return redirect(url_for("index"))
+
+
 @app.route("/coffee/<int:coffee_id>/delete", methods=["POST"])
 def delete_coffee(coffee_id):
     with get_db() as conn:
+        conn.execute("DELETE FROM evaluations WHERE sample_id IN (SELECT id FROM samples WHERE coffee_id = ?)", (coffee_id,))
         conn.execute("DELETE FROM samples WHERE coffee_id = ?", (coffee_id,))
         conn.execute("DELETE FROM coffees WHERE id = ?", (coffee_id,))
     return redirect(url_for("index"))

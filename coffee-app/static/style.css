@@ -675,6 +675,47 @@ header h1 {
     opacity: 0.7;
 }
 
+.edit-actions-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.edit-actions-row .inline {
+    flex: 1;
+}
+
+.btn-archive {
+    width: 100%;
+    padding: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    background: #3a3a50;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-archive:active {
+    opacity: 0.7;
+}
+
+.archive-toggle {
+    text-align: center;
+    margin: 12px 0;
+}
+
+.archive-toggle a {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-decoration: none;
+}
+
+.archive-toggle a:active {
+    color: var(--accent);
+}
+
 /* Diagnostic feedback */
 .diagnostic {
     background: #2a3a2a;
