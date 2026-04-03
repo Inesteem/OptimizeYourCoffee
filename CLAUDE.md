@@ -76,9 +76,20 @@ coffee-settings/
 ### Data flow
 1. Coffee overview (step1) → tap card → sample form (step2, pre-filled from recipe)
 2. Sample saved with `days_since_roast` snapshot → redirect to evaluation (step3)
-3. Evaluation saved with UPSERT → diagnostics computed from taste descriptors + brew params → shown immediately
-4. Stats page: per-coffee charts from aggregated query data
-5. Insights page: cross-coffee groupings (process, origin, roast level) with Chart.js
+3. User can navigate back from eval to edit sample brew params, and forward again (loop via `from=eval` context)
+4. Evaluation saved with UPSERT → diagnostics computed from taste descriptors + brew params → shown immediately
+5. Stats page: per-coffee charts from aggregated query data
+6. Insights page: cross-coffee groupings (process, origin, roast level) with Chart.js
+
+### Grind aroma prefill
+Grind aroma (1-5 score) and grind smell descriptors are captured on the sample page and carried to the evaluation page. They are **not stored on the `samples` table** — only persisted when the user saves the evaluation (to `evaluations.grind_aroma` and `evaluations.aroma_descriptors`).
+
+Prefill priority chain (both sample and eval pages):
+1. **Existing evaluation** — when re-editing, the saved values take precedence (template logic)
+2. **Query params** — fresh selections from the sample page, passed via URL on redirect
+3. **Sticky from last eval** — last evaluation of the same coffee (per-coffee carry-forward)
+
+This means grind aroma "sticks" across shots of the same coffee, while fresh selections from the sample page always override the sticky value on the eval page.
 
 ### Database
 Single SQLite file (`coffee.db`, WAL mode, foreign keys). 4 tables: `coffees`, `samples`, `evaluations`, `custom_tasting_notes`. Schema migrations via `ALTER TABLE` in `init_db()` — **never drop/recreate tables** (user has real data).
@@ -93,6 +104,8 @@ Single SQLite file (`coffee.db`, WAL mode, foreign keys). 4 tables: `coffees`, `
 - **Inline chart JS** — server renders JSON into template `<script>` blocks. Avoids extra API calls.
 - **Autocomplete as inline chips** (not floating dropdown) — Chromium/Wayland repaint bug prevents `position: fixed` elements toggled via display.
 - **`days_since_roast` snapshot on samples** — frozen at creation time, not computed live. Shows bean age when that specific shot was pulled.
+- **Grind aroma lives on evaluations, not samples** — captured on the sample page for UX but only persisted to `evaluations` on save. Carried between pages via query params, with sticky prefill from the last eval of the same coffee.
+- **Sample↔eval navigation loop** — back arrow on eval goes to edit sample (`?from=eval`), save returns to eval. User escapes via the edit page's back arrow or eval's "Done" button.
 - **Timestamped backups** — every Flask startup creates `coffee-YYYY-MM-DD_HHMMSS.db`. Pruned after 60 days.
 
 ## Key Conventions

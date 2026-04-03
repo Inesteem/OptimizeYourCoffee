@@ -9,7 +9,7 @@
 </head>
 <body>
     <header>
-        <a href="/sample/{{ coffee.id }}" class="back-btn">&larr;</a>
+        <a href="/sample/{{ sample.id }}/edit?from=eval" class="back-btn">&larr;</a>
         <h1>Evaluate Shot</h1>
     </header>
 
@@ -79,7 +79,7 @@
 
             <!-- Grind Smell Descriptors -->
             <h3 class="form-section-title">Grind Smell (ground coffee)</h3>
-            {% set saved_aroma = (evaluation.aroma_descriptors or '').split(',') if evaluation and evaluation.aroma_descriptors else [] %}
+            {% set saved_aroma = (evaluation.aroma_descriptors or '').split(',') if evaluation and evaluation.aroma_descriptors else (prefill_grind_smell or '').split(',') %}
             <div class="descriptor-chips">
                 {% for d in grind_smell_descriptors %}
                 <label class="descriptor-chip {% if d in saved_aroma %}active{% endif %}">
@@ -164,8 +164,13 @@
             </div>
 
             <div class="eval-actions">
+                {% if evaluation %}
+                <button type="submit" class="btn-add">Update</button>
+                <a href="/" class="btn-skip">Done</a>
+                {% else %}
                 <button type="submit" class="btn-add">Save Evaluation</button>
                 <a href="/sample/{{ coffee.id }}" class="btn-skip">Skip</a>
+                {% endif %}
             </div>
         </form>
     </main>

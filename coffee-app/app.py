@@ -50,6 +50,14 @@ def safe_float(val, default=None):
         return default
 
 
+def days_since(date_str):
+    """Return days between today and a YYYY-MM-DD string, or None on failure."""
+    try:
+        return (date.today() - datetime.strptime(date_str, "%Y-%m-%d").date()).days
+    except (ValueError, TypeError):
+        return None
+
+
 # Column allowlists for undo route (SQL injection prevention)
 COFFEE_COLUMNS = {"roaster", "origin_country", "origin_city", "origin_producer",
                   "variety", "process", "tasting_notes", "label", "roast_date",
@@ -58,7 +66,7 @@ COFFEE_COLUMNS = {"roaster", "origin_country", "origin_city", "origin_producer",
                   "bean_color", "bean_size", "opened_date",
                   "archived", "created_at", "updated_at"}
 SAMPLE_COLUMNS = {"coffee_id", "grind_size", "grams_in", "grams_out", "brew_time_sec",
-                  "brew_temp_c", "days_since_roast", "days_since_opened", "grind_smell", "notes", "created_at"}
+                  "brew_temp_c", "days_since_roast", "days_since_opened", "notes", "created_at"}
 EVALUATION_COLUMNS = {"sample_id", "aroma", "acidity", "sweetness", "body", "balance",
                       "overall", "grind_aroma", "aroma_descriptors", "brew_smell_descriptors", "taste_descriptors",
                       "preheat_portafilter", "preheat_cup",
@@ -223,7 +231,6 @@ def init_db():
                 brew_temp_c REAL DEFAULT 91,
                 days_since_roast INTEGER,
                 days_since_opened INTEGER,
-                grind_smell TEXT,
                 notes TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -236,8 +243,6 @@ def init_db():
             conn.execute("ALTER TABLE samples ADD COLUMN days_since_roast INTEGER")
         if "days_since_opened" not in sample_cols:
             conn.execute("ALTER TABLE samples ADD COLUMN days_since_opened INTEGER")
-        if "grind_smell" not in sample_cols:
-            conn.execute("ALTER TABLE samples ADD COLUMN grind_smell TEXT")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS evaluations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -364,8 +369,8 @@ def freshness_status(coffee):
     # Stage boundaries
     degas_end = min(3, best_after)        # first 3 days: heavy CO2
     rest_end = best_after                 # resting until best_after
-    peak_end = best_after + 11            # ~11 days of peak after rest
-    good_end = best_after + 25            # ~3.5 weeks still good
+    peak_end = min(best_after + 11, consume_within)   # ~11 days of peak after rest
+    good_end = min(best_after + 25, consume_within)   # ~3.5 weeks still good
     fading_end = consume_within
 
     if days < 0:
@@ -398,9 +403,9 @@ def freshness_status(coffee):
 def diagnose(ev, taste_desc=None, actual_out=None, target_out=None, brew_time=None):
     """Return diagnostic tips based on scores, taste descriptors, output deviation, and brew time."""
     tips = []
-    acidity = ev.get("acidity", 3)
-    sweetness = ev.get("sweetness", 3)
-    body = ev.get("body", 3)
+    acidity = ev.get("acidity") or 3
+    sweetness = ev.get("sweetness") or 3
+    body = ev.get("body") or 3
     taste_tags = set(t.strip().lower() for t in (taste_desc or "").split(",") if t.strip())
 
     # Taste descriptor-based diagnostics (work even with 0 prior shots)
@@ -457,10 +462,10 @@ def diagnose(ev, taste_desc=None, actual_out=None, target_out=None, brew_time=No
             tips.append(f"Output {dev_g:.0f}g under target — grind a little coarser (1 step).")
 
     # Positive feedback
-    if ev.get("balance", 3) >= 4 and ev.get("overall", 3) >= 4:
+    if (ev.get("balance") or 3) >= 4 and (ev.get("overall") or 3) >= 4:
         tips.append("Great shot! Save this recipe as a reference.")
     elif not tips:
-        if ev.get("overall", 3) >= 4:
+        if (ev.get("overall") or 3) >= 4:
             tips.append("Solid shot. Minor tweaks could make it even better.")
 
     return tips
@@ -472,7 +477,7 @@ def coffee_rating(coffee_id, conn):
         """SELECT e.aroma, e.acidity, e.sweetness, e.body, e.balance, e.overall
            FROM evaluations e JOIN samples s ON e.sample_id = s.id
            WHERE s.coffee_id = ? AND e.representative = 1
-             AND e.aroma IS NOT NULL""",
+             AND e.aroma IS NOT NULL AND e.overall IS NOT NULL""",
         (coffee_id,),
     ).fetchall()
 
@@ -640,14 +645,7 @@ def index():
             cd["tasting_chips"] = render_tasting_notes(c["tasting_notes"])
             cd["rating"] = coffee_rating(c["id"], conn2)
             cd["grams_used"] = usage.get(c["id"], 0)
-            # Compute days since opened
-            cd["days_open"] = None
-            if c["opened_date"]:
-                try:
-                    opened = datetime.strptime(c["opened_date"], "%Y-%m-%d").date()
-                    cd["days_open"] = (date.today() - opened).days
-                except (ValueError, TypeError):
-                    pass
+            cd["days_open"] = days_since(c["opened_date"])
             if c["bag_weight_g"]:
                 cd["grams_left"] = max(0, c["bag_weight_g"] - cd["grams_used"])
             else:
@@ -786,18 +784,25 @@ def new_sample(coffee_id):
     if not coffee["opened_date"] and not request.args.get("skip_open_check"):
         return render_template("open_bag.html", coffee=coffee)
     freshness = freshness_status(coffee)
+    # Grind aroma prefill: sticky from last evaluation of this coffee.
+    # See evaluate_sample() for the full prefill priority chain.
     grind_hint = None
     with get_db() as conn:
         grind_hint = suggest_grind(coffee_id, conn)
-    # Compute days since opened
-    days_open = None
-    if coffee["opened_date"]:
-        try:
-            days_open = (date.today() - datetime.strptime(coffee["opened_date"], "%Y-%m-%d").date()).days
-        except (ValueError, TypeError):
-            pass
+        last_eval = conn.execute(
+            """SELECT e.grind_aroma, e.aroma_descriptors
+               FROM evaluations e JOIN samples s ON e.sample_id = s.id
+               WHERE s.coffee_id = ? AND e.grind_aroma IS NOT NULL
+               ORDER BY e.created_at DESC LIMIT 1""",
+            (coffee_id,),
+        ).fetchone()
+    days_open = days_since(coffee["opened_date"])
+    prefill_grind_aroma = last_eval["grind_aroma"] if last_eval else None
+    prefill_grind_smell = (last_eval["aroma_descriptors"] or "").split(",") if last_eval and last_eval["aroma_descriptors"] else []
     return render_template("step2_sample.html", coffee=coffee, samples=samples,
-                           freshness=freshness, grind_hint=grind_hint, days_open=days_open)
+                           freshness=freshness, grind_hint=grind_hint, days_open=days_open,
+                           prefill_grind_aroma=prefill_grind_aroma,
+                           prefill_grind_smell=prefill_grind_smell)
 
 
 @app.route("/coffee/<int:coffee_id>/open", methods=["POST"])
@@ -817,29 +822,20 @@ def add_sample(coffee_id):
     brew_time_sec = minutes * 60 + seconds
 
     brew_temp = data.get("brew_temp_c", "").strip()
+    # Grind aroma + smell captured on sample page, carried to eval via query params.
+    # Not stored on samples — only persisted when the user saves the evaluation.
     grind_smell = ",".join(data.getlist("grind_smell")) or None
+    grind_aroma = data.get("grind_aroma") or None
 
     with get_db() as conn:
-        # Compute days since roast and since opened
+
         coffee = conn.execute("SELECT roast_date, opened_date FROM coffees WHERE id = ?", (coffee_id,)).fetchone()
-        days_since_roast = None
-        days_since_opened = None
-        today = date.today()
-        if coffee:
-            if coffee["roast_date"]:
-                try:
-                    days_since_roast = (today - datetime.strptime(coffee["roast_date"], "%Y-%m-%d").date()).days
-                except (ValueError, TypeError):
-                    pass
-            if coffee["opened_date"]:
-                try:
-                    days_since_opened = (today - datetime.strptime(coffee["opened_date"], "%Y-%m-%d").date()).days
-                except (ValueError, TypeError):
-                    pass
+        days_since_roast = days_since(coffee["roast_date"]) if coffee else None
+        days_since_opened = days_since(coffee["opened_date"]) if coffee else None
 
         cur = conn.execute(
-            """INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec, brew_temp_c, days_since_roast, days_since_opened, grind_smell, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec, brew_temp_c, days_since_roast, days_since_opened, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 coffee_id,
                 safe_float(data["grind_size"], 0),
@@ -849,12 +845,12 @@ def add_sample(coffee_id):
                 safe_float(brew_temp, 91),
                 days_since_roast,
                 days_since_opened,
-                grind_smell,
                 data.get("notes", ""),
             ),
         )
         sample_id = cur.lastrowid
-    return redirect(url_for("evaluate_sample", sample_id=sample_id))
+    return redirect(url_for("evaluate_sample", sample_id=sample_id,
+                            grind_smell=grind_smell, grind_aroma=grind_aroma))
 
 
 @app.route("/sample/<int:sample_id>/delete", methods=["POST"])
@@ -885,7 +881,9 @@ def edit_sample(sample_id):
             return redirect(url_for("index"))
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
         all_coffees = conn.execute("SELECT id, label FROM coffees WHERE archived = 0 ORDER BY label").fetchall()
-    return render_template("edit_sample.html", sample=sample, coffee=coffee, all_coffees=all_coffees)
+    from_eval = request.args.get("from") == "eval"
+    return render_template("edit_sample.html", sample=sample, coffee=coffee,
+                           all_coffees=all_coffees, from_eval=from_eval)
 
 
 @app.route("/sample/<int:sample_id>/edit", methods=["POST"])
@@ -897,6 +895,8 @@ def save_sample(sample_id):
         sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
         if not sample:
             return redirect(url_for("index"))
+        if new_coffee_id and not conn.execute("SELECT id FROM coffees WHERE id = ?", (new_coffee_id,)).fetchone():
+            return redirect(url_for("new_sample", coffee_id=sample["coffee_id"]))
         conn.execute(
             """UPDATE samples SET coffee_id=?, grind_size=?, grams_in=?, grams_out=?,
                brew_time_sec=?, brew_temp_c=? WHERE id=?""",
@@ -910,6 +910,8 @@ def save_sample(sample_id):
                 sample_id,
             ),
         )
+    if data.get("from_eval"):
+        return redirect(url_for("evaluate_sample", sample_id=sample_id))
     target = new_coffee_id or sample["coffee_id"]
     return redirect(url_for("new_sample", coffee_id=target))
 
@@ -975,9 +977,11 @@ def insights():
     """Cross-coffee insights page with groupings by process, variety, origin, roast level."""
     # Filter options from query params
     rep_only = request.args.get("rep", "0") == "1"
-    score_source = request.args.get("score", "taste")  # "taste" = 5 dims, "overall" = overall only
+    min_score = safe_float(request.args.get("min"), 0)  # 0 = no filter
 
     rep_filter = "AND e.representative = 1" if rep_only else ""
+    score_filter = "AND e.overall >= ?" if min_score > 0 else ""
+    query_params = [min_score] if min_score > 0 else []
 
     with get_db() as conn:
         rows = conn.execute(f"""
@@ -994,15 +998,15 @@ def insights():
             FROM coffees c
             JOIN samples s ON s.coffee_id = c.id
             JOIN evaluations e ON e.sample_id = s.id
-            WHERE e.overall IS NOT NULL {rep_filter}
+            WHERE e.overall IS NOT NULL {rep_filter} {score_filter}
             GROUP BY c.id
-        """).fetchall()
+        """, query_params).fetchall()
 
     if not rows:
         return render_template("insights.html", process_chart="[]", origin_chart="[]",
                                roast_chart="[]", process_radar="[]",
                                findings=[], totals={"coffees": 0, "shots": 0},
-                               rep_only=rep_only, score_source=score_source)
+                               rep_only=rep_only, min_score=min_score)
 
     coffees = [dict(r) for r in rows]
 
@@ -1017,9 +1021,9 @@ def insights():
     def gavg(group, metric):
         """Average of a metric across coffees in a group."""
         vals = [c[metric] for c in group if c[metric] is not None]
-        return round(sum(vals) / len(vals), 1) if vals else 0
+        return round(sum(vals) / len(vals), 1) if vals else None
 
-    def build_chart(grouping, sort_key="avg_overall"):
+    def build_chart(grouping):
         """Build sorted chart data for a grouping dict."""
         chart = []
         for name, group in grouping.items():
@@ -1045,65 +1049,68 @@ def insights():
     roast_chart = build_chart(by_roast)
 
     # --- Organized findings ---
-    findings = []  # list of {"category": str, "text": str}
+    findings = []
     total_shots = sum(c["shot_count"] for c in coffees)
     total_coffees = len(coffees)
 
     # Top rated
     best = max(coffees, key=lambda c: c["avg_overall"] or 0)
-    findings.append({"cat": "Top", "text": f"Top rated: {best['label']} ({best['avg_overall']:.1f}/5, {best['shot_count']} shots)"})
+    findings.append({"cat": "Top", "text": f"Top rated: {best['label']} ({best['avg_overall']:.1f}/5, {best['shot_count']} shot{'s' if best['shot_count'] != 1 else ''})"})
 
-    # Process insights (scores are avg of ALL shots to show trajectory)
-    if len(by_process) > 1:
-        best_proc = max(by_process.items(), key=lambda x: gavg(x[1], "avg_overall"))
-        worst_proc = min(by_process.items(), key=lambda x: gavg(x[1], "avg_overall"))
-        if best_proc[0] != worst_proc[0]:
-            findings.append({"cat": "Process", "text":
-                f"{best_proc[0]} avg {gavg(best_proc[1], 'avg_overall')}/5 vs {worst_proc[0]} at {gavg(worst_proc[1], 'avg_overall')}/5"})
-        # Grind ranges (avg of dialed-in shots scoring 4+)
-        for proc, group in by_process.items():
-            good_grinds = [c["avg_grind"] for c in group if c["avg_grind"] and (c["avg_overall"] or 0) >= 3.5]
-            if good_grinds:
-                findings.append({"cat": "Process", "text":
-                    f"{proc}: grind {min(good_grinds):.0f}–{max(good_grinds):.0f} (well-scoring shots)"})
+    # Process insights: avg rating + grind range
+    for proc, group in sorted(by_process.items(), key=lambda x: gavg(x[1], "avg_overall") or 0, reverse=True):
+        avg_ov = gavg(group, "avg_overall")
+        with_grind = [c for c in group if c["avg_grind"]]
+        if with_grind:
+            grinds = [c["avg_grind"] for c in with_grind]
+            grind_part = f", grind {min(grinds):.1f}–{max(grinds):.1f}" if len(grinds) > 1 else f", grind {grinds[0]:.1f}"
+        else:
+            grind_part = ""
+        shots = sum(c["shot_count"] for c in group)
+        findings.append({"cat": "Process", "text":
+            f"{proc}: avg {avg_ov}/5 ({len(group)} coffee{'s' if len(group) != 1 else ''}, {shots} shot{'s' if shots != 1 else ''}){grind_part}"})
 
-    # Flavor standouts (from representative-quality coffees)
+    # Flavor standouts
     sweetest = max(coffees, key=lambda c: c["avg_sweetness"] or 0)
-    findings.append({"cat": "Flavor", "text": f"Sweetest: {sweetest['label']} ({sweetest['avg_sweetness']:.1f}/5)"})
+    findings.append({"cat": "Flavor", "text": f"Sweetest: {sweetest['label']} ({sweetest['avg_sweetness']:.1f}/5, {sweetest['shot_count']} shot{'s' if sweetest['shot_count'] != 1 else ''})"})
     brightest = max(coffees, key=lambda c: c["avg_acidity"] or 0)
-    findings.append({"cat": "Flavor", "text": f"Brightest: {brightest['label']} ({brightest['avg_acidity']:.1f}/5 acidity)"})
+    findings.append({"cat": "Flavor", "text": f"Brightest: {brightest['label']} ({brightest['avg_acidity']:.1f}/5 acidity, {brightest['shot_count']} shot{'s' if brightest['shot_count'] != 1 else ''})"})
     fullest = max(coffees, key=lambda c: c["avg_body"] or 0)
-    findings.append({"cat": "Flavor", "text": f"Fullest body: {fullest['label']} ({fullest['avg_body']:.1f}/5)"})
+    findings.append({"cat": "Flavor", "text": f"Fullest body: {fullest['label']} ({fullest['avg_body']:.1f}/5, {fullest['shot_count']} shot{'s' if fullest['shot_count'] != 1 else ''})"})
 
     # Cross-cutting insights (process + origin combinations)
     for c in coffees:
         if (c["avg_overall"] or 0) >= 4.0:
+            proc = c["process"] or "Unknown"
+            origin = c["origin_country"] or "Unknown"
+            variety = c["variety"] or "Unknown"
             findings.append({"cat": "Cross", "text":
-                f"{c['process']} {c['origin_country']} {c['variety']}: {c['avg_overall']:.1f}/5 overall"})
+                f"{proc} {origin} {variety}: {c['avg_overall']:.1f}/5 overall ({c['shot_count']} shot{'s' if c['shot_count'] != 1 else ''})"})
 
     # Roast insights
     if len(by_roast) > 1:
         for roast, group in by_roast.items():
             if roast != "Unknown":
+                shots = sum(c["shot_count"] for c in group)
                 findings.append({"cat": "Roast", "text":
-                    f"{roast} roasts: acidity {gavg(group, 'avg_acidity')}, body {gavg(group, 'avg_body')}, grind {gavg(group, 'avg_grind'):.0f}"})
+                    f"{roast} roasts: acidity {gavg(group, 'avg_acidity') or '?'}, body {gavg(group, 'avg_body') or '?'}, grind {gavg(group, 'avg_grind') or 0:.1f} ({shots} shot{'s' if shots != 1 else ''})"})
 
     # Value
     priced = [c for c in coffees if c["bag_price"] and (c["avg_overall"] or 0) > 0]
     if len(priced) >= 2:
         best_val = min(priced, key=lambda c: c["bag_price"] / c["avg_overall"])
         findings.append({"cat": "Value", "text":
-            f"Best value: {best_val['label']} ({best_val['bag_price']:.0f}€, {best_val['avg_overall']:.1f}/5)"})
+            f"Best value: {best_val['label']} ({best_val['bag_price']:.0f}€, {best_val['avg_overall']:.1f}/5, {best_val['shot_count']} shot{'s' if best_val['shot_count'] != 1 else ''})"})
 
     totals = {"coffees": total_coffees, "shots": total_shots}
 
     # Radar overlay: all processes
     dims = ["aroma", "acidity", "sweetness", "body", "balance"]
     process_radar = []
-    for proc, group in sorted(by_process.items(), key=lambda x: gavg(x[1], "avg_overall"), reverse=True):
+    for proc, group in sorted(by_process.items(), key=lambda x: gavg(x[1], "avg_overall") or 0, reverse=True):
         process_radar.append({
             "name": proc,
-            "data": [gavg(group, f"avg_{d}") for d in dims],
+            "data": [gavg(group, f"avg_{d}") or 0 for d in dims],
         })
 
     return render_template("insights.html",
@@ -1112,7 +1119,8 @@ def insights():
                            roast_chart=json.dumps(roast_chart),
                            process_radar=json.dumps(process_radar),
                            findings=findings, totals=totals,
-                           rep_only=rep_only, score_source=score_source)
+                           rep_only=rep_only,
+                           min_score=min_score)
 
 
 # --- Coffee Stats & Charts ---
@@ -1193,13 +1201,7 @@ def coffee_stats(coffee_id):
         stats["best_score"] = best["overall"]
         stats["avg_ratio"] = round(sum(s["ratio"] or 0 for s in evaluated) / len(evaluated), 1)
 
-    # Compute days since opened
-    days_open = None
-    if coffee["opened_date"]:
-        try:
-            days_open = (date.today() - datetime.strptime(coffee["opened_date"], "%Y-%m-%d").date()).days
-        except (ValueError, TypeError):
-            pass
+    days_open = days_since(coffee["opened_date"])
 
     return render_template("stats.html", coffee=coffee, freshness=freshness, rating=rating,
                            stats=stats, timeline=json.dumps(timeline),
@@ -1218,20 +1220,27 @@ def evaluate_sample(sample_id):
             return redirect(url_for("index"))
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
         existing = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
-        # Get last grind_aroma for pre-fill
-        last_aroma = conn.execute(
-            """SELECT e.grind_aroma FROM evaluations e JOIN samples s ON e.sample_id = s.id
+        # Grind aroma prefill priority chain:
+        # 1. Existing evaluation (re-editing) — handled in template
+        # 2. Query params from sample page (user's fresh selections)
+        # 3. Sticky: last evaluation of this coffee (same grind aroma carries forward)
+        last_eval = conn.execute(
+            """SELECT e.grind_aroma, e.aroma_descriptors
+               FROM evaluations e JOIN samples s ON e.sample_id = s.id
                WHERE s.coffee_id = ? AND e.grind_aroma IS NOT NULL
                ORDER BY e.created_at DESC LIMIT 1""",
             (sample["coffee_id"],),
         ).fetchone()
     freshness = freshness_status(coffee)
-    prefill_grind_aroma = last_aroma["grind_aroma"] if last_aroma else None
+    # Query params (from sample page) override sticky prefill (from last eval)
+    prefill_grind_aroma = safe_int(request.args.get("grind_aroma")) or (last_eval["grind_aroma"] if last_eval else None)
+    prefill_grind_smell = request.args.get("grind_smell") or (last_eval["aroma_descriptors"] if last_eval and last_eval["aroma_descriptors"] else None)
     return render_template(
         "step3_evaluate.html",
         coffee=coffee, sample=sample, evaluation=existing,
         dimensions=EVAL_DIMENSIONS, tips=None, freshness=freshness,
         prefill_grind_aroma=prefill_grind_aroma,
+        prefill_grind_smell=prefill_grind_smell,
     )
 
 
@@ -1295,7 +1304,7 @@ def save_evaluation(sample_id):
         "step3_evaluate.html",
         coffee=coffee, sample=sample, evaluation=evaluation,
         dimensions=EVAL_DIMENSIONS, tips=tips, freshness=freshness,
-        prefill_grind_aroma=None,
+        prefill_grind_aroma=None, prefill_grind_smell=None,
     )
 
 

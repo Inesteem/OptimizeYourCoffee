@@ -9,12 +9,13 @@
 </head>
 <body>
     <header>
-        <a href="/sample/{{ coffee.id }}" class="back-btn">&larr;</a>
+        <a href="{% if from_eval %}/evaluate/{{ sample.id }}{% else %}/sample/{{ coffee.id }}{% endif %}" class="back-btn">&larr;</a>
         <h1>Edit Sample</h1>
     </header>
 
     <main>
         <form action="/sample/{{ sample.id }}/edit" method="POST" class="sample-form">
+            {% if from_eval %}<input type="hidden" name="from_eval" value="1">{% endif %}
             <!-- Move to different coffee -->
             <div class="field">
                 <label for="coffee_id">Coffee</label>

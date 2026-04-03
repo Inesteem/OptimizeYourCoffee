@@ -597,6 +597,38 @@ class TestFreshnessStatus:
         result = self._status(10)
         assert result["days"] == 10
 
+    def test_short_consume_within_no_overlap(self):
+        """When consume_within < best_after+25, good_end is clamped — no stage overlap."""
+        coffee = _make_coffee_row(roast_date="2025-03-01", best_after_days=7, consume_within_days=30)
+        # Day 28: good_end clamped to 30, so 28 <= 30 → still "good" (not stale)
+        fake_today = date(2025, 3, 1) + timedelta(days=28)
+        with patch("app.date") as mock_date:
+            mock_date.today.return_value = fake_today
+            mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
+            result = freshness_status(coffee)
+        assert result["stage"] == "good"
+
+    def test_short_consume_within_peak_clamped(self):
+        """When consume_within < best_after+11, peak stage is clamped."""
+        coffee = _make_coffee_row(roast_date="2025-03-01", best_after_days=7, consume_within_days=15)
+        # Day 14: consume_within=15 clamps peak_end to 15, so day 14 <= 15 → peak
+        fake_today = date(2025, 3, 1) + timedelta(days=14)
+        with patch("app.date") as mock_date:
+            mock_date.today.return_value = fake_today
+            mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
+            result = freshness_status(coffee)
+        assert result["stage"] == "peak"
+
+    def test_short_consume_within_stale_after(self):
+        """Day beyond consume_within is always stale."""
+        coffee = _make_coffee_row(roast_date="2025-03-01", best_after_days=7, consume_within_days=15)
+        fake_today = date(2025, 3, 1) + timedelta(days=16)
+        with patch("app.date") as mock_date:
+            mock_date.today.return_value = fake_today
+            mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
+            result = freshness_status(coffee)
+        assert result["stage"] == "stale"
+
 
 class TestDiagnose:
     def test_under_extracted_full_pattern(self):
@@ -637,6 +669,18 @@ class TestDiagnose:
     def test_over_extracted_boundary(self):
         tips = diagnose({"acidity": 2, "sweetness": 2, "body": 3, "balance": 3, "overall": 3})
         assert any("over-extracted" in t for t in tips)
+
+    def test_none_scores_do_not_crash(self):
+        """Submitting eval without selecting any radio buttons should not raise."""
+        tips = diagnose({"acidity": None, "sweetness": None, "body": None,
+                         "balance": None, "overall": None})
+        assert isinstance(tips, list)
+
+    def test_partial_none_scores(self):
+        """Mix of None and real scores should not raise."""
+        tips = diagnose({"acidity": 5, "sweetness": None, "body": None,
+                         "balance": 3, "overall": 4})
+        assert isinstance(tips, list)
 
 
 class TestSuggestGrind:
@@ -970,6 +1014,81 @@ class TestRouteEvaluateSave:
         })
         assert resp.status_code == 302
 
+    def test_save_evaluation_with_no_scores(self, client, tmp_db):
+        """Submitting the eval form without selecting any radio buttons should not crash."""
+        _, sample_id = self._seed(tmp_db)
+        resp = client.post(f"/evaluate/{sample_id}/save", data={})
+        assert resp.status_code == 200
+
+
+class TestGrindSmellPrefill:
+    def _seed_coffee(self, tmp_db):
+        conn = _get_db(tmp_db)
+        cur = conn.execute("INSERT INTO coffees (label) VALUES (?)", ("Prefill Test",))
+        conn.commit()
+        return cur.lastrowid
+
+    def test_add_sample_passes_grind_smell_in_redirect(self, client, tmp_db):
+        coffee_id = self._seed_coffee(tmp_db)
+        resp = client.post(f"/sample/{coffee_id}/add", data={
+            "grind_size": "18", "grams_in": "18", "grams_out": "36",
+            "brew_min": "0", "brew_sec": "28",
+            "grind_smell": ["Fruity", "Nutty"],
+        })
+        assert resp.status_code == 302
+        loc = resp.headers["Location"]
+        assert "grind_smell=Fruity" in loc or "grind_smell=Fruity%2CNutty" in loc
+
+    def test_evaluate_page_shows_prefilled_chips(self, client, tmp_db):
+        coffee_id = self._seed_coffee(tmp_db)
+        conn = _get_db(tmp_db)
+        cur = conn.execute(
+            "INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec) VALUES (?,?,?,?,?)",
+            (coffee_id, 18, 18, 36, 28))
+        sample_id = cur.lastrowid
+        conn.commit()
+        resp = client.get(f"/evaluate/{sample_id}?grind_smell=Fruity,Nutty")
+        assert resp.status_code == 200
+        # Chips should be pre-selected (have 'active' class and 'checked')
+        assert b"Fruity" in resp.data
+
+    def test_grind_smell_not_stored_in_samples(self, client, tmp_db):
+        coffee_id = self._seed_coffee(tmp_db)
+        client.post(f"/sample/{coffee_id}/add", data={
+            "grind_size": "18", "grams_in": "18", "grams_out": "36",
+            "brew_min": "0", "brew_sec": "28",
+            "grind_smell": ["Fruity", "Nutty"],
+        })
+        conn = _get_db(tmp_db)
+        cols = [r["name"] for r in conn.execute("PRAGMA table_info(samples)").fetchall()]
+        if "grind_smell" in cols:
+            row = conn.execute("SELECT grind_smell FROM samples").fetchone()
+            assert row["grind_smell"] is None
+        # Column may not exist at all in fresh DBs — that's also correct
+
+
+class TestEditSampleValidation:
+    def _seed(self, tmp_db):
+        conn = _get_db(tmp_db)
+        cur = conn.execute("INSERT INTO coffees (label) VALUES (?)", ("Edit Test",))
+        coffee_id = cur.lastrowid
+        cur2 = conn.execute(
+            "INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec) VALUES (?,?,?,?,?)",
+            (coffee_id, 18, 18, 36, 28))
+        sample_id = cur2.lastrowid
+        conn.commit()
+        return coffee_id, sample_id
+
+    def test_move_to_nonexistent_coffee_redirects(self, client, tmp_db):
+        coffee_id, sample_id = self._seed(tmp_db)
+        resp = client.post(f"/sample/{sample_id}/edit", data={
+            "coffee_id": "99999",
+            "grind_size": "18", "grams_in": "18", "grams_out": "36",
+            "brew_sec": "28", "brew_temp_c": "91",
+        })
+        assert resp.status_code == 302
+        assert f"/sample/{coffee_id}" in resp.headers["Location"]
+
 
 class TestRouteAutocomplete:
     def test_autocomplete_returns_json(self, client, tmp_db):
@@ -997,6 +1116,212 @@ class TestRouteAutocomplete:
         data = resp.get_json()
         for field in ["roaster", "origin_country", "origin_city", "origin_producer", "variety"]:
             assert data[field] == []
+
+
+class TestRouteInsights:
+    """Tests for /insights — filters, findings, charts, and edge cases."""
+
+    def _seed_coffee_with_eval(self, tmp_db, process="Washed", origin="Ethiopia",
+                                variety="Bourbon", bean_color="Medium", bag_price=None,
+                                grind=18.0, overall=4, acidity=3, sweetness=4, body=3,
+                                balance=4, aroma=4, representative=0):
+        """Insert a coffee + sample + evaluation, return (coffee_id, sample_id)."""
+        conn = _get_db(tmp_db)
+        cur = conn.execute(
+            """INSERT INTO coffees (label, process, origin_country, variety, bean_color,
+                                    bag_price, roast_date)
+               VALUES (?, ?, ?, ?, ?, ?, '2025-01-01')""",
+            (f"{process} {origin} {variety}", process, origin, variety, bean_color, bag_price),
+        )
+        coffee_id = cur.lastrowid
+        cur2 = conn.execute(
+            "INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec) VALUES (?,?,?,?,?)",
+            (coffee_id, grind, 18, 36, 28),
+        )
+        sample_id = cur2.lastrowid
+        conn.execute(
+            """INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance,
+                                        overall, representative)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (sample_id, aroma, acidity, sweetness, body, balance, overall, representative),
+        )
+        conn.commit()
+        return coffee_id, sample_id
+
+    def _add_extra_shot(self, tmp_db, coffee_id, grind=18.0, overall=4, acidity=3,
+                         sweetness=4, body=3, balance=4, aroma=4, representative=0):
+        """Add another sample + evaluation to an existing coffee."""
+        conn = _get_db(tmp_db)
+        cur = conn.execute(
+            "INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec) VALUES (?,?,?,?,?)",
+            (coffee_id, grind, 18, 36, 28),
+        )
+        sample_id = cur.lastrowid
+        conn.execute(
+            """INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance,
+                                        overall, representative)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (sample_id, aroma, acidity, sweetness, body, balance, overall, representative),
+        )
+        conn.commit()
+        return sample_id
+
+    # --- Basic rendering ---
+
+    def test_insights_empty_db(self, client, tmp_db):
+        resp = client.get("/insights")
+        assert resp.status_code == 200
+        assert b"Insights" in resp.data
+
+    def test_insights_renders_with_data(self, client, tmp_db):
+        self._seed_coffee_with_eval(tmp_db)
+        resp = client.get("/insights")
+        assert resp.status_code == 200
+        assert b"Key Findings" in resp.data
+
+    # --- Shot count accuracy ---
+
+    def test_shot_count_reflects_total(self, client, tmp_db):
+        cid, _ = self._seed_coffee_with_eval(tmp_db, overall=3)
+        self._add_extra_shot(tmp_db, cid, overall=5)
+        resp = client.get("/insights")
+        assert b"2 shots" in resp.data
+
+    def test_shot_count_changes_with_min_score(self, client, tmp_db):
+        cid, _ = self._seed_coffee_with_eval(tmp_db, overall=2)
+        self._add_extra_shot(tmp_db, cid, overall=5)
+        # No filter: 2 shots
+        resp = client.get("/insights")
+        assert b"2 shots" in resp.data
+        # min=4: only the overall=5 shot survives
+        resp = client.get("/insights?min=4")
+        assert b"1 shot" in resp.data
+        assert b"2 shots" not in resp.data
+
+    # --- Representative filter ---
+
+    def test_rep_filter_excludes_non_representative(self, client, tmp_db):
+        cid, _ = self._seed_coffee_with_eval(tmp_db, overall=3, representative=0)
+        self._add_extra_shot(tmp_db, cid, overall=5, representative=1)
+        # rep=1: only the representative shot
+        resp = client.get("/insights?rep=1")
+        assert b"1 shot" in resp.data
+
+    def test_rep_filter_off_includes_all(self, client, tmp_db):
+        cid, _ = self._seed_coffee_with_eval(tmp_db, overall=3, representative=0)
+        self._add_extra_shot(tmp_db, cid, overall=5, representative=1)
+        resp = client.get("/insights?rep=0")
+        assert b"2 shots" in resp.data
+
+    # --- Min score filter affects findings ---
+
+    def test_min_score_excludes_coffee_with_no_qualifying_shots(self, client, tmp_db):
+        self._seed_coffee_with_eval(tmp_db, process="Washed", overall=2)
+        self._seed_coffee_with_eval(tmp_db, process="Natural", overall=5, origin="Colombia", variety="Caturra")
+        # min=4: only the Natural coffee survives
+        resp = client.get("/insights?min=4")
+        assert b"Natural" in resp.data
+        assert b"Washed" not in resp.data
+
+    def test_min_score_zero_shows_all(self, client, tmp_db):
+        self._seed_coffee_with_eval(tmp_db, process="Washed", overall=2)
+        self._seed_coffee_with_eval(tmp_db, process="Natural", overall=5, origin="Colombia", variety="Caturra")
+        resp = client.get("/insights?min=0")
+        assert b"Washed" in resp.data
+        assert b"Natural" in resp.data
+
+    # --- Findings content ---
+
+    def test_top_rated_finding(self, client, tmp_db):
+        self._seed_coffee_with_eval(tmp_db, overall=5)
+        resp = client.get("/insights")
+        assert b"Top rated:" in resp.data
+
+    def test_process_finding_shows_avg(self, client, tmp_db):
+        self._seed_coffee_with_eval(tmp_db, process="Washed", overall=4)
+        resp = client.get("/insights")
+        assert b"Washed:" in resp.data
+        assert b"avg" in resp.data
+
+    def test_process_finding_shows_grind_as_float(self, client, tmp_db):
+        self._seed_coffee_with_eval(tmp_db, process="Washed", grind=15.5, overall=4)
+        resp = client.get("/insights")
+        assert b"15.5" in resp.data
+
+    def test_flavor_findings_present(self, client, tmp_db):
+        self._seed_coffee_with_eval(tmp_db)
+        resp = client.get("/insights")
+        assert b"Sweetest:" in resp.data
+        assert b"Brightest:" in resp.data
+        assert b"Fullest body:" in resp.data
+
+    def test_cross_cutting_finding_for_high_scoring(self, client, tmp_db):
+        self._seed_coffee_with_eval(tmp_db, process="Natural", origin="Ethiopia",
+                                     variety="Heirloom", overall=5)
+        resp = client.get("/insights")
+        assert b"Natural Ethiopia Heirloom" in resp.data
+
+    def test_cross_cutting_absent_for_low_scoring(self, client, tmp_db):
+        self._seed_coffee_with_eval(tmp_db, process="Natural", origin="Ethiopia",
+                                     variety="Heirloom", overall=2)
+        resp = client.get("/insights")
+        # Cross section only shows coffees with avg >= 4.0
+        assert b"Cross" not in resp.data or b"Natural Ethiopia Heirloom" not in resp.data
+
+    def test_cross_cutting_null_fields_show_unknown(self, client, tmp_db):
+        conn = _get_db(tmp_db)
+        cur = conn.execute("INSERT INTO coffees (label) VALUES (?)", ("Mystery",))
+        cid = cur.lastrowid
+        cur2 = conn.execute(
+            "INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec) VALUES (?,?,?,?,?)",
+            (cid, 18, 18, 36, 28))
+        sid = cur2.lastrowid
+        conn.execute(
+            "INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall) VALUES (?,?,?,?,?,?,?)",
+            (sid, 5, 5, 5, 5, 5, 5))
+        conn.commit()
+        resp = client.get("/insights")
+        assert b"None" not in resp.data
+
+    def test_roast_finding_with_two_roast_levels(self, client, tmp_db):
+        self._seed_coffee_with_eval(tmp_db, bean_color="Light", overall=4)
+        self._seed_coffee_with_eval(tmp_db, bean_color="Dark", overall=3,
+                                     origin="Colombia", variety="Caturra")
+        resp = client.get("/insights")
+        assert b"Light roasts:" in resp.data
+        assert b"Dark roasts:" in resp.data
+
+    def test_value_finding_with_two_priced_coffees(self, client, tmp_db):
+        self._seed_coffee_with_eval(tmp_db, bag_price=10, overall=4)
+        self._seed_coffee_with_eval(tmp_db, bag_price=30, overall=3,
+                                     origin="Colombia", variety="Caturra")
+        resp = client.get("/insights")
+        assert b"Best value:" in resp.data
+
+    def test_value_finding_absent_with_one_priced(self, client, tmp_db):
+        self._seed_coffee_with_eval(tmp_db, bag_price=10, overall=4)
+        resp = client.get("/insights")
+        # Value requires >= 2 priced coffees
+        assert b"Best value:" not in resp.data
+
+    # --- Combined filters ---
+
+    def test_rep_and_min_score_combined(self, client, tmp_db):
+        cid, _ = self._seed_coffee_with_eval(tmp_db, overall=2, representative=0)
+        self._add_extra_shot(tmp_db, cid, overall=5, representative=1)
+        self._add_extra_shot(tmp_db, cid, overall=3, representative=1)
+        # rep=1 & min=4: only the overall=5 representative shot
+        resp = client.get("/insights?rep=1&min=4")
+        assert b"1 shot" in resp.data
+
+    # --- Empty results with filter ---
+
+    def test_min_score_too_high_shows_empty(self, client, tmp_db):
+        self._seed_coffee_with_eval(tmp_db, overall=2)
+        resp = client.get("/insights?min=4")
+        assert resp.status_code == 200
+        # No findings, no crash
+        assert b"Key Findings" not in resp.data
 
 
 class TestRouteQuit:

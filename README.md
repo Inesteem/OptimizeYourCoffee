@@ -114,13 +114,13 @@ coffee-app/
 | brew_time_sec | INTEGER | Time in seconds |
 | brew_temp_c | REAL | Temperature (default 91°C) |
 | days_since_roast, days_since_opened | INTEGER | Snapshot at creation |
-| grind_smell | TEXT | Grind aroma descriptors |
+| notes | TEXT | Free-text brew notes |
 
 ### evaluations
 | Column | Type | Description |
 |--------|------|-------------|
 | aroma, acidity, sweetness, body, balance, overall | INTEGER | 1–5 scores |
-| grind_aroma | INTEGER | 1–5 grind smell intensity |
+| grind_aroma | INTEGER | 1–5 grind smell intensity (captured on sample page, stored here) |
 | aroma_descriptors, brew_smell_descriptors, taste_descriptors | TEXT | Comma-separated chips |
 | preheat_portafilter/cup/machine | INTEGER | Preheat flags |
 | with_milk | INTEGER | Consumed with milk |

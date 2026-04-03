@@ -25,9 +25,9 @@
         const parts = [
             '<div class="info-popup-title">' + esc(title) + (info.species ? ' <span class="info-species">' + esc(info.species) + '</span>' : '') + '</div>',
             '<div class="info-popup-desc">' + esc(info.desc) + '</div>',
-            '<div class="info-popup-flavor"><strong>Flavor:</strong> ' + esc(info.flavor) + '</div>',
-            '<div class="info-popup-note"><strong>Tip:</strong> ' + esc(info.note) + '</div>',
         ];
+        if (info.flavor) parts.push('<div class="info-popup-flavor"><strong>Flavor:</strong> ' + esc(info.flavor) + '</div>');
+        if (info.note) parts.push('<div class="info-popup-note"><strong>Tip:</strong> ' + esc(info.note) + '</div>');
         popup.innerHTML = parts.join('');
         el.parentNode.style.position = 'relative';
         el.parentNode.appendChild(popup);
@@ -55,6 +55,13 @@
         document.querySelectorAll('.coffee-detail span').forEach(span => {
             const text = span.textContent.trim();
             const info = getInfo('varieties', text) || getInfo('processes', text);
+            if (info) makeClickable(span, text, info);
+        });
+
+        // Evaluation dimension labels
+        document.querySelectorAll('.eval-label').forEach(span => {
+            const text = span.textContent.trim();
+            const info = getInfo('dimensions', text);
             if (info) makeClickable(span, text, info);
         });
 

@@ -26,15 +26,23 @@
         </div>
 
         <!-- Filter controls -->
-        <div class="insights-filters">
-            <a href="/insights?rep={{ '0' if rep_only else '1' }}&score={{ score_source }}"
-               class="filter-toggle {% if rep_only %}active{% endif %}">
-                Representative only
-            </a>
-            <a href="/insights?rep={{ '1' if rep_only else '0' }}&score={{ 'overall' if score_source == 'taste' else 'taste' }}"
-               class="filter-toggle {% if score_source == 'overall' %}active{% endif %}">
-                Use Overall score
-            </a>
+        <div class="insights-filter-bar">
+            <div class="filter-group">
+                <span class="filter-label">Shots</span>
+                <a href="/insights?rep={{ '0' if rep_only else '1' }}&min={{ min_score }}"
+                   class="filter-toggle {% if rep_only %}active{% endif %}">
+                    Representative only
+                </a>
+            </div>
+            <div class="filter-group">
+                <span class="filter-label">Min score</span>
+                {% for val, label in [(0, 'All'), (3.0, '≥3'), (3.5, '≥3.5'), (4.0, '≥4')] %}
+                <a href="/insights?rep={{ '1' if rep_only else '0' }}&min={{ val }}"
+                   class="filter-toggle {% if min_score == val %}active{% endif %}">
+                    {{ label }}
+                </a>
+                {% endfor %}
+            </div>
         </div>
 
         <!-- Organized findings -->

@@ -208,5 +208,35 @@
       "flavor": "Retains most origin character",
       "note": "Best decaf method for preserving flavor."
     }
+  },
+  "dimensions": {
+    "Aroma": {
+      "desc": "How rich and complex the dry and wet aroma is. Sniff the grounds, then the crema.",
+      "note": "Cup your hand over the cup and inhale. A complex aroma has multiple distinct scents — fruity, nutty, floral — not just 'coffee'."
+    },
+    "Acidity": {
+      "desc": "The bright, tangy liveliness on your tongue — not sourness. Think citrus sparkle, not vinegar.",
+      "note": "Take a small sip and focus on the sides of your tongue. Pleasant acidity feels crisp and juicy; too much feels sour or sharp."
+    },
+    "Sweetness": {
+      "desc": "Natural sugars perceived in the cup — caramel, honey, fruit sweetness.",
+      "note": "Let the coffee cool slightly — sweetness becomes more apparent. A well-extracted shot should have some sweetness even without sugar."
+    },
+    "Body": {
+      "desc": "The weight and texture of the coffee in your mouth. Thin like tea, or thick like syrup?",
+      "note": "Press your tongue against the roof of your mouth mid-sip. Full body feels heavy and coats the palate; thin body feels watery."
+    },
+    "Balance": {
+      "desc": "How well acidity, sweetness, and body work together. No single attribute dominates.",
+      "note": "A balanced shot feels harmonious — nothing jumps out as too much. If one quality overwhelms the rest, score lower."
+    },
+    "Overall": {
+      "desc": "Your personal enjoyment. Would you happily drink this again?",
+      "note": "Trust your gut. This is subjective — a technically flawed shot you enjoyed rates higher than a 'correct' one you didn't."
+    },
+    "Grind Aroma": {
+      "desc": "Intensity of the smell from freshly ground coffee, before brewing.",
+      "note": "Smell the portafilter right after dosing. Fresh beans have a strong, distinct aroma; stale beans smell flat or papery."
+    }
   }
 }

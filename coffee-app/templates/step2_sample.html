@@ -11,7 +11,6 @@
     <header>
         <a href="/" class="back-btn">&larr;</a>
         <h1>{{ coffee.label }}</h1>
-        <a href="/stats/{{ coffee.id }}" class="settings-btn" title="Stats">&#9776;</a>
     </header>
 
     <main>
@@ -79,12 +78,30 @@
                 </div>
             </div>
 
-            <!-- Grind smell (capture before brewing) -->
+            <!-- Grind aroma intensity -->
+            <div class="eval-row">
+                <div class="eval-header">
+                    <span class="eval-label">Grind Aroma</span>
+                    <span class="eval-range">Faint &rarr; Intense</span>
+                </div>
+                <div class="eval-buttons">
+                    {% for i in range(1, 6) %}
+                    <label class="eval-btn {% if prefill_grind_aroma == i %}selected{% endif %}">
+                        <input type="radio" name="grind_aroma" value="{{ i }}"
+                               {% if prefill_grind_aroma == i %}checked{% endif %}>
+                        <span>{{ i }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Grind smell descriptors -->
             <h3 class="form-section-title">Grind Smell</h3>
             <div class="descriptor-chips">
                 {% for d in grind_smell_descriptors %}
-                <label class="descriptor-chip">
-                    <input type="checkbox" name="grind_smell" value="{{ d }}">
+                <label class="descriptor-chip {% if d in prefill_grind_smell %}active{% endif %}">
+                    <input type="checkbox" name="grind_smell" value="{{ d }}"
+                           {% if d in prefill_grind_smell %}checked{% endif %}>
                     <span>{{ d }}</span>
                 </label>
                 {% endfor %}
