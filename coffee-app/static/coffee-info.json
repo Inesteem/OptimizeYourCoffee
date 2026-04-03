@@ -1,0 +1,40 @@
+{
+  "varieties": {
+    "Red Bourbon": {"desc": "Brazilian/Cuban heirloom. Naturally sweet with full body.", "flavor": "Caramel, chocolate, nuts, red fruits", "note": "Excellent for milk drinks; consistent sweetness."},
+    "Bourbon": {"desc": "Heirloom cultivar from Reunion Island. Sweet, balanced.", "flavor": "Caramel, chocolate, stone fruit", "note": "Foundation of many specialty coffees."},
+    "Yellow Bourbon": {"desc": "Bourbon mutation with yellow cherries. Extra sweetness.", "flavor": "Honey, stone fruit, creamy", "note": "Slightly sweeter than Red Bourbon."},
+    "Pink Bourbon": {"desc": "Rare Colombian Bourbon variant. Complex and floral.", "flavor": "Floral, tropical, juicy", "note": "Highly sought after; limited availability."},
+    "Heirloom": {"desc": "Ancient Ethiopian landrace. Diverse genetics, complex.", "flavor": "Jasmine, bergamot, blueberry, stone fruit", "note": "Variable; high acidity; rewards careful dialing."},
+    "Ethiopian Heirloom": {"desc": "Ancient Ethiopian landrace. Diverse genetics, complex.", "flavor": "Jasmine, bergamot, blueberry, stone fruit", "note": "Variable; high acidity; rewards careful dialing."},
+    "Typica": {"desc": "The original Arabica cultivar. Clean, bright, tea-like.", "flavor": "Citrus, honey, cacao", "note": "Prized for clarity and terroir expression."},
+    "SL28": {"desc": "Kenyan selection. Wine-forward with intense acidity.", "flavor": "Blackcurrant, citrus, wine-like", "note": "Sparkling acidity; needs precise dialing."},
+    "SL34": {"desc": "Kenyan cultivar. Complex with spicy undertones.", "flavor": "Citrus, fruity, spicy, full mouthfeel", "note": "Heavy-bodied; less demanding than SL28."},
+    "Gesha": {"desc": "Panamanian/Ethiopian origin. Floral, delicate, tea-like.", "flavor": "Jasmine, bergamot, peach, tea-like", "note": "Light roasts preferred; high price; nuanced."},
+    "Geisha": {"desc": "Panamanian/Ethiopian origin. Floral, delicate, tea-like.", "flavor": "Jasmine, bergamot, peach, tea-like", "note": "Light roasts preferred; high price; nuanced."},
+    "Caturra": {"desc": "Brazilian Bourbon mutation. Compact, balanced.", "flavor": "Citrus, caramel, mild cocoa", "note": "Easy to dial; good entry-point for espresso."},
+    "Catuai": {"desc": "Caturra x Mundo Novo hybrid. Robust and reliable.", "flavor": "Dark cherry, almond, cacao", "note": "Forgiving extraction; great for blends."},
+    "Pacamara": {"desc": "Largest Arabica bean. Salvadoran specialty.", "flavor": "Tropical fruit, chocolate, spice, creamy", "note": "Full body; slower extraction; great for milk drinks."},
+    "Castillo": {"desc": "Colombian rust-resistant cultivar. Balanced.", "flavor": "Caramel, chocolate, almond, strawberry", "note": "Clean cup; consistent; good daily espresso."},
+    "Mundo Novo": {"desc": "Typica x Bourbon natural hybrid from Brazil.", "flavor": "Chocolate, nuts, low acidity", "note": "Full body; classic Brazilian espresso base."},
+    "Sidra": {"desc": "Rare Colombian variety gaining popularity.", "flavor": "Complex, fruity, wine-like", "note": "Emerging specialty; commands premium prices."},
+    "Chiroso": {"desc": "Colombian variety. Bright and fruity.", "flavor": "Tropical, citrus, floral", "note": "Increasingly popular in specialty market."}
+  },
+  "processes": {
+    "Washed": {"desc": "Skin removed, fermented in water, washed clean.", "flavor": "Clean, bright, citrus, tea-like", "note": "Most predictable for dialing; emphasizes origin."},
+    "Natural": {"desc": "Whole cherry dried intact for weeks, then hulled.", "flavor": "Sweet, wine-forward, dark fruit", "note": "Heavy body; lower acidity; can be unpredictable."},
+    "Honey": {"desc": "Pulp removed but sticky mucilage left during drying.", "flavor": "Balanced sweetness, caramel, stone fruit", "note": "Milder than natural; more forgiving than washed."},
+    "Black Honey": {"desc": "75-100% mucilage retained. Closest to natural.", "flavor": "Intense sweetness, blackberry, syrupy", "note": "Heavy body; risks over-extraction easily."},
+    "Red Honey": {"desc": "50-75% mucilage retained. Middle ground.", "flavor": "Round sweetness, red fruit, caramel", "note": "Forgiving; good for milk and straight shots."},
+    "Yellow Honey": {"desc": "25-50% mucilage retained. Closest to washed.", "flavor": "Citrus, stone fruit, light caramel", "note": "Cleaner than other honeys; dial like washed."},
+    "White Honey": {"desc": "Minimal mucilage retained. Very close to washed.", "flavor": "Clean, bright, subtle sweetness", "note": "Lightest honey variant."},
+    "Anaerobic": {"desc": "Sealed in oxygen-free tanks. Controlled fermentation.", "flavor": "Wine-y, boozy, jammy, funky", "note": "Intense; shorter shots recommended."},
+    "Anaerobic Natural": {"desc": "Natural process in anaerobic tanks.", "flavor": "Very fruity, fermented, complex", "note": "Experimental; intense flavor."},
+    "Anaerobic Washed": {"desc": "Washed process with anaerobic fermentation step.", "flavor": "Clean but complex, floral", "note": "More controlled than full anaerobic."},
+    "Carbonic Maceration": {"desc": "CO2-rich sealed tank fermentation (like wine).", "flavor": "Floral, candy-like, strawberry", "note": "Smooth body; shorter pulls bring out brightness."},
+    "Wet Hulled": {"desc": "Indonesian Giling Basah. Hulled at high moisture.", "flavor": "Earthy, herbal, tobacco, cedar", "note": "Muted acidity; heavy body; acquired taste."},
+    "Semi-Washed": {"desc": "Partial mucilage removal before drying.", "flavor": "Mild, balanced, low acidity", "note": "Between washed and honey in character."},
+    "Double Washed": {"desc": "Extended wash cycles for extra clean cup.", "flavor": "Very clean, bright, transparent", "note": "Maximum clarity; minimal ferment character."},
+    "Lactic Process": {"desc": "Fermented with lactic acid bacteria.", "flavor": "Creamy, yogurt-like, smooth", "note": "Distinctive tangy smoothness."},
+    "Swiss Water Decaf": {"desc": "Chemical-free decaffeination using water.", "flavor": "Retains most origin character", "note": "Best decaf method for preserving flavor."}
+  }
+}

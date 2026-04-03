@@ -1010,6 +1010,61 @@ header h1 {
     margin-bottom: 16px;
 }
 
+/* Coffee info popups */
+.info-icon {
+    display: inline;
+    color: var(--accent);
+    font-size: 0.8rem;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.info-icon:active {
+    opacity: 1;
+}
+
+.info-popup {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    z-index: 800;
+    background: #2a2a2a;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.info-popup-title {
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 4px;
+    font-size: 0.85rem;
+}
+
+.info-popup-desc {
+    color: var(--text);
+    margin-bottom: 4px;
+}
+
+.info-popup-flavor {
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+
+.info-popup-flavor strong,
+.info-popup-note strong {
+    color: var(--text);
+}
+
+.info-popup-note {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 .quit-section {
     text-align: center;
     margin: 20px 0 12px;
