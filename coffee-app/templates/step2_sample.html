@@ -89,6 +89,7 @@
                     <thead>
                         <tr>
                             <th>Date</th>
+                            <th>Day</th>
                             <th>Grind</th>
                             <th>In</th>
                             <th>Out</th>
@@ -103,6 +104,7 @@
                         {% for s in samples %}
                         <tr>
                             <td>{{ s.created_at[:10] }}</td>
+                            <td>{{ s.days_since_roast if s.days_since_roast is not none else '?' }}</td>
                             <td>{{ s.grind_size }}</td>
                             <td>{{ s.grams_in }}g</td>
                             <td>{{ s.grams_out }}g</td>

@@ -22,6 +22,7 @@
             <span>{{ sample.brew_time_sec }}s</span>
             <span>{{ sample.brew_temp_c or 91 }}&deg;C</span>
             <span>Grind {{ sample.grind_size }}</span>
+            {% if sample.days_since_roast is not none %}<span>Day {{ sample.days_since_roast }}</span>{% endif %}
             {% if freshness %}<span class="freshness-badge {{ freshness.css }}">{{ freshness.stage }}</span>{% endif %}
         </div>
 
@@ -106,13 +107,21 @@
                        placeholder="Additional observations..." autocomplete="off">
             </div>
 
-            <!-- Representative checkbox -->
-            <label class="representative-toggle">
-                <input type="checkbox" name="representative" value="1"
-                       {% if evaluation and evaluation.representative %}checked{% endif %}>
-                <span class="repr-check"></span>
-                <span>Representative shot for this coffee</span>
-            </label>
+            <!-- Milk & Representative -->
+            <div class="preheat-row">
+                <label class="representative-toggle compact">
+                    <input type="checkbox" name="with_milk" value="1"
+                           {% if evaluation and evaluation.with_milk %}checked{% endif %}>
+                    <span class="repr-check"></span>
+                    <span>With milk</span>
+                </label>
+                <label class="representative-toggle compact">
+                    <input type="checkbox" name="representative" value="1"
+                           {% if evaluation and evaluation.representative %}checked{% endif %}>
+                    <span class="repr-check"></span>
+                    <span>Representative</span>
+                </label>
+            </div>
 
             <div class="eval-actions">
                 <button type="submit" class="btn-add">Save Evaluation</button>

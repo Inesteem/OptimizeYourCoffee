@@ -42,13 +42,13 @@ COFFEE_COLUMNS = {"roaster", "origin_country", "origin_city", "origin_producer",
                   "variety", "process", "tasting_notes", "label", "roast_date",
                   "best_after_days", "consume_within_days", "bag_weight_g", "bag_price",
                   "default_grams_in", "default_grams_out", "default_brew_time_sec",
-                  "bean_color", "bean_size",
+                  "bean_color", "bean_size", "opened_date",
                   "archived", "created_at", "updated_at"}
 SAMPLE_COLUMNS = {"coffee_id", "grind_size", "grams_in", "grams_out", "brew_time_sec",
-                  "brew_temp_c", "notes", "created_at"}
+                  "brew_temp_c", "days_since_roast", "days_since_opened", "notes", "created_at"}
 EVALUATION_COLUMNS = {"sample_id", "aroma", "acidity", "sweetness", "body", "balance",
                       "overall", "grind_aroma", "preheat_portafilter", "preheat_cup",
-                      "preheat_machine", "eval_notes", "representative", "created_at"}
+                      "preheat_machine", "eval_notes", "with_milk", "representative", "created_at"}
 
 PROCESS_OPTIONS = [
     "Washed", "Natural", "Honey", "Black Honey", "Red Honey", "Yellow Honey",
@@ -129,6 +129,7 @@ def init_db():
                 default_brew_time_sec INTEGER,
                 bean_color TEXT,
                 bean_size TEXT,
+                opened_date TEXT,
                 archived INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -147,6 +148,7 @@ def init_db():
             ("default_brew_time_sec", "INTEGER"),
             ("bean_color", "TEXT"),
             ("bean_size", "TEXT"),
+            ("opened_date", "TEXT"),
             ("archived", "INTEGER DEFAULT 0"),
         ]:
             if col not in cols:
@@ -161,6 +163,8 @@ def init_db():
                 brew_time_sec INTEGER NOT NULL,
                 ratio REAL GENERATED ALWAYS AS (grams_out / NULLIF(grams_in, 0)) STORED,
                 brew_temp_c REAL DEFAULT 91,
+                days_since_roast INTEGER,
+                days_since_opened INTEGER,
                 notes TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -169,6 +173,10 @@ def init_db():
         sample_cols = [r["name"] for r in conn.execute("PRAGMA table_info(samples)").fetchall()]
         if "brew_temp_c" not in sample_cols:
             conn.execute("ALTER TABLE samples ADD COLUMN brew_temp_c REAL DEFAULT 91")
+        if "days_since_roast" not in sample_cols:
+            conn.execute("ALTER TABLE samples ADD COLUMN days_since_roast INTEGER")
+        if "days_since_opened" not in sample_cols:
+            conn.execute("ALTER TABLE samples ADD COLUMN days_since_opened INTEGER")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS evaluations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -184,6 +192,7 @@ def init_db():
                 preheat_cup INTEGER DEFAULT 1,
                 preheat_machine INTEGER DEFAULT 1,
                 eval_notes TEXT,
+                with_milk INTEGER DEFAULT 0,
                 representative INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -198,6 +207,7 @@ def init_db():
             ("preheat_cup", "INTEGER DEFAULT 1"),
             ("preheat_machine", "INTEGER DEFAULT 1"),
             ("eval_notes", "TEXT"),
+            ("with_milk", "INTEGER DEFAULT 0"),
         ]:
             if ecol not in eval_cols:
                 conn.execute(f"ALTER TABLE evaluations ADD COLUMN {ecol} {edef}")
@@ -542,8 +552,8 @@ def add_coffee():
                                     variety, process, tasting_notes, label, roast_date,
                                     best_after_days, consume_within_days, bag_weight_g, bag_price,
                                     default_grams_in, default_grams_out, default_brew_time_sec,
-                                    bean_color, bean_size)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                    bean_color, bean_size, opened_date)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 data.get("roaster", "").strip() or None,
                 data.get("origin_country", "").strip() or None,
@@ -563,6 +573,7 @@ def add_coffee():
                 def_time,
                 data.get("bean_color", "").strip() or None,
                 data.get("bean_size", "").strip() or None,
+                data.get("opened_date", "").strip() or None,
             ),
         )
         coffee_id = cur.lastrowid
@@ -600,7 +611,7 @@ def save_coffee(coffee_id):
                                   best_after_days=?, consume_within_days=?,
                                   bag_weight_g=?, bag_price=?,
                                   default_grams_in=?, default_grams_out=?, default_brew_time_sec=?,
-                                  bean_color=?, bean_size=?,
+                                  bean_color=?, bean_size=?, opened_date=?,
                                   updated_at=CURRENT_TIMESTAMP
                WHERE id=?""",
             (
@@ -622,6 +633,7 @@ def save_coffee(coffee_id):
                 def_time,
                 data.get("bean_color", "").strip() or None,
                 data.get("bean_size", "").strip() or None,
+                data.get("opened_date", "").strip() or None,
                 coffee_id,
             ),
         )
@@ -695,9 +707,26 @@ def add_sample(coffee_id):
     brew_temp = data.get("brew_temp_c", "").strip()
 
     with get_db() as conn:
+        # Compute days since roast and since opened
+        coffee = conn.execute("SELECT roast_date, opened_date FROM coffees WHERE id = ?", (coffee_id,)).fetchone()
+        days_since_roast = None
+        days_since_opened = None
+        today = date.today()
+        if coffee:
+            for field, target in [("roast_date", "roast"), ("opened_date", "opened")]:
+                if coffee[field]:
+                    try:
+                        d = datetime.strptime(coffee[field], "%Y-%m-%d").date()
+                        if field == "roast_date":
+                            days_since_roast = (today - d).days
+                        else:
+                            days_since_opened = (today - d).days
+                    except (ValueError, TypeError):
+                        pass
+
         cur = conn.execute(
-            """INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec, brew_temp_c, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec, brew_temp_c, days_since_roast, days_since_opened, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 coffee_id,
                 safe_float(data["grind_size"], 0),
@@ -705,6 +734,8 @@ def add_sample(coffee_id):
                 safe_float(data["grams_out"], 0),
                 brew_time_sec,
                 safe_float(brew_temp, 91),
+                days_since_roast,
+                days_since_opened,
                 data.get("notes", ""),
             ),
         )
@@ -895,6 +926,7 @@ def save_evaluation(sample_id):
     preheat_cup = 1 if data.get("preheat_cup") else 0
     preheat_machine = 1 if data.get("preheat_machine") else 0
     eval_notes = data.get("eval_notes", "").strip() or None
+    with_milk = 1 if data.get("with_milk") else 0
 
     with get_db() as conn:
         sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
@@ -907,20 +939,20 @@ def save_evaluation(sample_id):
             conn.execute(
                 """UPDATE evaluations SET aroma=?, acidity=?, sweetness=?, body=?, balance=?, overall=?,
                    grind_aroma=?, preheat_portafilter=?, preheat_cup=?, preheat_machine=?,
-                   eval_notes=?, representative=? WHERE sample_id=?""",
+                   eval_notes=?, with_milk=?, representative=? WHERE sample_id=?""",
                 (scores["aroma"], scores["acidity"], scores["sweetness"],
                  scores["body"], scores["balance"], scores["overall"],
                  grind_aroma, preheat_pf, preheat_cup, preheat_machine,
-                 eval_notes, representative, sample_id),
+                 eval_notes, with_milk, representative, sample_id),
             )
         else:
             conn.execute(
                 """INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall,
-                   grind_aroma, preheat_portafilter, preheat_cup, preheat_machine, eval_notes, representative)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   grind_aroma, preheat_portafilter, preheat_cup, preheat_machine, eval_notes, with_milk, representative)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (sample_id, scores["aroma"], scores["acidity"], scores["sweetness"],
                  scores["body"], scores["balance"], scores["overall"],
-                 grind_aroma, preheat_pf, preheat_cup, preheat_machine, eval_notes, representative),
+                 grind_aroma, preheat_pf, preheat_cup, preheat_machine, eval_notes, with_milk, representative),
             )
 
         evaluation = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
