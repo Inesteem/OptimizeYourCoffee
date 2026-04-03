@@ -62,8 +62,13 @@ The app runs on the Pi as a systemd service (`coffee-kiosk.service`) and auto-la
     ├── step2_sample.html       # Brew sample logging + grind suggestion
     ├── step3_evaluate.html     # Shot evaluation with diagnostics
     ├── edit_coffee.html        # Edit coffee details
+    ├── edit_sample.html        # Edit/move sample
+    ├── open_bag.html           # Open bag confirmation dialog
+    ├── stats.html              # Per-coffee charts and statistics
     └── settings_notes.html     # Tasting note label management
 ```
+
+> **First time?** See [SETUP.md](SETUP.md) for full installation guide.
 
 ### Deploy from dev machine
 

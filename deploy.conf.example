@@ -1,0 +1,5 @@
+# Copy this to deploy.conf and fill in your Pi details
+# deploy.conf is gitignored and will not be committed
+PI_USER=youruser
+PI_HOST=192.168.x.x
+PI_APP_DIR=/home/youruser/coffee-app
