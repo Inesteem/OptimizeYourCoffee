@@ -973,9 +973,14 @@ def undo_delete():
 @app.route("/insights")
 def insights():
     """Cross-coffee insights page with groupings by process, variety, origin, roast level."""
+    # Filter options from query params
+    rep_only = request.args.get("rep", "0") == "1"
+    score_source = request.args.get("score", "taste")  # "taste" = 5 dims, "overall" = overall only
+
+    rep_filter = "AND e.representative = 1" if rep_only else ""
+
     with get_db() as conn:
-        # Get all evaluated coffees with their averages
-        rows = conn.execute("""
+        rows = conn.execute(f"""
             SELECT c.id, c.label, c.process, c.variety, c.origin_country, c.bean_color,
                    c.bag_price, c.bag_weight_g, c.archived,
                    AVG(e.aroma) as avg_aroma, AVG(e.acidity) as avg_acidity,
@@ -989,14 +994,15 @@ def insights():
             FROM coffees c
             JOIN samples s ON s.coffee_id = c.id
             JOIN evaluations e ON e.sample_id = s.id
-            WHERE e.overall IS NOT NULL
+            WHERE e.overall IS NOT NULL {rep_filter}
             GROUP BY c.id
         """).fetchall()
 
     if not rows:
         return render_template("insights.html", process_chart="[]", origin_chart="[]",
                                roast_chart="[]", process_radar="[]",
-                               findings=[], totals={"coffees": 0, "shots": 0})
+                               findings=[], totals={"coffees": 0, "shots": 0},
+                               rep_only=rep_only, score_source=score_source)
 
     coffees = [dict(r) for r in rows]
 
@@ -1105,7 +1111,8 @@ def insights():
                            origin_chart=json.dumps(origin_chart),
                            roast_chart=json.dumps(roast_chart),
                            process_radar=json.dumps(process_radar),
-                           findings=findings, totals=totals)
+                           findings=findings, totals=totals,
+                           rep_only=rep_only, score_source=score_source)
 
 
 # --- Coffee Stats & Charts ---

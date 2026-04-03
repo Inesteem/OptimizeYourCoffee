@@ -25,6 +25,18 @@
             </div>
         </div>
 
+        <!-- Filter controls -->
+        <div class="insights-filters">
+            <a href="/insights?rep={{ '0' if rep_only else '1' }}&score={{ score_source }}"
+               class="filter-toggle {% if rep_only %}active{% endif %}">
+                Representative only
+            </a>
+            <a href="/insights?rep={{ '1' if rep_only else '0' }}&score={{ 'overall' if score_source == 'taste' else 'taste' }}"
+               class="filter-toggle {% if score_source == 'overall' %}active{% endif %}">
+                Use Overall score
+            </a>
+        </div>
+
         <!-- Organized findings -->
         {% if findings %}
         <section class="chart-section">

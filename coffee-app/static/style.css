@@ -1082,6 +1082,30 @@ header h1 {
 }
 
 /* Insights */
+.insights-filters {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.filter-toggle {
+    padding: 6px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg);
+    border: 1px solid #444;
+    border-radius: 14px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.filter-toggle.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
 .insights-list {
     background: var(--surface);
     border-radius: var(--radius);
