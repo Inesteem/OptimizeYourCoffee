@@ -788,8 +788,9 @@ def coffee_stats(coffee_id):
                 cross_data.append({"label": ac["label"], "process": ac["process"] or "?",
                                    "grind": best["grind_size"], "score": best["overall"]})
 
+        rating = coffee_rating(coffee_id, conn) if samples else None
+
     freshness = freshness_status(coffee)
-    rating = coffee_rating(coffee_id, conn) if samples else None
 
     # Build chart data
     evaluated = [dict(s) for s in samples if s["overall"] is not None]
