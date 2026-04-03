@@ -764,6 +764,9 @@ def new_sample(coffee_id):
         ).fetchall()
     if not coffee:
         return redirect(url_for("index"))
+    # If bag not yet opened, show "open bag?" dialog
+    if not coffee["opened_date"] and not request.args.get("skip_open_check"):
+        return render_template("open_bag.html", coffee=coffee)
     freshness = freshness_status(coffee)
     grind_hint = None
     with get_db() as conn:
@@ -777,6 +780,15 @@ def new_sample(coffee_id):
             pass
     return render_template("step2_sample.html", coffee=coffee, samples=samples,
                            freshness=freshness, grind_hint=grind_hint, days_open=days_open)
+
+
+@app.route("/coffee/<int:coffee_id>/open", methods=["POST"])
+def open_bag(coffee_id):
+    """Set today as the opened_date for a coffee and redirect to sample page."""
+    with get_db() as conn:
+        conn.execute("UPDATE coffees SET opened_date = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                     (date.today().isoformat(), coffee_id))
+    return redirect(url_for("new_sample", coffee_id=coffee_id))
 
 
 @app.route("/sample/<int:coffee_id>/add", methods=["POST"])
@@ -842,6 +854,44 @@ def delete_sample(sample_id):
     if coffee_id:
         return redirect(url_for("new_sample", coffee_id=coffee_id))
     return redirect(url_for("index"))
+
+
+@app.route("/sample/<int:sample_id>/edit")
+def edit_sample(sample_id):
+    """Show edit form for a sample's brew parameters."""
+    with get_db() as conn:
+        sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
+        if not sample:
+            return redirect(url_for("index"))
+        coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
+        all_coffees = conn.execute("SELECT id, label FROM coffees WHERE archived = 0 ORDER BY label").fetchall()
+    return render_template("edit_sample.html", sample=sample, coffee=coffee, all_coffees=all_coffees)
+
+
+@app.route("/sample/<int:sample_id>/edit", methods=["POST"])
+def save_sample(sample_id):
+    """Save edited sample brew parameters and/or move to different coffee."""
+    data = request.form
+    new_coffee_id = safe_int(data.get("coffee_id"))
+    with get_db() as conn:
+        sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
+        if not sample:
+            return redirect(url_for("index"))
+        conn.execute(
+            """UPDATE samples SET coffee_id=?, grind_size=?, grams_in=?, grams_out=?,
+               brew_time_sec=?, brew_temp_c=? WHERE id=?""",
+            (
+                new_coffee_id or sample["coffee_id"],
+                safe_float(data.get("grind_size"), sample["grind_size"]),
+                safe_float(data.get("grams_in"), sample["grams_in"]),
+                safe_float(data.get("grams_out"), sample["grams_out"]),
+                safe_int(data.get("brew_sec"), sample["brew_time_sec"]),
+                safe_float(data.get("brew_temp_c"), sample["brew_temp_c"]),
+                sample_id,
+            ),
+        )
+    target = new_coffee_id or sample["coffee_id"]
+    return redirect(url_for("new_sample", coffee_id=target))
 
 
 @app.route("/undo", methods=["POST"])

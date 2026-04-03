@@ -113,7 +113,8 @@
                             <td>{{ s.brew_time_sec }}s</td>
                             <td>{{ s.brew_temp_c or 91 }}&deg;</td>
                             <td>{% if s.overall %}<a href="/evaluate/{{ s.id }}" class="score-link">{{ s.overall }}/5</a>{% else %}<a href="/evaluate/{{ s.id }}" class="score-link dim">rate</a>{% endif %}</td>
-                            <td>
+                            <td style="white-space:nowrap">
+                                <a href="/sample/{{ s.id }}/edit" class="score-link dim" title="Edit">&#9998;</a>
                                 <form action="/sample/{{ s.id }}/delete" method="POST" class="inline">
                                     <button type="submit" class="btn-del" title="Delete">x</button>
                                 </form>

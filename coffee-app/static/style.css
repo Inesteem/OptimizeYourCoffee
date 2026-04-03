@@ -992,6 +992,28 @@ header h1 {
     opacity: 0.8;
 }
 
+/* Open bag dialog */
+.open-bag-dialog {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-top: 20px;
+    text-align: center;
+}
+
+.open-bag-msg {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+}
+
+.open-bag-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
+
 .quit-section {
     text-align: center;
     margin: 20px 0 12px;

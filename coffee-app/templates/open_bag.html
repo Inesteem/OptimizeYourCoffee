@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Open Bag?</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ v }}">
+</head>
+<body>
+    <header>
+        <a href="/" class="back-btn">&larr;</a>
+        <h1>{{ coffee.label }}</h1>
+    </header>
+
+    <main>
+        <div class="open-bag-dialog">
+            <p class="open-bag-msg">This bag hasn't been opened yet.</p>
+            <p class="open-bag-sub">Opening it will set today as the opened date and start tracking freshness after opening.</p>
+
+            <form action="/coffee/{{ coffee.id }}/open" method="POST">
+                <button type="submit" class="btn-add">Open Bag Now</button>
+            </form>
+
+            <a href="/" class="btn-skip" style="display:block;text-align:center;margin-top:10px">Cancel</a>
+        </div>
+    </main>
+</body>
+</html>
