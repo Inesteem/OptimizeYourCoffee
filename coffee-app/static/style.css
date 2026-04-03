@@ -1081,6 +1081,24 @@ header h1 {
     font-style: italic;
 }
 
+/* Insights */
+.insights-list {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 8px 0;
+}
+
+.insight-item {
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    color: var(--text);
+    border-bottom: 1px solid #333;
+}
+
+.insight-item:last-child {
+    border-bottom: none;
+}
+
 .quit-section {
     text-align: center;
     margin: 20px 0 12px;

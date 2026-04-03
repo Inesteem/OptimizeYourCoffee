@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Coffee Insights</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ v }}">
+</head>
+<body>
+    <header>
+        <a href="/" class="back-btn">&larr;</a>
+        <h1>Insights</h1>
+    </header>
+
+    <main>
+        <!-- Summary -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ totals.coffees }}</div>
+                <div class="stat-label">Coffees</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ totals.shots }}</div>
+                <div class="stat-label">Total Shots</div>
+            </div>
+        </div>
+
+        <!-- Text insights -->
+        {% if text_insights %}
+        <section class="chart-section">
+            <h2>Key Findings</h2>
+            <div class="insights-list">
+                {% for tip in text_insights %}
+                <div class="insight-item">{{ tip }}</div>
+                {% endfor %}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- Process comparison -->
+        {% if process_chart != '[]' %}
+        <section class="chart-section">
+            <h2>By Process</h2>
+            <div class="metric-picker">
+                <button class="metric-btn active" data-metric="overall">Overall</button>
+                <button class="metric-btn" data-metric="sweetness">Sweet</button>
+                <button class="metric-btn" data-metric="acidity">Acidity</button>
+                <button class="metric-btn" data-metric="body">Body</button>
+                <button class="metric-btn" data-metric="grind">Avg Grind</button>
+            </div>
+            <div class="chart-wrap" id="processChartWrap">
+                <canvas id="processChart"></canvas>
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- Origin comparison -->
+        {% if origin_chart != '[]' %}
+        <section class="chart-section">
+            <h2>By Origin</h2>
+            <div class="chart-wrap" id="originChartWrap">
+                <canvas id="originChart"></canvas>
+            </div>
+        </section>
+        {% endif %}
+
+        {% if totals.shots == 0 %}
+        <div class="diagnostic" style="margin-top:12px">
+            <p>No evaluated shots yet. Brew and rate some coffees to see insights.</p>
+        </div>
+        {% endif %}
+    </main>
+
+    <script src="{{ url_for('static', filename='chart.min.js') }}"></script>
+    <script>
+    const ACCENT = '#c0873a';
+    const ACCENT2 = '#5ac0e0';
+    const ACCENT3 = '#5ae05a';
+    const ACCENT4 = '#e07050';
+    const ACCENT5 = '#aa60cc';
+    const TEXT = '#e8e0d6';
+    const MUTED = '#9a9089';
+    const GRID = '#333';
+    const COLORS = [ACCENT, ACCENT2, ACCENT3, ACCENT4, ACCENT5, '#e0a840', '#60aacc', '#cc8060'];
+
+    Chart.defaults.animation = false;
+    Chart.defaults.devicePixelRatio = 1;
+    Chart.defaults.color = TEXT;
+    Chart.defaults.borderColor = GRID;
+    Chart.defaults.font.size = 12;
+    Chart.defaults.plugins.tooltip.backgroundColor = '#2a2a2a';
+    Chart.defaults.plugins.tooltip.titleColor = TEXT;
+    Chart.defaults.plugins.tooltip.bodyColor = TEXT;
+
+    const processData = {{ process_chart | safe }};
+    const originData = {{ origin_chart | safe }};
+
+    // Process chart with metric picker
+    let processChart = null;
+    function renderProcessChart(metric) {
+        if (!processData.length) return;
+        const sorted = [...processData].sort((a, b) => b[metric] - a[metric]);
+        const isGrind = metric === 'grind';
+
+        if (processChart) processChart.destroy();
+        const wrap = document.getElementById('processChartWrap');
+        wrap.style.height = Math.max(120, sorted.length * 40) + 'px';
+
+        processChart = new Chart(document.getElementById('processChart'), {
+            type: 'bar',
+            data: {
+                labels: sorted.map(d => d.name + ' (' + d.count + ')'),
+                datasets: [{
+                    data: sorted.map(d => d[metric]),
+                    backgroundColor: sorted.map((_, i) => COLORS[i % COLORS.length]),
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: ctx => isGrind ? 'Avg grind: ' + ctx.raw.toFixed(1) : ctx.raw.toFixed(1) + '/5' } }
+                },
+                scales: {
+                    x: isGrind
+                        ? { title: { display: true, text: 'Grind Size', color: MUTED } }
+                        : { min: 0, max: 5, ticks: { stepSize: 1 } },
+                    y: { ticks: { font: { size: 11 } } }
+                }
+            }
+        });
+    }
+
+    document.querySelectorAll('.metric-btn').forEach(btn => {
+        btn.addEventListener('pointerdown', e => {
+            document.querySelectorAll('.metric-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderProcessChart(btn.dataset.metric);
+        });
+    });
+    renderProcessChart('overall');
+
+    // Origin chart
+    if (originData.length > 1) {
+        const sorted = [...originData].sort((a, b) => b.overall - a.overall);
+        const wrap = document.getElementById('originChartWrap');
+        wrap.style.height = Math.max(120, sorted.length * 40) + 'px';
+
+        new Chart(document.getElementById('originChart'), {
+            type: 'bar',
+            data: {
+                labels: sorted.map(d => d.name + ' (' + d.count + ')'),
+                datasets: [{
+                    data: sorted.map(d => d.overall),
+                    backgroundColor: sorted.map((_, i) => COLORS[i % COLORS.length]),
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: ctx => ctx.raw.toFixed(1) + '/5 avg overall' } }
+                },
+                scales: {
+                    x: { min: 0, max: 5, ticks: { stepSize: 1 } },
+                    y: { ticks: { font: { size: 11 } } }
+                }
+            }
+        });
+    }
+    </script>
+</body>
+</html>
