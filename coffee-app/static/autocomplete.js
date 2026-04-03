@@ -1,4 +1,10 @@
 (function() {
+    function esc(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
     const DATA = {
         roaster: [],
         origin_country: [
@@ -53,6 +59,18 @@
         } else {
             input.parentNode.appendChild(box);
         }
+        // Event delegation - set up once
+        box.addEventListener('pointerdown', e => {
+            const el = e.target.closest('.ac-chip');
+            if (!el) return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (window.coffeeKbd) window.coffeeKbd.suppressDismiss();
+            input.value = el.textContent;
+            if (window.coffeeKbd) window.coffeeKbd.setInput(el.textContent);
+            box.innerHTML = '';
+            if (box._field) box._field.classList.remove('ac-active');
+        });
         return box;
     }
 
@@ -78,20 +96,8 @@
             const before = m.slice(0, idx);
             const bold = m.slice(idx, idx + val.length);
             const after = m.slice(idx + val.length);
-            return `<span class="ac-chip">${before}<strong>${bold}</strong>${after}</span>`;
+            return `<span class="ac-chip">${esc(before)}<strong>${esc(bold)}</strong>${esc(after)}</span>`;
         }).join('');
-
-        box.querySelectorAll('.ac-chip').forEach(el => {
-            el.addEventListener('pointerdown', e => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (window.coffeeKbd) window.coffeeKbd.suppressDismiss();
-                input.value = el.textContent;
-                if (window.coffeeKbd) window.coffeeKbd.setInput(el.textContent);
-                box.innerHTML = '';
-                if (box._field) box._field.classList.remove('ac-active');
-            });
-        });
     }
 
     function setupAutocomplete(inputId, dataKey) {
@@ -103,7 +109,8 @@
     }
 
     // Hook into virtual keyboard
-    function waitForKeyboard() {
+    function waitForKeyboard(retries) {
+        if (retries === undefined) retries = 100;
         if (window.coffeeKbd && window.coffeeKbd.onChange) {
             window.coffeeKbd.onChange((activeInput, value) => {
                 for (const id in registry) {
@@ -113,8 +120,8 @@
                     }
                 }
             });
-        } else {
-            setTimeout(waitForKeyboard, 50);
+        } else if (retries > 0) {
+            setTimeout(() => waitForKeyboard(retries - 1), 50);
         }
     }
     waitForKeyboard();

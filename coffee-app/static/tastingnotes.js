@@ -1,4 +1,10 @@
 (function() {
+    function esc(s) {
+        const d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
     const NOTES = {
         // Fruits
         "dried apricot":    "🍑",
@@ -105,7 +111,7 @@
     };
 
     // Merge custom notes from DB
-    let ALL_NOTES = [...new Set(Object.keys(NOTES))].sort();
+    let ALL_NOTES = Object.keys(NOTES).sort();
 
     fetch('/api/custom-tasting-notes')
         .then(r => r.json())
@@ -116,7 +122,7 @@
                     NOTES[key] = n.emoji || '';
                 }
             });
-            ALL_NOTES = [...new Set(Object.keys(NOTES))].sort();
+            ALL_NOTES = Object.keys(NOTES).sort();
         })
         .catch(() => {});
 
@@ -145,7 +151,13 @@
                 const chip = document.createElement('span');
                 chip.className = 'chip';
                 const emoji = getEmoji(note);
-                chip.innerHTML = `${emoji ? emoji + ' ' : ''}${note}<button class="chip-x" data-idx="${idx}">×</button>`;
+                if (emoji) chip.append(emoji + ' ');
+                chip.append(note);
+                const btn = document.createElement('button');
+                btn.className = 'chip-x';
+                btn.dataset.idx = idx;
+                btn.textContent = '\u00d7';
+                chip.appendChild(btn);
                 chipsWrap.insertBefore(chip, textInput);
             });
 
@@ -161,6 +173,16 @@
             if (window.coffeeKbd) window.coffeeKbd.setInput('');
             suggestions.classList.add('hidden');
         }
+
+        // Event delegation on suggestions - set up once
+        suggestions.addEventListener('pointerdown', e => {
+            const el = e.target.closest('.chip-sug');
+            if (!el) return;
+            e.preventDefault();
+            e.stopPropagation();
+            if (window.coffeeKbd) window.coffeeKbd.suppressDismiss();
+            addChip(el.dataset.note);
+        });
 
         function showSuggestions(val) {
             val = val.toLowerCase().trim();
@@ -183,21 +205,9 @@
 
             suggestions.innerHTML = matches.map(m => {
                 const emoji = getEmoji(m);
-                return `<div class="chip-sug">${emoji ? emoji + ' ' : ''}${m}</div>`;
+                return `<div class="chip-sug" data-note="${esc(m)}">${emoji ? emoji + ' ' : ''}${esc(m)}</div>`;
             }).join('');
             suggestions.classList.remove('hidden');
-
-            suggestions.querySelectorAll('.chip-sug').forEach(el => {
-                el.addEventListener('pointerdown', e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (window.coffeeKbd) window.coffeeKbd.suppressDismiss();
-                    const text = el.textContent.replace(/^\p{Emoji_Presentation}\s*/u, '').trim();
-                    // Extract just the note name (after emoji)
-                    const noteText = el.textContent.replace(/^[^\w]*/, '').trim();
-                    addChip(noteText || el.textContent.trim());
-                });
-            });
         }
 
         // Events

@@ -19,32 +19,20 @@
         },
         onKeyPress: button => {
             if (button === '{shift}' || button === '{lock}') {
-                layoutChanging = true;
                 const isShift = kbd.options.layoutName !== 'shift';
-                kbd.setOptions({ layoutName: isShift ? 'shift' : 'default' });
-                setTimeout(() => { layoutChanging = false; }, 100);
+                switchLayout(isShift ? 'shift' : 'default');
             } else if (kbd.options.layoutName === 'shift' && button !== '{backspace}' && !button.startsWith('{')) {
                 // Auto-return to lowercase after one character
-                layoutChanging = true;
-                kbd.setOptions({ layoutName: 'default' });
-                setTimeout(() => { layoutChanging = false; }, 100);
+                switchLayout('default');
             } else if (button === '{numbers}') {
-                layoutChanging = true;
-                kbd.setOptions({ layoutName: 'numbers' });
-                setTimeout(() => { layoutChanging = false; }, 100);
+                switchLayout('numbers');
             } else if (button === '{abc}') {
-                layoutChanging = true;
-                kbd.setOptions({ layoutName: 'default' });
-                setTimeout(() => { layoutChanging = false; }, 100);
+                switchLayout('default');
             } else if (button === '{special}') {
-                layoutChanging = true;
-                kbd.setOptions({ layoutName: 'special' });
-                setTimeout(() => { layoutChanging = false; }, 100);
+                switchLayout('special');
             } else if (kbd.options.layoutName === 'special' && !button.startsWith('{')) {
                 // Auto-return to default after typing one special char
-                layoutChanging = true;
-                kbd.setOptions({ layoutName: 'default' });
-                setTimeout(() => { layoutChanging = false; }, 100);
+                switchLayout('default');
             } else if (button === '{done}') {
                 hideKeyboard();
             }
@@ -97,6 +85,12 @@
         onChange: fn => changeListeners.push(fn),
         getActiveInput: () => activeInput
     };
+
+    function switchLayout(name) {
+        layoutChanging = true;
+        kbd.setOptions({ layoutName: name });
+        setTimeout(() => { layoutChanging = false; }, 100);
+    }
 
     function showKeyboard(input) {
         activeInput = input;

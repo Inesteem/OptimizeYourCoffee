@@ -57,6 +57,9 @@ PROCESS_OPTIONS = [
     "Lactic Process", "Swiss Water Decaf",
 ]
 
+AUTOCOMPLETE_FIELDS = frozenset(["roaster", "origin_country", "origin_city",
+                                  "origin_producer", "variety", "process"])
+
 
 def backup_db():
     """Create a daily backup of the database. Prune backups older than BACKUP_MAX_DAYS."""
@@ -85,7 +88,7 @@ def inject_globals():
             undo_label = f"Deleted coffee: {undo['coffee'].get('label', '?')}"
         elif undo["type"] == "sample":
             undo_label = "Deleted sample"
-    return {"v": APP_VERSION, "undo_label": undo_label}
+    return {"v": APP_VERSION, "undo_label": undo_label, "process_options": PROCESS_OPTIONS}
 
 
 EVAL_DIMENSIONS = [
@@ -245,20 +248,20 @@ def render_tasting_notes(notes_str):
     """Convert comma-separated tasting notes to emoji + name pairs."""
     if not notes_str:
         return []
-    # Merge custom notes from DB
+    merged = dict(TASTING_EMOJIS)
     try:
         with get_db() as conn:
             for row in conn.execute("SELECT name, emoji FROM custom_tasting_notes"):
                 key = row["name"].lower().strip()
-                if key not in TASTING_EMOJIS and row["emoji"]:
-                    TASTING_EMOJIS[key] = row["emoji"]
+                if row["emoji"]:
+                    merged[key] = row["emoji"]
     except Exception:
         pass
     result = []
     for note in notes_str.split(","):
         note = note.strip()
         if note:
-            emoji = TASTING_EMOJIS.get(note.lower(), "")
+            emoji = merged.get(note.lower(), "")
             result.append(f"{emoji} {note}" if emoji else note)
     return result
 
@@ -531,50 +534,53 @@ def index():
     return render_template("step1_coffee.html", coffees=coffee_data, show_archived=show_archived)
 
 
+def parse_coffee_form(data):
+    """Extract and validate coffee fields from form data."""
+    label = data.get("label", "").strip() or make_label(data)
+    def_min = data.get("default_brew_min", "").strip()
+    def_sec = data.get("default_brew_sec", "").strip()
+    def_time = None
+    if def_min or def_sec:
+        def_time = safe_int(def_min, 0) * 60 + safe_int(def_sec, 0)
+    bag_weight = data.get("bag_weight_g", "").strip()
+    bag_price = data.get("bag_price", "").strip()
+    best_after = data.get("best_after_days", "").strip()
+    consume_within = data.get("consume_within_days", "").strip()
+
+    return {
+        "roaster": data.get("roaster", "").strip() or None,
+        "origin_country": data.get("origin_country", "").strip() or None,
+        "origin_city": data.get("origin_city", "").strip() or None,
+        "origin_producer": data.get("origin_producer", "").strip() or None,
+        "variety": data.get("variety", "").strip() or None,
+        "process": data.get("process", "").strip() or None,
+        "tasting_notes": data.get("tasting_notes", "").strip() or None,
+        "label": label,
+        "roast_date": data.get("roast_date", "").strip() or None,
+        "best_after_days": safe_int(best_after, 7),
+        "consume_within_days": safe_int(consume_within, 50),
+        "bag_weight_g": safe_float(bag_weight),
+        "bag_price": safe_float(bag_price),
+        "default_grams_in": safe_float(data.get("default_grams_in", "").strip()),
+        "default_grams_out": safe_float(data.get("default_grams_out", "").strip()),
+        "default_brew_time_sec": def_time,
+        "bean_color": data.get("bean_color", "").strip() or None,
+        "bean_size": data.get("bean_size", "").strip() or None,
+        "opened_date": data.get("opened_date", "").strip() or None,
+    }
+
+
 @app.route("/coffee/add", methods=["POST"])
 def add_coffee():
-    data = request.form
-    label = data.get("label", "").strip() or make_label(data)
+    fields = parse_coffee_form(request.form)
+    # Safety: validate all columns are allowed
+    assert all(c in COFFEE_COLUMNS for c in fields.keys()), "Invalid column in form fields"
+    cols = list(fields.keys())
+    placeholders = ", ".join("?" for _ in cols)
     with get_db() as conn:
-        best_after = data.get("best_after_days", "").strip()
-        consume_within = data.get("consume_within_days", "").strip()
-        bag_weight = data.get("bag_weight_g", "").strip()
-        bag_price = data.get("bag_price", "").strip()
-        def_in = data.get("default_grams_in", "").strip()
-        def_out = data.get("default_grams_out", "").strip()
-        def_min = data.get("default_brew_min", "").strip()
-        def_sec = data.get("default_brew_sec", "").strip()
-        def_time = None
-        if def_min or def_sec:
-            def_time = safe_int(def_min, 0) * 60 + safe_int(def_sec, 0)
         cur = conn.execute(
-            """INSERT INTO coffees (roaster, origin_country, origin_city, origin_producer,
-                                    variety, process, tasting_notes, label, roast_date,
-                                    best_after_days, consume_within_days, bag_weight_g, bag_price,
-                                    default_grams_in, default_grams_out, default_brew_time_sec,
-                                    bean_color, bean_size, opened_date)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                data.get("roaster", "").strip() or None,
-                data.get("origin_country", "").strip() or None,
-                data.get("origin_city", "").strip() or None,
-                data.get("origin_producer", "").strip() or None,
-                data.get("variety", "").strip() or None,
-                data.get("process", "").strip() or None,
-                data.get("tasting_notes", "").strip() or None,
-                label,
-                data.get("roast_date", "").strip() or None,
-                safe_int(best_after, 7),
-                safe_int(consume_within, 50),
-                safe_float(bag_weight),
-                safe_float(bag_price),
-                safe_float(def_in),
-                safe_float(def_out),
-                def_time,
-                data.get("bean_color", "").strip() or None,
-                data.get("bean_size", "").strip() or None,
-                data.get("opened_date", "").strip() or None,
-            ),
+            f"INSERT INTO coffees ({', '.join(cols)}) VALUES ({placeholders})",
+            [fields[c] for c in cols],
         )
         coffee_id = cur.lastrowid
     return redirect(url_for("new_sample", coffee_id=coffee_id))
@@ -591,51 +597,14 @@ def edit_coffee(coffee_id):
 
 @app.route("/coffee/<int:coffee_id>/edit", methods=["POST"])
 def save_coffee(coffee_id):
-    data = request.form
-    label = data.get("label", "").strip() or make_label(data)
-    best_after = data.get("best_after_days", "").strip()
-    consume_within = data.get("consume_within_days", "").strip()
-    bag_weight = data.get("bag_weight_g", "").strip()
-    bag_price = data.get("bag_price", "").strip()
-    def_in = data.get("default_grams_in", "").strip()
-    def_out = data.get("default_grams_out", "").strip()
-    def_min = data.get("default_brew_min", "").strip()
-    def_sec = data.get("default_brew_sec", "").strip()
-    def_time = None
-    if def_min or def_sec:
-        def_time = safe_int(def_min, 0) * 60 + safe_int(def_sec, 0)
+    fields = parse_coffee_form(request.form)
+    # Safety: validate all columns are allowed
+    assert all(c in COFFEE_COLUMNS for c in fields.keys()), "Invalid column in form fields"
+    set_clause = ", ".join(f"{c}=?" for c in fields.keys())
     with get_db() as conn:
         conn.execute(
-            """UPDATE coffees SET roaster=?, origin_country=?, origin_city=?, origin_producer=?,
-                                  variety=?, process=?, tasting_notes=?, label=?, roast_date=?,
-                                  best_after_days=?, consume_within_days=?,
-                                  bag_weight_g=?, bag_price=?,
-                                  default_grams_in=?, default_grams_out=?, default_brew_time_sec=?,
-                                  bean_color=?, bean_size=?, opened_date=?,
-                                  updated_at=CURRENT_TIMESTAMP
-               WHERE id=?""",
-            (
-                data.get("roaster", "").strip() or None,
-                data.get("origin_country", "").strip() or None,
-                data.get("origin_city", "").strip() or None,
-                data.get("origin_producer", "").strip() or None,
-                data.get("variety", "").strip() or None,
-                data.get("process", "").strip() or None,
-                data.get("tasting_notes", "").strip() or None,
-                label,
-                data.get("roast_date", "").strip() or None,
-                safe_int(best_after, 7),
-                safe_int(consume_within, 50),
-                safe_float(bag_weight),
-                safe_float(bag_price),
-                safe_float(def_in),
-                safe_float(def_out),
-                def_time,
-                data.get("bean_color", "").strip() or None,
-                data.get("bean_size", "").strip() or None,
-                data.get("opened_date", "").strip() or None,
-                coffee_id,
-            ),
+            f"UPDATE coffees SET {set_clause}, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            list(fields.values()) + [coffee_id],
         )
     return redirect(url_for("new_sample", coffee_id=coffee_id))
 
@@ -934,26 +903,22 @@ def save_evaluation(sample_id):
             return redirect(url_for("index"))
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
 
-        existing = conn.execute("SELECT id FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
-        if existing:
-            conn.execute(
-                """UPDATE evaluations SET aroma=?, acidity=?, sweetness=?, body=?, balance=?, overall=?,
-                   grind_aroma=?, preheat_portafilter=?, preheat_cup=?, preheat_machine=?,
-                   eval_notes=?, with_milk=?, representative=? WHERE sample_id=?""",
-                (scores["aroma"], scores["acidity"], scores["sweetness"],
-                 scores["body"], scores["balance"], scores["overall"],
-                 grind_aroma, preheat_pf, preheat_cup, preheat_machine,
-                 eval_notes, with_milk, representative, sample_id),
-            )
-        else:
-            conn.execute(
-                """INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall,
-                   grind_aroma, preheat_portafilter, preheat_cup, preheat_machine, eval_notes, with_milk, representative)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (sample_id, scores["aroma"], scores["acidity"], scores["sweetness"],
-                 scores["body"], scores["balance"], scores["overall"],
-                 grind_aroma, preheat_pf, preheat_cup, preheat_machine, eval_notes, with_milk, representative),
-            )
+        conn.execute("""
+    INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall,
+       grind_aroma, preheat_portafilter, preheat_cup, preheat_machine,
+       eval_notes, with_milk, representative)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(sample_id) DO UPDATE SET
+       aroma=excluded.aroma, acidity=excluded.acidity, sweetness=excluded.sweetness,
+       body=excluded.body, balance=excluded.balance, overall=excluded.overall,
+       grind_aroma=excluded.grind_aroma, preheat_portafilter=excluded.preheat_portafilter,
+       preheat_cup=excluded.preheat_cup, preheat_machine=excluded.preheat_machine,
+       eval_notes=excluded.eval_notes, with_milk=excluded.with_milk,
+       representative=excluded.representative
+""", (sample_id, scores["aroma"], scores["acidity"], scores["sweetness"],
+      scores["body"], scores["balance"], scores["overall"],
+      grind_aroma, preheat_pf, preheat_cup, preheat_machine,
+      eval_notes, with_milk, representative))
 
         evaluation = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
         freshness = freshness_status(coffee)
@@ -1064,10 +1029,9 @@ def api_custom_tasting_notes():
 @app.route("/api/autocomplete")
 def api_autocomplete():
     """Return unique values per field from existing coffees for autocomplete."""
-    fields = ["roaster", "origin_country", "origin_city", "origin_producer", "variety", "process"]
     result = {}
     with get_db() as conn:
-        for f in fields:
+        for f in AUTOCOMPLETE_FIELDS:
             rows = conn.execute(
                 f"SELECT DISTINCT {f} FROM coffees WHERE {f} IS NOT NULL AND {f} != '' ORDER BY {f}"
             ).fetchall()
