@@ -1015,8 +1015,11 @@ def save_evaluation(sample_id):
         evaluation = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
         freshness = freshness_status(coffee)
 
-    # Enhanced diagnostics with taste descriptors, output deviation, and brew time
-    target_out = coffee["default_grams_out"] if coffee else None
+    # Compute ratio-based target output from actual input
+    target_out = None
+    if coffee and coffee["default_grams_in"] and coffee["default_grams_out"] and sample:
+        ratio = coffee["default_grams_out"] / coffee["default_grams_in"]
+        target_out = sample["grams_in"] * ratio if sample["grams_in"] else None
     actual_out = sample["grams_out"] if sample else None
     brew_time = sample["brew_time_sec"] if sample else None
     tips = diagnose(scores, taste_desc, actual_out, target_out, brew_time)

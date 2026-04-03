@@ -83,6 +83,28 @@ main {
     transition: border-color 0.2s;
 }
 
+.field-error {
+    font-size: 0.7rem;
+    margin-top: 3px;
+    min-height: 0;
+}
+
+.field-error:empty {
+    display: none;
+}
+
+.field-ok {
+    color: var(--text-muted);
+}
+
+.field-over {
+    color: #e07050;
+}
+
+.field-under {
+    color: #e0a840;
+}
+
 .field input:focus,
 .field-select:focus {
     border-color: var(--accent);
