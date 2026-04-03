@@ -47,7 +47,7 @@ COFFEE_COLUMNS = {"roaster", "origin_country", "origin_city", "origin_producer",
 SAMPLE_COLUMNS = {"coffee_id", "grind_size", "grams_in", "grams_out", "brew_time_sec",
                   "brew_temp_c", "days_since_roast", "days_since_opened", "notes", "created_at"}
 EVALUATION_COLUMNS = {"sample_id", "aroma", "acidity", "sweetness", "body", "balance",
-                      "overall", "grind_aroma", "aroma_descriptors", "taste_descriptors",
+                      "overall", "grind_aroma", "aroma_descriptors", "brew_smell_descriptors", "taste_descriptors",
                       "preheat_portafilter", "preheat_cup",
                       "preheat_machine", "eval_notes", "with_milk", "representative", "created_at"}
 
@@ -61,13 +61,22 @@ PROCESS_OPTIONS = [
 AUTOCOMPLETE_FIELDS = frozenset(["roaster", "origin_country", "origin_city",
                                   "origin_producer", "variety", "process"])
 
-AROMA_DESCRIPTORS = [
+GRIND_SMELL_DESCRIPTORS = [
     "Fruity", "Citrus", "Berry", "Stone fruit",
     "Nutty", "Chocolate", "Cocoa",
     "Floral", "Jasmine",
     "Caramel", "Honey", "Vanilla",
     "Roasted", "Toasted", "Smoky",
-    "Green", "Fresh",
+    "Green", "Fresh", "Flat", "Faint",
+]
+
+BREW_SMELL_DESCRIPTORS = [
+    "Fruity", "Citrus", "Berry",
+    "Chocolate", "Cocoa", "Nutty",
+    "Caramel", "Honey", "Vanilla",
+    "Floral", "Roasted", "Smoky",
+    "Burned", "Sour", "Acidic",
+    "Sweet", "Rich", "Flat",
 ]
 
 TASTE_DESCRIPTORS = [
@@ -76,8 +85,9 @@ TASTE_DESCRIPTORS = [
     "Caramel", "Honey", "Brown sugar", "Vanilla",
     "Spicy", "Pepper", "Cinnamon",
     "Roasted", "Smoky", "Earthy",
-    "Creamy", "Silky", "Clean",
-    "Wine-like",
+    "Creamy", "Silky", "Clean", "Wine-like",
+    "Sour", "Acidic", "Bitter", "Burned", "Ashy",
+    "Dry", "Astringent", "Thin", "Flat", "Harsh",
 ]
 
 
@@ -109,7 +119,9 @@ def inject_globals():
         elif undo["type"] == "sample":
             undo_label = "Deleted sample"
     return {"v": APP_VERSION, "undo_label": undo_label, "process_options": PROCESS_OPTIONS,
-            "aroma_descriptors": AROMA_DESCRIPTORS, "taste_descriptors": TASTE_DESCRIPTORS}
+            "grind_smell_descriptors": GRIND_SMELL_DESCRIPTORS,
+            "brew_smell_descriptors": BREW_SMELL_DESCRIPTORS,
+            "taste_descriptors": TASTE_DESCRIPTORS}
 
 
 EVAL_DIMENSIONS = [
@@ -216,6 +228,7 @@ def init_db():
                 preheat_cup INTEGER DEFAULT 1,
                 preheat_machine INTEGER DEFAULT 1,
                 aroma_descriptors TEXT,
+                brew_smell_descriptors TEXT,
                 taste_descriptors TEXT,
                 eval_notes TEXT,
                 with_milk INTEGER DEFAULT 0,
@@ -233,6 +246,7 @@ def init_db():
             ("preheat_cup", "INTEGER DEFAULT 1"),
             ("preheat_machine", "INTEGER DEFAULT 1"),
             ("aroma_descriptors", "TEXT"),
+            ("brew_smell_descriptors", "TEXT"),
             ("taste_descriptors", "TEXT"),
             ("eval_notes", "TEXT"),
             ("with_milk", "INTEGER DEFAULT 0"),
@@ -353,22 +367,54 @@ def freshness_status(coffee):
                 "detail": f"Past prime by {over} day{'s' if over != 1 else ''}"}
 
 
-def diagnose(ev):
-    """Return diagnostic tips based on evaluation scores."""
+def diagnose(ev, taste_desc=None, actual_out=None, target_out=None):
+    """Return diagnostic tips based on scores, taste descriptors, and output deviation."""
     tips = []
     acidity = ev.get("acidity", 3)
     sweetness = ev.get("sweetness", 3)
     body = ev.get("body", 3)
+    taste_tags = set(t.strip().lower() for t in (taste_desc or "").split(",") if t.strip())
 
-    if acidity >= 4 and sweetness <= 2 and body <= 2:
-        tips.append("Likely under-extracted. Try grinding finer or extending brew time.")
-    elif acidity >= 4 and sweetness <= 2:
-        tips.append("High acidity, low sweetness — try grinding a touch finer.")
-    elif acidity <= 2 and sweetness <= 2:
-        tips.append("Likely over-extracted. Try grinding coarser or shorter brew time.")
-    elif body <= 2 and sweetness >= 3:
-        tips.append("Thin body — try increasing dose or grinding slightly finer.")
+    # Taste descriptor-based diagnostics (work even with 0 prior shots)
+    under_signs = taste_tags & {"sour", "acidic", "thin", "flat"}
+    over_signs = taste_tags & {"bitter", "burned", "ashy", "dry", "astringent", "harsh"}
 
+    if under_signs and over_signs:
+        # Both sour AND bitter = channeling or uneven extraction
+        tips.append("Sour AND bitter — likely channeling. Check puck prep (WDT, distribution, tamp evenness).")
+    elif len(under_signs) >= 3 or (len(under_signs) >= 2 and acidity >= 4):
+        tips.append(f"Strongly under-extracted ({', '.join(under_signs)}). Grind significantly finer (2-3 steps).")
+    elif under_signs:
+        tips.append(f"Under-extracted ({', '.join(under_signs)}). Grind a little finer (1 step).")
+    elif len(over_signs) >= 3 or (len(over_signs) >= 2 and sweetness <= 2):
+        tips.append(f"Strongly over-extracted ({', '.join(over_signs)}). Grind significantly coarser (2-3 steps).")
+    elif over_signs:
+        tips.append(f"Over-extracted ({', '.join(over_signs)}). Grind a little coarser (1 step).")
+
+    # Score-based diagnostics (existing logic, as fallback)
+    if not tips:
+        if acidity >= 4 and sweetness <= 2 and body <= 2:
+            tips.append("Likely under-extracted. Try grinding somewhat finer (1-2 steps).")
+        elif acidity >= 4 and sweetness <= 2:
+            tips.append("High acidity, low sweetness — try grinding a little finer (1 step).")
+        elif acidity <= 2 and sweetness <= 2:
+            tips.append("Likely over-extracted. Try grinding a little coarser (1 step).")
+        elif body <= 2 and sweetness >= 3:
+            tips.append("Thin body — try increasing dose or grinding slightly finer.")
+
+    # Output deviation diagnostic
+    if actual_out and target_out and target_out > 0:
+        deviation = (actual_out - target_out) / target_out
+        if deviation > 0.25:
+            tips.append(f"Output {actual_out:.0f}g is way above target {target_out:.0f}g — grind is likely too coarse or shot ran too long.")
+        elif deviation > 0.10:
+            tips.append(f"Output {actual_out:.0f}g is above target {target_out:.0f}g — consider grinding a little finer.")
+        elif deviation < -0.25:
+            tips.append(f"Output {actual_out:.0f}g is way below target {target_out:.0f}g — grind is likely too fine (choked).")
+        elif deviation < -0.10:
+            tips.append(f"Output {actual_out:.0f}g is below target {target_out:.0f}g — consider grinding a little coarser.")
+
+    # Positive feedback
     if ev.get("balance", 3) >= 4 and ev.get("overall", 3) >= 4:
         tips.append("Great shot! Save this recipe as a reference.")
     elif not tips:
@@ -922,6 +968,7 @@ def save_evaluation(sample_id):
     eval_notes = data.get("eval_notes", "").strip() or None
     with_milk = 1 if data.get("with_milk") else 0
     aroma_desc = ",".join(data.getlist("aroma_descriptors")) or None
+    brew_smell_desc = ",".join(data.getlist("brew_smell_descriptors")) or None
     taste_desc = ",".join(data.getlist("taste_descriptors")) or None
 
     with get_db() as conn:
@@ -932,14 +979,15 @@ def save_evaluation(sample_id):
 
         conn.execute("""
     INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall,
-       grind_aroma, aroma_descriptors, taste_descriptors,
+       grind_aroma, aroma_descriptors, brew_smell_descriptors, taste_descriptors,
        preheat_portafilter, preheat_cup, preheat_machine,
        eval_notes, with_milk, representative)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(sample_id) DO UPDATE SET
        aroma=excluded.aroma, acidity=excluded.acidity, sweetness=excluded.sweetness,
        body=excluded.body, balance=excluded.balance, overall=excluded.overall,
        grind_aroma=excluded.grind_aroma, aroma_descriptors=excluded.aroma_descriptors,
+       brew_smell_descriptors=excluded.brew_smell_descriptors,
        taste_descriptors=excluded.taste_descriptors,
        preheat_portafilter=excluded.preheat_portafilter,
        preheat_cup=excluded.preheat_cup, preheat_machine=excluded.preheat_machine,
@@ -947,17 +995,21 @@ def save_evaluation(sample_id):
        representative=excluded.representative
 """, (sample_id, scores["aroma"], scores["acidity"], scores["sweetness"],
       scores["body"], scores["balance"], scores["overall"],
-      grind_aroma, aroma_desc, taste_desc, preheat_pf, preheat_cup, preheat_machine,
+      grind_aroma, aroma_desc, brew_smell_desc, taste_desc, preheat_pf, preheat_cup, preheat_machine,
       eval_notes, with_milk, representative))
 
         evaluation = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
         freshness = freshness_status(coffee)
 
-    tips = diagnose(scores)
+    # Enhanced diagnostics with taste descriptors and output deviation
+    target_out = coffee["default_grams_out"] if coffee else None
+    actual_out = sample["grams_out"] if sample else None
+    tips = diagnose(scores, taste_desc, actual_out, target_out)
     return render_template(
         "step3_evaluate.html",
         coffee=coffee, sample=sample, evaluation=evaluation,
         dimensions=EVAL_DIMENSIONS, tips=tips, freshness=freshness,
+        prefill_grind_aroma=None,
     )
 
 

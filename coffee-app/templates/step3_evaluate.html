@@ -76,14 +76,27 @@
                 </div>
             </div>
 
-            <!-- Aroma Descriptors -->
-            <h3 class="form-section-title">Aroma Notes (what you smell)</h3>
+            <!-- Grind Smell Descriptors -->
+            <h3 class="form-section-title">Grind Smell (ground coffee)</h3>
             {% set saved_aroma = (evaluation.aroma_descriptors or '').split(',') if evaluation and evaluation.aroma_descriptors else [] %}
             <div class="descriptor-chips">
-                {% for d in aroma_descriptors %}
+                {% for d in grind_smell_descriptors %}
                 <label class="descriptor-chip {% if d in saved_aroma %}active{% endif %}">
                     <input type="checkbox" name="aroma_descriptors" value="{{ d }}"
                            {% if d in saved_aroma %}checked{% endif %}>
+                    <span>{{ d }}</span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <!-- Brew Smell Descriptors -->
+            <h3 class="form-section-title">Brew Smell (brewed coffee)</h3>
+            {% set saved_brew = (evaluation.brew_smell_descriptors or '').split(',') if evaluation and evaluation.brew_smell_descriptors else [] %}
+            <div class="descriptor-chips">
+                {% for d in brew_smell_descriptors %}
+                <label class="descriptor-chip {% if d in saved_brew %}active{% endif %}">
+                    <input type="checkbox" name="brew_smell_descriptors" value="{{ d }}"
+                           {% if d in saved_brew %}checked{% endif %}>
                     <span>{{ d }}</span>
                 </label>
                 {% endfor %}
