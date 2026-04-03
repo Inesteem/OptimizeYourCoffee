@@ -51,9 +51,24 @@ Sources: SCA Cupping Form, WBC Scoresheet, Baristapp, Smart Espresso Profiler, h
 - Better for touchscreen UX
 - All existing apps (Baristapp, Beanlog, etc.) use discrete points
 
+## Additional Evaluation Fields (implemented)
+
+### Sensory Descriptors (3 sections)
+- **Grind Smell** (19 chips): captured during sample input, before brewing
+- **Brew Smell** (18 chips): what the brewed espresso smells like
+- **Taste Notes** (30 chips): includes diagnostic negatives (Sour, Bitter, Burned, etc.)
+
+### Other Fields
+- **Grind Aroma** (1-5): intensity score, pre-filled from last eval of same coffee
+- **Preheat**: portafilter, cup, machine checkboxes (default checked)
+- **With Milk**: flags shots consumed with milk (affects perception)
+- **Notes**: free-text field
+- **Representative**: checked by default, uncheck for experimental shots
+
 ## UX Notes
 
 - Radio buttons are most touch-friendly
 - Stack dimensions vertically
-- ~20 seconds to complete all 6 dimensions
+- ~30 seconds to complete full evaluation with descriptors
 - Show diagnostic feedback immediately after scoring
+- Diagnostics use taste descriptors even with 0 prior data

@@ -1,220 +1,159 @@
 # Coffee Sampler
 
-A touchscreen coffee sampling app for Raspberry Pi with the official 7" display.
+A touchscreen espresso sampling app for Raspberry Pi with the official 7" display.
 
 ## Overview
 
 Track espresso shots, evaluate flavors, and dial in your grind. Three-step workflow:
 
-1. **Select or define a coffee** — roaster, origin, variety, process, tasting notes (emoji chips), roast date, freshness tracking, bag inventory, roaster's recipe defaults
-2. **Log a brew sample** — grind size (with AI suggestion), dose in/out, brew time (seconds). Pre-filled from roaster's recipe.
-3. **Evaluate the shot** — score aroma, acidity, sweetness, body, balance, overall (1–5 scale). Mark as representative. Automatic diagnostic feedback + freshness context.
+1. **Select or define a coffee** — roaster, origin, variety, process, bean color/size, tasting notes (emoji chips), roast date, opened date, freshness tracking, bag inventory, roaster's recipe defaults
+2. **Log a brew sample** — grind size (with AI suggestion), dose in/out (with ratio deviation display), brew time, temperature, grind smell descriptors. Pre-filled from roaster's recipe.
+3. **Evaluate the shot** — score aroma, acidity, sweetness, body, balance, overall (1–5 scale). Grind aroma, brew smell, and taste descriptor chips. Preheat tracking, milk flag, notes. Mark as representative. Automatic diagnostic feedback with grind adjustment recommendations.
 
 ## Features
 
-- **Freshness tracking** — 6-stage model (degassing → resting → peak → good → fading → stale) based on roast date and configurable best-after/consume-within days
+### Core
+- **Freshness tracking** — 6-stage model (degassing → resting → peak → good → fading → stale) with opened date tracking and days-since-roast/opened per sample
 - **Grind suggestion** — quadratic regression on evaluation scores to suggest optimal grind size
-- **Coffee ratings** — aggregate score from representative shots with tier labels (Outstanding/Excellent/Very Good/Good) and flavor profile descriptors
+- **Smart diagnostics** — taste descriptor-based recommendations (sour→finer, bitter→coarser, channeling detection), brew time analysis, output deviation detection with severity levels
+- **Coffee ratings** — aggregate score from representative shots with tier labels and auto-generated flavor profile descriptors
+
+### Data & Visualization
+- **Per-coffee stats** — grind vs score scatter, score timeline, flavor radar, cross-coffee comparison with metric picker
+- **Cross-coffee insights** — findings organized by category (Process, Flavor, Roast, Cross-cutting, Value), charts by process/origin/roast level, flavor profile radar with toggle chips
+- **Coffee info popups** — tappable variety and process names show description, flavor profile, species, and brewing tips from built-in database (18 varieties, 16 processes)
+- **Output deviation** — real-time display of actual vs expected output based on coffee's ratio
+
+### UX
 - **Tasting notes** — emoji chip input with ~90 built-in notes, custom labels via settings, searchable emoji picker
-- **Autocomplete** — inline suggestion chips for roaster, country, city, producer, variety (from static lists + DB entries)
-- **Process dropdown** — 16 processing methods (Washed, Natural, Honey variants, Anaerobic, Carbonic Maceration, etc.)
-- **Bag inventory** — track weight (default 250g), price, estimated grams remaining
-- **Archive** — hide empty bags from main list, browse archived coffees
-- **On-screen keyboard** — simple-keyboard with German umlauts (ä/ö/ü), special characters, single-char shift toggle
-- **Dark theme** — touch-optimized UI for 800x480 DSI touchscreen
+- **Autocomplete** — inline suggestion chips for all text fields (from static lists + DB entries)
+- **3-section evaluation descriptors** — grind smell, brew smell, taste notes (30+ chips including diagnostic negatives)
+- **On-screen keyboard** — German umlauts (ä/ö/ü), special characters, single-char shift toggle
+- **Sample edit/move** — edit brew parameters, move samples between coffees
+- **Open bag dialog** — prompts to set opened date when first sampling a coffee
+- **Undo** — restore deleted coffees and samples with all evaluations
+- **Archive** — hide empty bags, browse archived coffees
+- **Auto backup** — timestamped DB backup on every startup + before every deploy
 
 ## Stack
 
-- **Backend**: Python 3.13 / Flask
-- **Database**: SQLite (WAL mode, foreign keys)
-- **Frontend**: HTML/CSS/JS with simple-keyboard
-- **Display**: Chromium in kiosk mode (Wayland, cache disabled)
+- **Backend**: Python 3 / Flask / SQLite (WAL mode)
+- **Frontend**: HTML/CSS/JS, Chart.js, simple-keyboard
+- **Display**: Chromium kiosk on Wayland (800x480 DSI touchscreen)
 - **Grind optimization**: numpy (quadratic regression)
 
 ## Hardware
 
-- Raspberry Pi 4 Model B (8GB)
+- Raspberry Pi 4 Model B (8GB recommended)
 - Official Raspberry Pi 7" capacitive touchscreen (800x480)
-- Raspberry Pi OS 64-bit (Trixie)
-
-## Deployment
-
-The app runs on the Pi as a systemd service (`coffee-kiosk.service`) and auto-launches Chromium in kiosk mode at login.
-
-### Files on the Pi
-
-```
-~/coffee-app/
-├── app.py                      # Flask application
-├── coffee.db                   # SQLite database (auto-created)
-├── coffee-kiosk.service        # systemd unit file
-├── restart-ui.sh               # Helper: restart Flask + Chromium
-├── static/
-│   ├── style.css               # Dark theme, touch-optimized
-│   ├── keyboard.js             # Virtual keyboard (simple-keyboard wrapper)
-│   ├── autocomplete.js         # Inline chip autocomplete
-│   ├── tastingnotes.js         # Tasting note chip input + emoji lookup
-│   ├── varieties.json          # ~100 coffee cultivar names
-│   ├── simple-keyboard.min.js  # simple-keyboard library
-│   └── simple-keyboard.css     # simple-keyboard styles
-└── templates/
-    ├── step1_coffee.html       # Coffee selection / creation
-    ├── step2_sample.html       # Brew sample logging + grind suggestion
-    ├── step3_evaluate.html     # Shot evaluation with diagnostics
-    ├── edit_coffee.html        # Edit coffee details
-    ├── edit_sample.html        # Edit/move sample
-    ├── open_bag.html           # Open bag confirmation dialog
-    ├── stats.html              # Per-coffee charts and statistics
-    └── settings_notes.html     # Tasting note label management
-```
+- Raspberry Pi OS 64-bit
 
 > **First time?** See [SETUP.md](SETUP.md) for full installation guide.
 
-### Deploy from dev machine
-
-Configure `deploy.conf` (not checked in) with your Pi credentials:
-```
-PI_USER=youruser
-PI_HOST=192.168.x.x
-PI_APP_DIR=/home/youruser/coffee-app
-```
+## Deployment
 
 ```bash
-# Source config and deploy
-source deploy.conf
-scp -r coffee-app/* $PI_USER@$PI_HOST:$PI_APP_DIR/
-ssh $PI_USER@$PI_HOST "bash $PI_APP_DIR/restart-ui.sh"
+# Safe deploy: backs up DB, stops Flask, syncs files, restarts
+./deploy.sh
 ```
 
-### Service management
+Requires `deploy.conf` (see `deploy.conf.example`).
 
-```bash
-source deploy.conf
-ssh $PI_USER@$PI_HOST
-sudo systemctl status coffee-kiosk.service
-sudo systemctl restart coffee-kiosk.service
-journalctl -u coffee-kiosk.service -f
+## Files
+
 ```
-
-## API
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/coffees` | All coffees as JSON |
-| `GET /api/samples` | All samples with evaluations as JSON |
-| `GET /api/autocomplete` | Unique values per field for autocomplete |
-| `GET /api/custom-tasting-notes` | Custom tasting note labels |
+coffee-app/
+├── app.py                      # Flask application
+├── coffee-kiosk.service        # systemd service template
+├── restart-ui.sh               # Restart Flask + Chromium helper
+├── static/
+│   ├── style.css               # Dark theme CSS
+│   ├── keyboard.js             # Virtual keyboard
+│   ├── autocomplete.js         # Inline chip autocomplete
+│   ├── tastingnotes.js         # Tasting note chip input
+│   ├── coffeeinfo.js           # Variety/process info popups
+│   ├── coffee-info.json        # Variety & process descriptions
+│   ├── coffee-bean.svg         # Desktop icon
+│   ├── varieties.json          # ~100 cultivar names
+│   ├── chart.min.js            # Chart.js library
+│   ├── simple-keyboard.min.js  # Keyboard library
+│   └── simple-keyboard.css
+└── templates/
+    ├── step1_coffee.html       # Coffee selection / creation
+    ├── step2_sample.html       # Brew sample logging
+    ├── step3_evaluate.html     # Shot evaluation + diagnostics
+    ├── edit_coffee.html        # Edit coffee details
+    ├── edit_sample.html        # Edit/move sample
+    ├── open_bag.html           # Open bag dialog
+    ├── stats.html              # Per-coffee charts
+    ├── insights.html           # Cross-coffee insights
+    └── settings_notes.html     # Tasting note labels
+```
 
 ## Database Schema
 
 ### coffees
 | Column | Type | Description |
 |--------|------|-------------|
-| roaster | TEXT | Roasting company |
-| origin_country | TEXT | Country of origin |
-| origin_city | TEXT | City or region |
-| origin_producer | TEXT | Farm or cooperative |
-| variety | TEXT | Coffee variety (e.g. Heirloom, SL28) |
-| process | TEXT | Processing method (dropdown: 16 options) |
-| tasting_notes | TEXT | Comma-separated tasting notes with emoji support |
-| label | TEXT | Display label (auto: roaster - variety - process) |
-| roast_date | TEXT | Date of roast |
-| best_after_days | INTEGER | Days before coffee is ready (default 7) |
-| consume_within_days | INTEGER | Days before coffee goes stale (default 50) |
-| bag_weight_g | REAL | Bag weight in grams (default 250) |
-| bag_price | REAL | Price in EUR |
-| default_grams_in | REAL | Roaster's recommended dose |
-| default_grams_out | REAL | Roaster's recommended yield |
-| default_brew_time_sec | INTEGER | Roaster's recommended brew time |
-| archived | INTEGER | 0 = active, 1 = archived (empty bag) |
+| roaster, origin_country/city/producer | TEXT | Origin info |
+| variety, process | TEXT | Bean variety and processing method |
+| tasting_notes | TEXT | Comma-separated with emoji support |
+| label | TEXT | Display label (auto-generated) |
+| roast_date, opened_date | TEXT | Dates for freshness tracking |
+| best_after_days, consume_within_days | INTEGER | Freshness config (default 7/50) |
+| bean_color, bean_size | TEXT | Light/Medium/Dark, Small/Medium/Large/Peaberry |
+| bag_weight_g, bag_price | REAL | Inventory (default 250g) |
+| default_grams_in/out, default_brew_time_sec | REAL/INT | Roaster's recipe |
+| archived | INTEGER | 0=active, 1=archived |
 
 ### samples
 | Column | Type | Description |
 |--------|------|-------------|
 | coffee_id | INTEGER | FK to coffees |
-| grind_size | REAL | Grinder setting |
-| grams_in | REAL | Dose weight |
-| grams_out | REAL | Yield weight |
-| brew_time_sec | INTEGER | Total brew time in seconds |
-| ratio | REAL | Auto-calculated (out / in) |
-| notes | TEXT | Barista's notes |
+| grind_size, grams_in, grams_out | REAL | Brew parameters |
+| brew_time_sec | INTEGER | Time in seconds |
+| brew_temp_c | REAL | Temperature (default 91°C) |
+| days_since_roast, days_since_opened | INTEGER | Snapshot at creation |
+| grind_smell | TEXT | Grind aroma descriptors |
 
 ### evaluations
 | Column | Type | Description |
 |--------|------|-------------|
-| sample_id | INTEGER | FK to samples (unique) |
-| aroma | INTEGER | 1–5 (none → complex) |
-| acidity | INTEGER | 1–5 (flat → bright) |
-| sweetness | INTEGER | 1–5 (absent → rich) |
-| body | INTEGER | 1–5 (thin → full) |
-| balance | INTEGER | 1–5 (poor → integrated) |
-| overall | INTEGER | 1–5 (bad → excellent) |
-| representative | INTEGER | 1 = counts toward coffee rating |
+| aroma, acidity, sweetness, body, balance, overall | INTEGER | 1–5 scores |
+| grind_aroma | INTEGER | 1–5 grind smell intensity |
+| aroma_descriptors, brew_smell_descriptors, taste_descriptors | TEXT | Comma-separated chips |
+| preheat_portafilter/cup/machine | INTEGER | Preheat flags |
+| with_milk | INTEGER | Consumed with milk |
+| eval_notes | TEXT | Free-text notes |
+| representative | INTEGER | Counts toward rating |
 
-### custom_tasting_notes
-| Column | Type | Description |
-|--------|------|-------------|
-| name | TEXT | Note name (unique) |
-| emoji | TEXT | Emoji for display |
+## Diagnostics
 
-## Freshness Model
+Automatic grind recommendations from taste descriptors + brew params:
 
-Based on SCA research. Configurable per coffee via best_after_days and consume_within_days.
-
-| Stage | Default Days | Description | Badge Color |
-|-------|-------------|-------------|-------------|
-| Degassing | 0–2 | High CO2, shots sour/unstable | Red |
-| Resting | 3–7 | CO2 releasing, almost ready | Amber |
-| Peak | 7–18 | Origin character vibrant, crema rich | Green |
-| Good | 18–32 | Some volatiles fading, still pleasant | Blue |
-| Fading | 32–50 | Noticeably flat, papery notes | Tan |
-| Stale | 50+ | Cardboard/musty, not recommended | Red |
-
-### Roast-level presets
-- **Light roast**: best_after=12, consume_within=60
-- **Medium roast**: best_after=7, consume_within=50
-- **Dark roast**: best_after=4, consume_within=35
-
-## Evaluation & Rating
-
-### Diagnostics
-| Pattern | Diagnosis | Suggestion |
-|---------|-----------|------------|
-| High acidity + low sweetness + thin body | Under-extracted | Grind finer |
-| High acidity + low sweetness | Slightly under-extracted | Grind a touch finer |
-| Low acidity + low sweetness | Over-extracted | Grind coarser |
-| Thin body + decent sweetness | Low extraction | Increase dose or grind finer |
-| High balance + high overall | Balanced shot | Save as reference recipe |
-
-### Coffee Rating Tiers
-Computed from representative shots only (average of 5 taste dimensions).
-
-| Average Score | Tier | Description |
-|--------------|------|-------------|
-| >= 4.5 | Outstanding | Exceptional |
-| >= 3.8 | Excellent | Distinct, expressive |
-| >= 3.0 | Very Good | Clean, pleasant |
-| >= 2.2 | Good | Drinkable |
-| < 2.2 | Below Average | Needs work |
-
-### Grind Suggestion
-Quadratic regression on overall score vs grind size. Requires 3+ evaluated shots. Shows confidence level (low/medium/high) based on sample count.
-
-## Processing Methods
-
-Dropdown selection with 16 options:
-Washed, Natural, Honey, Black Honey, Red Honey, Yellow Honey, White Honey, Anaerobic, Anaerobic Natural, Anaerobic Washed, Carbonic Maceration, Wet Hulled, Semi-Washed, Double Washed, Lactic Process, Swiss Water Decaf
+| Signal | Detection | Recommendation |
+|--------|-----------|---------------|
+| Sour/Acidic/Thin | Under-extraction | Grind finer (1-3 steps by severity) |
+| Bitter/Burned/Ashy/Dry | Over-extraction | Grind coarser (1-3 steps by severity) |
+| Sour AND Bitter | Channeling | Fix puck prep (WDT, tamp) |
+| Brew time <20s | Fast flow | Grind finer |
+| Brew time >35s | Slow flow/choked | Grind coarser |
+| Output >target +10g | Severe over-run | Grind much finer |
+| Output <target -10g | Choked | Grind much coarser |
 
 ## Known Chromium/Wayland Issues
 
-- `position: fixed` elements toggled via `display: none/block` won't repaint — use `:empty` collapse or `opacity` instead
-- Chromium cache is aggressive in kiosk mode — disabled via `--disk-cache-size=1 --aggressive-cache-discard`
-- Static asset versioning uses Flask startup timestamp (`?v={{ v }}`)
+- `position: fixed` with `display: none/block` won't repaint — use `:empty` collapse
+- Cache aggressive — disabled via `--disk-cache-size=1`
+- Asset versioning via Flask startup timestamp (`?v={{ v }}`)
 
-## Roadmap
+## Reference
 
-- [x] Grind size suggestions based on history
-- [ ] Lookup: search and filter past samples across all coffees
-- [ ] Export: CSV/JSON data export
-- [ ] Charts: trend visualization per coffee
-- [ ] Backup: automated DB backup
+See `reference/` for domain knowledge:
+- `coffee-varieties.md` — 60+ varieties, 16 processes, species taxonomy
+- `coffee-freshness.md` — degradation science, storage impacts
+- `coffee-rating-labels.md` — SCA scoring, tier mapping
+- `espresso-evaluation.md` — scoring dimensions, diagnostic patterns
+- `extraction-diagnostics.md` — taste→grind mapping rules
+- `grind-optimization.md` — quadratic regression approach
+- `tasting-note-labels.md` — emoji mappings, chip lists

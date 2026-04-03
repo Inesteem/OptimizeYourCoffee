@@ -174,20 +174,30 @@ ssh $PI_USER@$PI_HOST "sudo journalctl -u coffee-kiosk.service -n 20"
 - `position: fixed` elements with `display: none/block` toggle won't repaint — app uses `:empty` collapse pattern instead
 - Cache is aggressive — disabled via `--disk-cache-size=1`
 
+## Deploying Updates
+
+Always use the safe deploy script:
+```bash
+./deploy.sh
+```
+This backs up the DB, stops Flask, syncs files (excluding DB), and restarts.
+
 ## File Structure
 
 ```
 coffee-settings/
 ├── coffee-app/
-│   ├── app.py                  # Flask application (~1100 lines)
+│   ├── app.py                  # Flask application
 │   ├── coffee-kiosk.service    # systemd service template
-│   ├── restart-ui.sh           # Helper to restart Flask + Chromium
-│   ├── static/                 # CSS, JS, fonts, icons
-│   └── templates/              # Jinja2 HTML templates
-├── reference/                  # Research docs, review notes, roadmap
+│   ├── restart-ui.sh           # Restart Flask + Chromium
+│   ├── static/                 # CSS, JS, Chart.js, icons, data
+│   └── templates/              # Jinja2 HTML templates (10 pages)
+├── reference/                  # Domain knowledge docs
 ├── tests/                      # pytest test suite (108 tests)
 ├── setup-rpi-sd.sh            # SD card setup script
+├── deploy.sh                  # Safe deploy script
 ├── deploy.conf                # Pi credentials (gitignored)
+├── deploy.conf.example        # Template for deploy.conf
 ├── SETUP.md                   # This file
 └── README.md                  # Feature overview
 ```
