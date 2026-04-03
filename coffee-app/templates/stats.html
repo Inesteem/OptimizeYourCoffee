@@ -225,7 +225,7 @@
                 datasets: [{
                     label: 'Best Score',
                     data: crossData.map(d => d.score),
-                    backgroundColor: crossData.map(d => d.label === '{{ coffee.label }}' ? ACCENT : ACCENT2),
+                    backgroundColor: crossData.map(d => d.label === {{ coffee.label | tojson }} ? ACCENT : ACCENT2),
                     borderRadius: 4,
                 }]
             },

@@ -18,7 +18,18 @@ BACKUP_DIR = Path(__file__).parent / "backups"
 BACKUP_MAX_DAYS = 60
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32)
+
+
+def _get_secret_key():
+    """Load or generate a persistent secret key."""
+    key_file = Path(__file__).parent / ".secret_key"
+    if key_file.exists():
+        return key_file.read_bytes()
+    key = os.urandom(32)
+    key_file.write_bytes(key)
+    return key
+
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or _get_secret_key()
 
 CACHE_BUST = str(int(time.time()))
 
@@ -61,7 +72,7 @@ PROCESS_OPTIONS = [
 ]
 
 AUTOCOMPLETE_FIELDS = frozenset(["roaster", "origin_country", "origin_city",
-                                  "origin_producer", "variety", "process"])
+                                  "origin_producer", "variety"])
 
 GRIND_SMELL_DESCRIPTORS = [
     "Fruity", "Citrus", "Berry", "Stone fruit",
@@ -683,7 +694,8 @@ def parse_coffee_form(data):
 def add_coffee():
     fields = parse_coffee_form(request.form)
     # Guard against SQL injection from unexpected columns
-    assert all(c in COFFEE_COLUMNS for c in fields.keys()), "Invalid column in form fields"
+    if not all(c in COFFEE_COLUMNS for c in fields.keys()):
+        return redirect(url_for("index"))
     cols = list(fields.keys())
     placeholders = ", ".join("?" for _ in cols)
     with get_db() as conn:
@@ -708,7 +720,8 @@ def edit_coffee(coffee_id):
 def save_coffee(coffee_id):
     fields = parse_coffee_form(request.form)
     # Guard against SQL injection from unexpected columns
-    assert all(c in COFFEE_COLUMNS for c in fields.keys()), "Invalid column in form fields"
+    if not all(c in COFFEE_COLUMNS for c in fields.keys()):
+        return redirect(url_for("index"))
     set_clause = ", ".join(f"{c}=?" for c in fields.keys())
     with get_db() as conn:
         conn.execute(

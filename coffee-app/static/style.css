@@ -901,10 +901,6 @@ header h1 {
     background: #333;
 }
 
-.delete-form {
-    margin-top: 10px;
-}
-
 .btn-delete-coffee {
     width: 100%;
     padding: 12px;
@@ -1050,40 +1046,6 @@ header h1 {
 
 .settings-btn:active {
     color: var(--accent);
-}
-
-.notes-list {
-    background: var(--surface);
-    border-radius: var(--radius);
-    overflow: hidden;
-}
-
-.note-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    border-bottom: 1px solid #333;
-}
-
-.note-item:last-child {
-    border-bottom: none;
-}
-
-.note-item.builtin {
-    opacity: 0.7;
-}
-
-.note-emoji {
-    font-size: 1.1rem;
-    width: 24px;
-    text-align: center;
-    flex-shrink: 0;
-}
-
-.note-name {
-    flex: 1;
-    font-size: 0.9rem;
 }
 
 .note-card {

@@ -45,7 +45,7 @@
                     <label for="process">Process</label>
                     <select id="process" name="process" class="field-select">
                         <option value="">— Select —</option>
-                        {% for p in ["Washed","Natural","Honey","Black Honey","Red Honey","Yellow Honey","White Honey","Anaerobic","Anaerobic Natural","Anaerobic Washed","Carbonic Maceration","Wet Hulled","Semi-Washed","Double Washed","Lactic Process","Swiss Water Decaf"] %}
+                        {% for p in process_options %}
                         <option {% if coffee.process == p %}selected{% endif %}>{{ p }}</option>
                         {% endfor %}
                     </select>

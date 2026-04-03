@@ -15,7 +15,7 @@
             "Thailand","Vietnam","China","Laos","Philippines","Ecuador",
             "Dominican Republic","Haiti","Cuba","Congo","Malawi","Zambia",
             "Zimbabwe","Cameroon","Ivory Coast","Madagascar","Nepal",
-            "East Timor","Australia","Sumatra","Java","Sulawesi"
+            "East Timor","Australia"
         ],
         origin_city: [],
         origin_producer: [],

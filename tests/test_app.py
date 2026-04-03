@@ -981,8 +981,9 @@ class TestRouteAutocomplete:
     def test_autocomplete_has_expected_fields(self, client, tmp_db):
         resp = client.get("/api/autocomplete")
         data = resp.get_json()
-        for field in ["roaster", "origin_country", "origin_city", "origin_producer", "variety", "process"]:
+        for field in ["roaster", "origin_country", "origin_city", "origin_producer", "variety"]:
             assert field in data
+        assert "process" not in data  # process is a dropdown, not autocomplete
 
     def test_autocomplete_returns_unique_values(self, client, tmp_db):
         _add_coffee(client, roaster="AutoA", variety="V1", process="P1")
@@ -994,7 +995,7 @@ class TestRouteAutocomplete:
     def test_autocomplete_empty_db_returns_empty_lists(self, client, tmp_db):
         resp = client.get("/api/autocomplete")
         data = resp.get_json()
-        for field in ["roaster", "origin_country", "origin_city", "origin_producer", "variety", "process"]:
+        for field in ["roaster", "origin_country", "origin_city", "origin_producer", "variety"]:
             assert data[field] == []
 
 

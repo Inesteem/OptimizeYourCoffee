@@ -6,3 +6,5 @@ __pycache__/
 .env
 deploy.conf
 notes/
+backups/
+.secret_key

@@ -60,22 +60,9 @@
                         <label for="process">Process</label>
                         <select id="process" name="process" class="field-select">
                             <option value="">— Select —</option>
-                            <option>Washed</option>
-                            <option>Natural</option>
-                            <option>Honey</option>
-                            <option>Black Honey</option>
-                            <option>Red Honey</option>
-                            <option>Yellow Honey</option>
-                            <option>White Honey</option>
-                            <option>Anaerobic</option>
-                            <option>Anaerobic Natural</option>
-                            <option>Anaerobic Washed</option>
-                            <option>Carbonic Maceration</option>
-                            <option>Wet Hulled</option>
-                            <option>Semi-Washed</option>
-                            <option>Double Washed</option>
-                            <option>Lactic Process</option>
-                            <option>Swiss Water Decaf</option>
+                            {% for p in process_options %}
+                            <option>{{ p }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                 </div>
