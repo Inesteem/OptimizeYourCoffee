@@ -67,21 +67,25 @@ The app runs on the Pi as a systemd service (`coffee-kiosk.service`) and auto-la
 
 ### Deploy from dev machine
 
+Configure `deploy.conf` (not checked in) with your Pi credentials:
+```
+PI_USER=youruser
+PI_HOST=192.168.x.x
+PI_APP_DIR=/home/youruser/coffee-app
+```
+
 ```bash
-# Deploy files (preserves database)
-scp -r coffee-app/* DEPLOY_USER@PI_HOST_IP:~/coffee-app/
-
-# Restart Flask + Chromium (no reboot needed)
-ssh DEPLOY_USER@PI_HOST_IP "bash ~/coffee-app/restart-ui.sh"
-
-# Or just restart Flask (Chromium picks up on next navigate)
-ssh DEPLOY_USER@PI_HOST_IP "sudo systemctl restart coffee-kiosk.service"
+# Source config and deploy
+source deploy.conf
+scp -r coffee-app/* $PI_USER@$PI_HOST:$PI_APP_DIR/
+ssh $PI_USER@$PI_HOST "bash $PI_APP_DIR/restart-ui.sh"
 ```
 
 ### Service management
 
 ```bash
-ssh DEPLOY_USER@PI_HOST_IP
+source deploy.conf
+ssh $PI_USER@$PI_HOST
 sudo systemctl status coffee-kiosk.service
 sudo systemctl restart coffee-kiosk.service
 journalctl -u coffee-kiosk.service -f

@@ -3,6 +3,7 @@ Description=Coffee Sampler Web App
 After=network.target
 
 [Service]
+# Update User and paths to match your Pi setup (see deploy.conf)
 User=DEPLOY_USER
 WorkingDirectory=/home/DEPLOY_USER/coffee-app
 ExecStart=/usr/bin/python3 /home/DEPLOY_USER/coffee-app/app.py
