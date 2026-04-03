@@ -144,7 +144,7 @@
                 plugins: { legend: { display: false } },
                 scales: {
                     x: { title: { display: true, text: 'Grind Size', color: MUTED } },
-                    y: { title: { display: true, text: 'Score', color: MUTED }, min: 0, max: 5, ticks: { stepSize: 1 } }
+                    y: { title: { display: true, text: 'Score', color: MUTED }, min: 0.5, max: 5.5, ticks: { stepSize: 1, callback: v => v >= 1 && v <= 5 ? v : '' } }
                 }
             }
         });
@@ -185,7 +185,7 @@
                 plugins: { legend: { labels: { boxWidth: 12 } } },
                 scales: {
                     x: { ticks: { maxRotation: 45 } },
-                    y: { title: { display: true, text: 'Score', color: MUTED }, min: 0, max: 5, ticks: { stepSize: 1 } },
+                    y: { title: { display: true, text: 'Score', color: MUTED }, min: 0.5, max: 5.5, ticks: { stepSize: 1, callback: v => v >= 1 && v <= 5 ? v : '' } },
                     y2: { position: 'right', title: { display: true, text: 'Grind', color: ACCENT2 }, grid: { display: false } }
                 }
             }
