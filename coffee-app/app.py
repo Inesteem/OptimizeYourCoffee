@@ -47,7 +47,7 @@ COFFEE_COLUMNS = {"roaster", "origin_country", "origin_city", "origin_producer",
                   "bean_color", "bean_size", "opened_date",
                   "archived", "created_at", "updated_at"}
 SAMPLE_COLUMNS = {"coffee_id", "grind_size", "grams_in", "grams_out", "brew_time_sec",
-                  "brew_temp_c", "days_since_roast", "days_since_opened", "notes", "created_at"}
+                  "brew_temp_c", "days_since_roast", "days_since_opened", "grind_smell", "notes", "created_at"}
 EVALUATION_COLUMNS = {"sample_id", "aroma", "acidity", "sweetness", "body", "balance",
                       "overall", "grind_aroma", "aroma_descriptors", "brew_smell_descriptors", "taste_descriptors",
                       "preheat_portafilter", "preheat_cup",
@@ -210,6 +210,7 @@ def init_db():
                 brew_temp_c REAL DEFAULT 91,
                 days_since_roast INTEGER,
                 days_since_opened INTEGER,
+                grind_smell TEXT,
                 notes TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -222,6 +223,8 @@ def init_db():
             conn.execute("ALTER TABLE samples ADD COLUMN days_since_roast INTEGER")
         if "days_since_opened" not in sample_cols:
             conn.execute("ALTER TABLE samples ADD COLUMN days_since_opened INTEGER")
+        if "grind_smell" not in sample_cols:
+            conn.execute("ALTER TABLE samples ADD COLUMN grind_smell TEXT")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS evaluations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -799,6 +802,7 @@ def add_sample(coffee_id):
     brew_time_sec = minutes * 60 + seconds
 
     brew_temp = data.get("brew_temp_c", "").strip()
+    grind_smell = ",".join(data.getlist("grind_smell")) or None
 
     with get_db() as conn:
         # Compute days since roast and since opened
@@ -819,8 +823,8 @@ def add_sample(coffee_id):
                     pass
 
         cur = conn.execute(
-            """INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec, brew_temp_c, days_since_roast, days_since_opened, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec, brew_temp_c, days_since_roast, days_since_opened, grind_smell, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 coffee_id,
                 safe_float(data["grind_size"], 0),
@@ -830,6 +834,7 @@ def add_sample(coffee_id):
                 safe_float(brew_temp, 91),
                 days_since_roast,
                 days_since_opened,
+                grind_smell,
                 data.get("notes", ""),
             ),
         )

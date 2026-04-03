@@ -79,6 +79,17 @@
                 </div>
             </div>
 
+            <!-- Grind smell (capture before brewing) -->
+            <h3 class="form-section-title">Grind Smell</h3>
+            <div class="descriptor-chips">
+                {% for d in grind_smell_descriptors %}
+                <label class="descriptor-chip">
+                    <input type="checkbox" name="grind_smell" value="{{ d }}">
+                    <span>{{ d }}</span>
+                </label>
+                {% endfor %}
+            </div>
+
             <button type="submit" class="btn-add">Save Sample</button>
         </form>
 

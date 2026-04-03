@@ -157,7 +157,7 @@
                 </label>
                 <label class="representative-toggle compact">
                     <input type="checkbox" name="representative" value="1"
-                           {% if evaluation and evaluation.representative %}checked{% endif %}>
+                           {% if not evaluation or evaluation.representative %}checked{% endif %}>
                     <span class="repr-check"></span>
                     <span>Representative</span>
                 </label>
