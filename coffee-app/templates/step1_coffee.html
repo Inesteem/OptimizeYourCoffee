@@ -237,5 +237,28 @@
     <script src="{{ url_for('static', filename='autocomplete.js') }}?v={{ v }}"></script>
     <script src="{{ url_for('static', filename='tastingnotes.js') }}?v={{ v }}"></script>
     <script src="{{ url_for('static', filename='coffeeinfo.js') }}?v={{ v }}"></script>
+    <script>
+    // Restore scroll position when returning from stats/edit pages
+    (function() {
+        var scrollKey = 'coffeeScrollY';
+        var returnKey = 'coffeeReturnUrl';
+        var saved = sessionStorage.getItem(scrollKey);
+        if (saved !== null) {
+            window.scrollTo(0, parseInt(saved, 10));
+            sessionStorage.removeItem(scrollKey);
+        }
+        sessionStorage.removeItem(returnKey);
+        // Save scroll + current URL (incl. ?archived=1) when navigating away
+        document.addEventListener('click', function(e) {
+            var a = e.target.closest('a');
+            if (!a || !a.href) return;
+            var url = new URL(a.href, location.origin);
+            if (url.pathname !== location.pathname || url.search !== location.search) {
+                sessionStorage.setItem(scrollKey, window.scrollY);
+                sessionStorage.setItem(returnKey, location.pathname + location.search);
+            }
+        });
+    })();
+    </script>
 </body>
 </html>

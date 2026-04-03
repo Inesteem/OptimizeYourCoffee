@@ -282,5 +282,15 @@
     renderCrossChart('overall');
     </script>
     <script src="{{ url_for('static', filename='coffeeinfo.js') }}?v={{ v }}"></script>
+    <script>
+    // Restore back-btn to the page the user came from (e.g. /?archived=1)
+    (function() {
+        var url = sessionStorage.getItem('coffeeReturnUrl');
+        if (url) {
+            var btn = document.querySelector('.back-btn[href="/"]');
+            if (btn) btn.href = url;
+        }
+    })();
+    </script>
 </body>
 </html>

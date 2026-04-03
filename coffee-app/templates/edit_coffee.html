@@ -161,5 +161,14 @@
     <script src="{{ url_for('static', filename='keyboard.js') }}?v={{ v }}"></script>
     <script src="{{ url_for('static', filename='autocomplete.js') }}?v={{ v }}"></script>
     <script src="{{ url_for('static', filename='tastingnotes.js') }}?v={{ v }}"></script>
+    <script>
+    (function() {
+        var url = sessionStorage.getItem('coffeeReturnUrl');
+        if (url) {
+            var btn = document.querySelector('.back-btn[href="/"]');
+            if (btn) btn.href = url;
+        }
+    })();
+    </script>
 </body>
 </html>
