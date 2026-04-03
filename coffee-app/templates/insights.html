@@ -21,17 +21,22 @@
             </div>
             <div class="stat-card">
                 <div class="stat-value">{{ totals.shots }}</div>
-                <div class="stat-label">Total Shots</div>
+                <div class="stat-label">Shots</div>
             </div>
         </div>
 
-        <!-- Text insights -->
-        {% if text_insights %}
+        <!-- Organized findings -->
+        {% if findings %}
         <section class="chart-section">
             <h2>Key Findings</h2>
             <div class="insights-list">
-                {% for tip in text_insights %}
-                <div class="insight-item">{{ tip }}</div>
+                {% set current_cat = namespace(val='') %}
+                {% for f in findings %}
+                {% if f.cat != current_cat.val %}
+                {% set current_cat.val = f.cat %}
+                <div class="insight-cat">{{ f.cat }}</div>
+                {% endif %}
+                <div class="insight-item">{{ f.text }}</div>
                 {% endfor %}
             </div>
         </section>
@@ -42,14 +47,31 @@
         <section class="chart-section">
             <h2>By Process</h2>
             <div class="metric-picker">
-                <button class="metric-btn active" data-metric="overall">Overall</button>
-                <button class="metric-btn" data-metric="sweetness">Sweet</button>
-                <button class="metric-btn" data-metric="acidity">Acidity</button>
-                <button class="metric-btn" data-metric="body">Body</button>
-                <button class="metric-btn" data-metric="grind">Avg Grind</button>
+                <button class="metric-btn proc-btn active" data-metric="overall">Overall</button>
+                <button class="metric-btn proc-btn" data-metric="sweetness">Sweet</button>
+                <button class="metric-btn proc-btn" data-metric="acidity">Acidity</button>
+                <button class="metric-btn proc-btn" data-metric="body">Body</button>
+                <button class="metric-btn proc-btn" data-metric="grind">Grind*</button>
             </div>
             <div class="chart-wrap" id="processChartWrap">
                 <canvas id="processChart"></canvas>
+            </div>
+            <div class="chart-note">* Grind = average of all evaluated shots</div>
+        </section>
+        {% endif %}
+
+        <!-- Roast level comparison -->
+        {% if roast_chart != '[]' %}
+        <section class="chart-section">
+            <h2>By Roast Level</h2>
+            <div class="metric-picker">
+                <button class="metric-btn roast-btn active" data-metric="overall">Overall</button>
+                <button class="metric-btn roast-btn" data-metric="acidity">Acidity</button>
+                <button class="metric-btn roast-btn" data-metric="body">Body</button>
+                <button class="metric-btn roast-btn" data-metric="sweetness">Sweet</button>
+            </div>
+            <div class="chart-wrap" id="roastChartWrap">
+                <canvas id="roastChart"></canvas>
             </div>
         </section>
         {% endif %}
@@ -72,6 +94,7 @@
             <div class="chart-wrap chart-square">
                 <canvas id="processRadar"></canvas>
             </div>
+            <div class="chart-note">Scores = average across all evaluated shots per process</div>
         </section>
         {% endif %}
 
@@ -105,20 +128,19 @@
 
     const processData = {{ process_chart | safe }};
     const originData = {{ origin_chart | safe }};
+    const roastData = {{ roast_chart | safe }};
     const processRadarData = {{ process_radar | safe }};
 
-    // Process chart with metric picker
-    let processChart = null;
-    function renderProcessChart(metric) {
-        if (!processData.length) return;
-        const sorted = [...processData].sort((a, b) => b[metric] - a[metric]);
+    // Reusable horizontal bar chart builder
+    function buildBarChart(canvasId, wrapId, data, metric, btnClass) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || !data.length) return null;
+        const sorted = [...data].sort((a, b) => b[metric] - a[metric]);
         const isGrind = metric === 'grind';
-
-        if (processChart) processChart.destroy();
-        const wrap = document.getElementById('processChartWrap');
+        const wrap = document.getElementById(wrapId);
         wrap.style.height = Math.max(120, sorted.length * 40) + 'px';
 
-        processChart = new Chart(document.getElementById('processChart'), {
+        return new Chart(canvas, {
             type: 'bar',
             data: {
                 labels: sorted.map(d => d.name + ' (' + d.count + ')'),
@@ -137,59 +159,43 @@
                     tooltip: { callbacks: { label: ctx => isGrind ? 'Avg grind: ' + ctx.raw.toFixed(1) : ctx.raw.toFixed(1) + '/5' } }
                 },
                 scales: {
-                    x: isGrind
-                        ? { title: { display: true, text: 'Grind Size', color: MUTED } }
-                        : { min: 0, max: 5, ticks: { stepSize: 1 } },
+                    x: isGrind ? {} : { min: 0, max: 5, ticks: { stepSize: 1 } },
                     y: { ticks: { font: { size: 11 } } }
                 }
             }
         });
     }
 
-    document.querySelectorAll('.metric-btn').forEach(btn => {
-        btn.addEventListener('pointerdown', e => {
-            document.querySelectorAll('.metric-btn').forEach(b => b.classList.remove('active'));
+    // Process chart
+    let processChart = buildBarChart('processChart', 'processChartWrap', processData, 'overall');
+    document.querySelectorAll('.proc-btn').forEach(btn => {
+        btn.addEventListener('pointerdown', () => {
+            document.querySelectorAll('.proc-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            renderProcessChart(btn.dataset.metric);
+            if (processChart) processChart.destroy();
+            processChart = buildBarChart('processChart', 'processChartWrap', processData, btn.dataset.metric);
         });
     });
-    renderProcessChart('overall');
+
+    // Roast chart
+    let roastChart = buildBarChart('roastChart', 'roastChartWrap', roastData, 'overall');
+    document.querySelectorAll('.roast-btn').forEach(btn => {
+        btn.addEventListener('pointerdown', () => {
+            document.querySelectorAll('.roast-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (roastChart) roastChart.destroy();
+            roastChart = buildBarChart('roastChart', 'roastChartWrap', roastData, btn.dataset.metric);
+        });
+    });
 
     // Origin chart
     if (originData.length > 1) {
-        const sorted = [...originData].sort((a, b) => b.overall - a.overall);
-        const wrap = document.getElementById('originChartWrap');
-        wrap.style.height = Math.max(120, sorted.length * 40) + 'px';
-
-        new Chart(document.getElementById('originChart'), {
-            type: 'bar',
-            data: {
-                labels: sorted.map(d => d.name + ' (' + d.count + ')'),
-                datasets: [{
-                    data: sorted.map(d => d.overall),
-                    backgroundColor: sorted.map((_, i) => COLORS[i % COLORS.length]),
-                    borderRadius: 4,
-                }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { label: ctx => ctx.raw.toFixed(1) + '/5 avg overall' } }
-                },
-                scales: {
-                    x: { min: 0, max: 5, ticks: { stepSize: 1 } },
-                    y: { ticks: { font: { size: 11 } } }
-                }
-            }
-        });
+        buildBarChart('originChart', 'originChartWrap', originData, 'overall');
     }
 
     // Process flavor radar overlay with toggles
     if (processRadarData.length >= 1) {
-        const radarColors = [ACCENT, ACCENT2, ACCENT3, ACCENT4, ACCENT5, '#e0a840', '#60aacc', '#cc8060'];
+        const radarColors = COLORS;
         const radarEnabled = new Set(processRadarData.map(p => p.name));
         let radarChart = null;
 
@@ -200,67 +206,47 @@
                 type: 'radar',
                 data: {
                     labels: ['Aroma', 'Acidity', 'Sweetness', 'Body', 'Balance'],
-                    datasets: active.map((p) => {
-                        const origIdx = processRadarData.indexOf(p);
+                    datasets: active.map(p => {
+                        const idx = processRadarData.indexOf(p);
                         return {
-                            label: p.name,
-                            data: p.data,
-                            borderColor: radarColors[origIdx],
-                            backgroundColor: radarColors[origIdx] + '22',
-                            pointBackgroundColor: radarColors[origIdx],
-                            pointRadius: 4,
-                            borderWidth: 2,
+                            label: p.name, data: p.data,
+                            borderColor: radarColors[idx],
+                            backgroundColor: radarColors[idx] + '22',
+                            pointBackgroundColor: radarColors[idx],
+                            pointRadius: 4, borderWidth: 2,
                         };
                     })
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
+                    responsive: true, maintainAspectRatio: true,
                     plugins: { legend: { display: false } },
-                    scales: {
-                        r: {
-                            min: 0, max: 5,
-                            ticks: { stepSize: 1, display: false, backdropColor: 'transparent' },
-                            grid: { color: GRID },
-                            angleLines: { color: GRID },
-                            pointLabels: { font: { size: 12 }, color: TEXT }
-                        }
-                    }
+                    scales: { r: {
+                        min: 0, max: 5,
+                        ticks: { stepSize: 1, display: false, backdropColor: 'transparent' },
+                        grid: { color: GRID }, angleLines: { color: GRID },
+                        pointLabels: { font: { size: 12 }, color: TEXT }
+                    }}
                 }
             });
         }
 
-        // Build toggle chips
         const toggleWrap = document.getElementById('radarToggles');
         processRadarData.forEach((p, i) => {
             const label = document.createElement('label');
             label.className = 'descriptor-chip active';
-            label.style.borderColor = radarColors[i];
+            label.style.cssText = 'border-color:' + radarColors[i] + ';background:' + radarColors[i] + ';color:#fff';
             const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.checked = true;
-            cb.style.display = 'none';
+            cb.type = 'checkbox'; cb.checked = true; cb.style.display = 'none';
             cb.addEventListener('change', () => {
-                if (cb.checked) {
-                    radarEnabled.add(p.name);
-                    label.classList.add('active');
-                    label.style.background = radarColors[i];
-                } else {
-                    radarEnabled.delete(p.name);
-                    label.classList.remove('active');
-                    label.style.background = '';
-                }
+                if (cb.checked) { radarEnabled.add(p.name); label.classList.add('active'); label.style.background = radarColors[i]; }
+                else { radarEnabled.delete(p.name); label.classList.remove('active'); label.style.background = ''; }
                 renderRadar();
             });
-            label.style.background = radarColors[i];
-            label.style.color = '#fff';
             const span = document.createElement('span');
             span.textContent = p.name;
-            label.appendChild(cb);
-            label.appendChild(span);
+            label.appendChild(cb); label.appendChild(span);
             toggleWrap.appendChild(label);
         });
-
         renderRadar();
     }
     </script>

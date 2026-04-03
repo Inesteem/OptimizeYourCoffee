@@ -994,107 +994,118 @@ def insights():
         """).fetchall()
 
     if not rows:
-        return render_template("insights.html", groups={}, text_insights=[], totals={})
+        return render_template("insights.html", process_chart="[]", origin_chart="[]",
+                               roast_chart="[]", process_radar="[]",
+                               findings=[], totals={"coffees": 0, "shots": 0})
 
     coffees = [dict(r) for r in rows]
 
-    # Build groupings
+    # --- Helpers ---
     def group_by(key):
         groups = {}
         for c in coffees:
             val = c.get(key) or "Unknown"
-            if val not in groups:
-                groups[val] = []
-            groups[val].append(c)
+            groups.setdefault(val, []).append(c)
         return groups
 
-    def group_avg(group, metric):
+    def gavg(group, metric):
+        """Average of a metric across coffees in a group."""
         vals = [c[metric] for c in group if c[metric] is not None]
         return round(sum(vals) / len(vals), 1) if vals else 0
 
+    def build_chart(grouping, sort_key="avg_overall"):
+        """Build sorted chart data for a grouping dict."""
+        chart = []
+        for name, group in grouping.items():
+            chart.append({
+                "name": name, "count": len(group),
+                "overall": gavg(group, "avg_overall"),
+                "sweetness": gavg(group, "avg_sweetness"),
+                "acidity": gavg(group, "avg_acidity"),
+                "body": gavg(group, "avg_body"),
+                "aroma": gavg(group, "avg_aroma"),
+                "balance": gavg(group, "avg_balance"),
+                "grind": gavg(group, "avg_grind"),
+            })
+        return sorted(chart, key=lambda x: x["overall"], reverse=True)
+
+    # --- Groupings ---
     by_process = group_by("process")
-    by_variety = group_by("variety")
     by_origin = group_by("origin_country")
     by_roast = group_by("bean_color")
 
-    # Build chart data: process comparison
-    process_chart = []
-    for proc, group in sorted(by_process.items()):
-        process_chart.append({
-            "name": proc, "count": len(group),
-            "overall": group_avg(group, "avg_overall"),
-            "sweetness": group_avg(group, "avg_sweetness"),
-            "acidity": group_avg(group, "avg_acidity"),
-            "body": group_avg(group, "avg_body"),
-            "grind": group_avg(group, "avg_grind"),
-        })
+    process_chart = build_chart(by_process)
+    origin_chart = build_chart(by_origin)
+    roast_chart = build_chart(by_roast)
 
-    # Origin comparison
-    origin_chart = []
-    for orig, group in sorted(by_origin.items()):
-        origin_chart.append({
-            "name": orig, "count": len(group),
-            "overall": group_avg(group, "avg_overall"),
-        })
-
-    # Generate text insights
-    text_insights = []
+    # --- Organized findings ---
+    findings = []  # list of {"category": str, "text": str}
     total_shots = sum(c["shot_count"] for c in coffees)
     total_coffees = len(coffees)
 
-    # Best process
-    if len(by_process) > 1:
-        best_proc = max(by_process.items(), key=lambda x: group_avg(x[1], "avg_overall"))
-        worst_proc = min(by_process.items(), key=lambda x: group_avg(x[1], "avg_overall"))
-        if best_proc[0] != worst_proc[0]:
-            text_insights.append(
-                f"{best_proc[0]} coffees score {group_avg(best_proc[1], 'avg_overall')}/5 avg vs "
-                f"{worst_proc[0]} at {group_avg(worst_proc[1], 'avg_overall')}/5")
-
-    # Grind range by process
-    for proc, group in by_process.items():
-        grinds = [c["avg_grind"] for c in group if c["avg_grind"]]
-        if grinds:
-            text_insights.append(f"{proc} coffees: avg grind {min(grinds):.0f}–{max(grinds):.0f}")
-
-    # Sweetest coffee
-    sweetest = max(coffees, key=lambda c: c["avg_sweetness"] or 0)
-    text_insights.append(f"Sweetest: {sweetest['label']} ({sweetest['avg_sweetness']:.1f}/5)")
-
-    # Most acidic
-    most_acid = max(coffees, key=lambda c: c["avg_acidity"] or 0)
-    text_insights.append(f"Brightest: {most_acid['label']} ({most_acid['avg_acidity']:.1f}/5 acidity)")
-
-    # Fullest body
-    fullest = max(coffees, key=lambda c: c["avg_body"] or 0)
-    text_insights.append(f"Fullest body: {fullest['label']} ({fullest['avg_body']:.1f}/5)")
-
-    # Best overall
+    # Top rated
     best = max(coffees, key=lambda c: c["avg_overall"] or 0)
-    text_insights.append(f"Top rated: {best['label']} ({best['avg_overall']:.1f}/5 from {best['shot_count']} shots)")
+    findings.append({"cat": "Top", "text": f"Top rated: {best['label']} ({best['avg_overall']:.1f}/5, {best['shot_count']} shots)"})
 
-    # Price per quality (if prices available)
-    priced = [c for c in coffees if c["bag_price"] and c["avg_overall"]]
+    # Process insights (scores are avg of ALL shots to show trajectory)
+    if len(by_process) > 1:
+        best_proc = max(by_process.items(), key=lambda x: gavg(x[1], "avg_overall"))
+        worst_proc = min(by_process.items(), key=lambda x: gavg(x[1], "avg_overall"))
+        if best_proc[0] != worst_proc[0]:
+            findings.append({"cat": "Process", "text":
+                f"{best_proc[0]} avg {gavg(best_proc[1], 'avg_overall')}/5 vs {worst_proc[0]} at {gavg(worst_proc[1], 'avg_overall')}/5"})
+        # Grind ranges (avg of dialed-in shots scoring 4+)
+        for proc, group in by_process.items():
+            good_grinds = [c["avg_grind"] for c in group if c["avg_grind"] and (c["avg_overall"] or 0) >= 3.5]
+            if good_grinds:
+                findings.append({"cat": "Process", "text":
+                    f"{proc}: grind {min(good_grinds):.0f}–{max(good_grinds):.0f} (well-scoring shots)"})
+
+    # Flavor standouts (from representative-quality coffees)
+    sweetest = max(coffees, key=lambda c: c["avg_sweetness"] or 0)
+    findings.append({"cat": "Flavor", "text": f"Sweetest: {sweetest['label']} ({sweetest['avg_sweetness']:.1f}/5)"})
+    brightest = max(coffees, key=lambda c: c["avg_acidity"] or 0)
+    findings.append({"cat": "Flavor", "text": f"Brightest: {brightest['label']} ({brightest['avg_acidity']:.1f}/5 acidity)"})
+    fullest = max(coffees, key=lambda c: c["avg_body"] or 0)
+    findings.append({"cat": "Flavor", "text": f"Fullest body: {fullest['label']} ({fullest['avg_body']:.1f}/5)"})
+
+    # Cross-cutting insights (process + origin combinations)
+    for c in coffees:
+        if (c["avg_overall"] or 0) >= 4.0:
+            findings.append({"cat": "Cross", "text":
+                f"{c['process']} {c['origin_country']} {c['variety']}: {c['avg_overall']:.1f}/5 overall"})
+
+    # Roast insights
+    if len(by_roast) > 1:
+        for roast, group in by_roast.items():
+            if roast != "Unknown":
+                findings.append({"cat": "Roast", "text":
+                    f"{roast} roasts: acidity {gavg(group, 'avg_acidity')}, body {gavg(group, 'avg_body')}, grind {gavg(group, 'avg_grind'):.0f}"})
+
+    # Value
+    priced = [c for c in coffees if c["bag_price"] and (c["avg_overall"] or 0) > 0]
     if len(priced) >= 2:
-        cheapest_quality = min(priced, key=lambda c: c["bag_price"] / c["avg_overall"])
-        text_insights.append(f"Best value: {cheapest_quality['label']} ({cheapest_quality['bag_price']:.0f}€ for {cheapest_quality['avg_overall']:.1f}/5)")
+        best_val = min(priced, key=lambda c: c["bag_price"] / c["avg_overall"])
+        findings.append({"cat": "Value", "text":
+            f"Best value: {best_val['label']} ({best_val['bag_price']:.0f}€, {best_val['avg_overall']:.1f}/5)"})
 
     totals = {"coffees": total_coffees, "shots": total_shots}
 
-    # Radar overlay: flavor profiles of top 3 processes
+    # Radar overlay: all processes
     dims = ["aroma", "acidity", "sweetness", "body", "balance"]
     process_radar = []
-    for proc, group in sorted(by_process.items(), key=lambda x: group_avg(x[1], "avg_overall"), reverse=True):
+    for proc, group in sorted(by_process.items(), key=lambda x: gavg(x[1], "avg_overall"), reverse=True):
         process_radar.append({
             "name": proc,
-            "data": [group_avg(group, f"avg_{d}") for d in dims],
+            "data": [gavg(group, f"avg_{d}") for d in dims],
         })
 
     return render_template("insights.html",
                            process_chart=json.dumps(process_chart),
                            origin_chart=json.dumps(origin_chart),
+                           roast_chart=json.dumps(roast_chart),
                            process_radar=json.dumps(process_radar),
-                           text_insights=text_insights, totals=totals)
+                           findings=findings, totals=totals)
 
 
 # --- Coffee Stats & Charts ---

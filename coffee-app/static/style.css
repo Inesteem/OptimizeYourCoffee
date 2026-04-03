@@ -1088,8 +1088,17 @@ header h1 {
     padding: 8px 0;
 }
 
+.insight-cat {
+    padding: 6px 14px 2px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
 .insight-item {
-    padding: 8px 14px;
+    padding: 4px 14px 4px 24px;
     font-size: 0.82rem;
     color: var(--text);
     border-bottom: 1px solid #333;
@@ -1097,6 +1106,13 @@ header h1 {
 
 .insight-item:last-child {
     border-bottom: none;
+}
+
+.chart-note {
+    font-size: 0.65rem;
+    color: #666;
+    margin-top: 4px;
+    text-align: right;
 }
 
 .quit-section {
