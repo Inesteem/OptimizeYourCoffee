@@ -797,6 +797,22 @@ header h1 {
     font-weight: bold;
 }
 
+.preheat-row {
+    display: flex;
+    gap: 8px;
+}
+
+.representative-toggle.compact {
+    flex: 1;
+    padding: 6px 0;
+    font-size: 0.8rem;
+}
+
+.representative-toggle.compact .repr-check {
+    width: 24px;
+    height: 24px;
+}
+
 .eval-actions {
     display: flex;
     gap: 10px;

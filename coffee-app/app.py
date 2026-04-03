@@ -42,11 +42,13 @@ COFFEE_COLUMNS = {"roaster", "origin_country", "origin_city", "origin_producer",
                   "variety", "process", "tasting_notes", "label", "roast_date",
                   "best_after_days", "consume_within_days", "bag_weight_g", "bag_price",
                   "default_grams_in", "default_grams_out", "default_brew_time_sec",
+                  "bean_color", "bean_size",
                   "archived", "created_at", "updated_at"}
 SAMPLE_COLUMNS = {"coffee_id", "grind_size", "grams_in", "grams_out", "brew_time_sec",
                   "brew_temp_c", "notes", "created_at"}
 EVALUATION_COLUMNS = {"sample_id", "aroma", "acidity", "sweetness", "body", "balance",
-                      "overall", "representative", "created_at"}
+                      "overall", "grind_aroma", "preheat_portafilter", "preheat_cup",
+                      "preheat_machine", "eval_notes", "representative", "created_at"}
 
 PROCESS_OPTIONS = [
     "Washed", "Natural", "Honey", "Black Honey", "Red Honey", "Yellow Honey",
@@ -125,6 +127,8 @@ def init_db():
                 default_grams_in REAL,
                 default_grams_out REAL,
                 default_brew_time_sec INTEGER,
+                bean_color TEXT,
+                bean_size TEXT,
                 archived INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -141,6 +145,8 @@ def init_db():
             ("default_grams_in", "REAL"),
             ("default_grams_out", "REAL"),
             ("default_brew_time_sec", "INTEGER"),
+            ("bean_color", "TEXT"),
+            ("bean_size", "TEXT"),
             ("archived", "INTEGER DEFAULT 0"),
         ]:
             if col not in cols:
@@ -173,6 +179,11 @@ def init_db():
                 body INTEGER CHECK(body BETWEEN 1 AND 5),
                 balance INTEGER CHECK(balance BETWEEN 1 AND 5),
                 overall INTEGER CHECK(overall BETWEEN 1 AND 5),
+                grind_aroma INTEGER CHECK(grind_aroma BETWEEN 1 AND 5),
+                preheat_portafilter INTEGER DEFAULT 1,
+                preheat_cup INTEGER DEFAULT 1,
+                preheat_machine INTEGER DEFAULT 1,
+                eval_notes TEXT,
                 representative INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -181,6 +192,15 @@ def init_db():
         eval_cols = [r["name"] for r in conn.execute("PRAGMA table_info(evaluations)").fetchall()]
         if "representative" not in eval_cols:
             conn.execute("ALTER TABLE evaluations ADD COLUMN representative INTEGER DEFAULT 0")
+        for ecol, edef in [
+            ("grind_aroma", "INTEGER"),
+            ("preheat_portafilter", "INTEGER DEFAULT 1"),
+            ("preheat_cup", "INTEGER DEFAULT 1"),
+            ("preheat_machine", "INTEGER DEFAULT 1"),
+            ("eval_notes", "TEXT"),
+        ]:
+            if ecol not in eval_cols:
+                conn.execute(f"ALTER TABLE evaluations ADD COLUMN {ecol} {edef}")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS custom_tasting_notes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -521,8 +541,9 @@ def add_coffee():
             """INSERT INTO coffees (roaster, origin_country, origin_city, origin_producer,
                                     variety, process, tasting_notes, label, roast_date,
                                     best_after_days, consume_within_days, bag_weight_g, bag_price,
-                                    default_grams_in, default_grams_out, default_brew_time_sec)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                    default_grams_in, default_grams_out, default_brew_time_sec,
+                                    bean_color, bean_size)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 data.get("roaster", "").strip() or None,
                 data.get("origin_country", "").strip() or None,
@@ -540,6 +561,8 @@ def add_coffee():
                 safe_float(def_in),
                 safe_float(def_out),
                 def_time,
+                data.get("bean_color", "").strip() or None,
+                data.get("bean_size", "").strip() or None,
             ),
         )
         coffee_id = cur.lastrowid
@@ -577,6 +600,7 @@ def save_coffee(coffee_id):
                                   best_after_days=?, consume_within_days=?,
                                   bag_weight_g=?, bag_price=?,
                                   default_grams_in=?, default_grams_out=?, default_brew_time_sec=?,
+                                  bean_color=?, bean_size=?,
                                   updated_at=CURRENT_TIMESTAMP
                WHERE id=?""",
             (
@@ -596,6 +620,8 @@ def save_coffee(coffee_id):
                 safe_float(def_in),
                 safe_float(def_out),
                 def_time,
+                data.get("bean_color", "").strip() or None,
+                data.get("bean_size", "").strip() or None,
                 coffee_id,
             ),
         )
@@ -839,11 +865,20 @@ def evaluate_sample(sample_id):
             return redirect(url_for("index"))
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
         existing = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
+        # Get last grind_aroma for pre-fill
+        last_aroma = conn.execute(
+            """SELECT e.grind_aroma FROM evaluations e JOIN samples s ON e.sample_id = s.id
+               WHERE s.coffee_id = ? AND e.grind_aroma IS NOT NULL
+               ORDER BY e.created_at DESC LIMIT 1""",
+            (sample["coffee_id"],),
+        ).fetchone()
     freshness = freshness_status(coffee)
+    prefill_grind_aroma = last_aroma["grind_aroma"] if last_aroma else None
     return render_template(
         "step3_evaluate.html",
         coffee=coffee, sample=sample, evaluation=existing,
         dimensions=EVAL_DIMENSIONS, tips=None, freshness=freshness,
+        prefill_grind_aroma=prefill_grind_aroma,
     )
 
 
@@ -855,6 +890,11 @@ def save_evaluation(sample_id):
         val = data.get(dim["key"])
         scores[dim["key"]] = safe_int(val)
     representative = 1 if data.get("representative") else 0
+    grind_aroma = safe_int(data.get("grind_aroma"))
+    preheat_pf = 1 if data.get("preheat_portafilter") else 0
+    preheat_cup = 1 if data.get("preheat_cup") else 0
+    preheat_machine = 1 if data.get("preheat_machine") else 0
+    eval_notes = data.get("eval_notes", "").strip() or None
 
     with get_db() as conn:
         sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
@@ -866,17 +906,21 @@ def save_evaluation(sample_id):
         if existing:
             conn.execute(
                 """UPDATE evaluations SET aroma=?, acidity=?, sweetness=?, body=?, balance=?, overall=?,
-                   representative=? WHERE sample_id=?""",
+                   grind_aroma=?, preheat_portafilter=?, preheat_cup=?, preheat_machine=?,
+                   eval_notes=?, representative=? WHERE sample_id=?""",
                 (scores["aroma"], scores["acidity"], scores["sweetness"],
                  scores["body"], scores["balance"], scores["overall"],
-                 representative, sample_id),
+                 grind_aroma, preheat_pf, preheat_cup, preheat_machine,
+                 eval_notes, representative, sample_id),
             )
         else:
             conn.execute(
-                """INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall, representative)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                """INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall,
+                   grind_aroma, preheat_portafilter, preheat_cup, preheat_machine, eval_notes, representative)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (sample_id, scores["aroma"], scores["acidity"], scores["sweetness"],
-                 scores["body"], scores["balance"], scores["overall"], representative),
+                 scores["body"], scores["balance"], scores["overall"],
+                 grind_aroma, preheat_pf, preheat_cup, preheat_machine, eval_notes, representative),
             )
 
         evaluation = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()

@@ -65,6 +65,27 @@
 
             <div class="row">
                 <div class="field">
+                    <label for="bean_color">Bean Color</label>
+                    <select id="bean_color" name="bean_color" class="field-select">
+                        <option value="">— Select —</option>
+                        {% for bc in ["Light","Medium-Light","Medium","Medium-Dark","Dark"] %}
+                        <option {% if coffee.bean_color == bc %}selected{% endif %}>{{ bc }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label for="bean_size">Bean Size</label>
+                    <select id="bean_size" name="bean_size" class="field-select">
+                        <option value="">— Select —</option>
+                        {% for bs in ["Small","Medium","Large","Peaberry"] %}
+                        <option {% if coffee.bean_size == bs %}selected{% endif %}>{{ bs }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="field">
                     <label for="label">Label</label>
                     <input type="text" id="label" name="label" value="{{ coffee.label }}" placeholder="Auto: roaster - variety - process" autocomplete="off">
                 </div>

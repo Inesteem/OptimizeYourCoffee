@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Evaluate Shot</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ v }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='simple-keyboard.css') }}">
 </head>
 <body>
     <header>
@@ -56,6 +57,55 @@
             </div>
             {% endfor %}
 
+            <!-- Grind Aroma -->
+            <div class="eval-row">
+                <div class="eval-header">
+                    <span class="eval-label">Grind Aroma</span>
+                    <span class="eval-range">Faint &rarr; Intense</span>
+                </div>
+                <div class="eval-buttons">
+                    {% set ga_val = evaluation.grind_aroma if evaluation and evaluation.grind_aroma else prefill_grind_aroma %}
+                    {% for i in range(1, 6) %}
+                    <label class="eval-btn {% if ga_val == i %}selected{% endif %}">
+                        <input type="radio" name="grind_aroma" value="{{ i }}"
+                               {% if ga_val == i %}checked{% endif %}>
+                        <span>{{ i }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Preheat checkboxes -->
+            <h3 class="form-section-title">Preheat</h3>
+            <div class="preheat-row">
+                <label class="representative-toggle compact">
+                    <input type="checkbox" name="preheat_portafilter" value="1"
+                           {% if not evaluation or evaluation.preheat_portafilter != 0 %}checked{% endif %}>
+                    <span class="repr-check"></span>
+                    <span>Portafilter</span>
+                </label>
+                <label class="representative-toggle compact">
+                    <input type="checkbox" name="preheat_cup" value="1"
+                           {% if not evaluation or evaluation.preheat_cup != 0 %}checked{% endif %}>
+                    <span class="repr-check"></span>
+                    <span>Cup</span>
+                </label>
+                <label class="representative-toggle compact">
+                    <input type="checkbox" name="preheat_machine" value="1"
+                           {% if not evaluation or evaluation.preheat_machine != 0 %}checked{% endif %}>
+                    <span class="repr-check"></span>
+                    <span>Machine</span>
+                </label>
+            </div>
+
+            <!-- Notes -->
+            <div class="field" style="margin-top:8px">
+                <label for="eval_notes">Notes</label>
+                <input type="text" id="eval_notes" name="eval_notes"
+                       value="{{ evaluation.eval_notes or '' if evaluation else '' }}"
+                       placeholder="Additional observations..." autocomplete="off">
+            </div>
+
             <!-- Representative checkbox -->
             <label class="representative-toggle">
                 <input type="checkbox" name="representative" value="1"
@@ -70,5 +120,11 @@
             </div>
         </form>
     </main>
+
+    <div id="keyboard" class="kbd hidden">
+        <div class="simple-keyboard"></div>
+    </div>
+    <script src="{{ url_for('static', filename='simple-keyboard.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='keyboard.js') }}?v={{ v }}"></script>
 </body>
 </html>
