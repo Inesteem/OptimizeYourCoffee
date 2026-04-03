@@ -1,0 +1,223 @@
+QUICK REFERENCE - COFFEE APP ISSUES & FIXES
+============================================
+
+ISSUE #1: DATABASE CONNECTIONS
+Location: app.py line 101
+Problem: get_db() creates new connection each call = 28/request
+Severity: CRITICAL (blocks scaling)
+Fix Time: 10 minutes
+
+Current Code:
+  def get_db():
+      conn = sqlite3.connect(DB_PATH)
+      ...
+      return conn
+
+New Code:
+  def get_db():
+      if 'db' not in g:
+          g.db = sqlite3.connect(DB_PATH)
+          ...
+      return g.db
+  
+  @app.teardown_appcontext
+  def close_connection(exception):
+      db = g.pop('db', None)
+      if db is not None:
+          db.close()
+
+Also add import: from flask import g
+
+---
+
+ISSUE #2: DUPLICATE FORM PARSING
+Location: app.py lines 535-580, 593-643
+Problem: 40 lines of nearly identical code in add_coffee() and save_coffee()
+Severity: MAJOR (maintenance nightmare)
+Fix Time: 12 minutes
+
+Solution: Extract new function extract_coffee_form(form_data) before get_db()
+Then call it in both functions:
+  coffee_data = extract_coffee_form(request.form)
+  # Use coffee_data dict instead of parsing inline
+
+See REFACTOR_30MIN.md for full code.
+
+---
+
+ISSUE #3: GLOBAL MUTATION
+Location: app.py lines 244-261, function render_tasting_notes()
+Problem: Mutates TASTING_EMOJIS dict during rendering (side effect)
+Severity: MAJOR (breaks testing, causes mysterious bugs)
+Fix Time: 3 minutes
+
+Current:
+  def render_tasting_notes(notes_str):
+      ...
+      with get_db() as conn:
+          for row in conn.execute(...):
+              TASTING_EMOJIS[key] = row["emoji"]  # <-- MUTATION
+      ...
+
+Fix:
+  def get_emoji_map():
+      emojis = TASTING_EMOJIS.copy()  # Don't mutate
+      try:
+          with get_db() as conn:
+              for row in conn.execute(...):
+                  if key not in emojis and row["emoji"]:
+                      emojis[key] = row["emoji"]
+      except Exception:
+          pass
+      return emojis
+  
+  def render_tasting_notes(notes_str):
+      ...
+      emojis = get_emoji_map()  # Use local copy
+      ...
+
+See REFACTOR_30MIN.md for full code.
+
+---
+
+ISSUE #4: EMOJI DRIFT (Python vs JavaScript)
+Location: app.py TASTING_EMOJIS vs static/tastingnotes.js NOTES dict
+Problem: Python has 48 emojis, JS has 60+, they diverge
+Severity: MEDIUM (UX inconsistency)
+Fix Time: 20 minutes
+
+Solution: Create static/shared_data.json containing:
+  {
+    "emojis": { all emoji mappings from both files merged },
+    "processes": [ process options list ]
+  }
+
+Then:
+  - Python: Load from JSON at startup
+  - JS: Fetch from /api/shared-data endpoint
+  - Templates: Loop over @app.context_processor injected processes
+
+See CODE_REVIEW.md section "Problem 3" for full JSON content.
+
+---
+
+ISSUE #5: HARDCODED PROCESS OPTIONS
+Location: 
+  - app.py line 48 (PROCESS_OPTIONS list)
+  - step1_coffee.html lines 61-79 (hardcoded <option> tags)
+  - edit_coffee.html (same list in Jinja loop)
+Problem: Changes require edits in 3 places
+Severity: MEDIUM (sync risk)
+Fix Time: 5 minutes (if using shared_data.json from Issue #4)
+
+Solution: Same as Issue #4 - use shared_data.json + context processor
+Templates become:
+  {% for p in process_options %}
+    <option>{{ p }}</option>
+  {% endfor %}
+
+---
+
+ISSUE #6: XSS VULNERABILITY
+Location: 
+  - static/autocomplete.js line 76
+  - static/tastingnotes.js line 148
+Problem: innerHTML with unsanitized DB data
+Severity: MEDIUM (stored XSS vector)
+Fix Time: 10 minutes
+
+Pattern (vulnerable):
+  box.innerHTML = matches.map(m => `<div>${m}</div>`).join('');
+
+Pattern (safe):
+  matches.forEach(m => {
+      const div = document.createElement('div');
+      div.textContent = m;  // Safe - never executes HTML
+      box.appendChild(div);
+  });
+
+Or use innerHTML with escaped text (less elegant):
+  div.textContent = m;  // Separate concerns: content vs structure
+
+See CODE_REVIEW.md section "Problem 6" for full examples.
+
+---
+
+PRIORITY MATRIX
+===============
+
+DO THIS WEEK:
+1. Issue #1 (DB connections) - 10 min, CRITICAL
+2. Issue #2 (form parsing) - 12 min, HIGH
+3. Issue #3 (global mutation) - 3 min, HIGH
+Total: 25 min, huge impact
+
+DO NEXT WEEK:
+4. Issue #4 (emoji drift) - 20 min, MEDIUM
+5. Issue #5 (hardcoded options) - 5 min, bundled with #4
+6. Issue #6 (XSS) - 10 min, MEDIUM
+Total: 35 min
+
+BEFORE SCALING:
+7. Split app.py into modules - 30 min
+
+---
+
+TEST AFTER EACH TIER
+====================
+
+After Tier 1 (25 min):
+  cd coffee-app
+  python -m flask run
+  - Test: Add a coffee (form should work)
+  - Test: Edit a coffee (form should work)
+  - Check: Browser DevTools, no console errors
+
+After Tier 2 (35 min):
+  - Test: Verify emojis display in tasting notes
+  - Test: Autocomplete in coffee add/edit
+  - Test: Process dropdown shows all options
+  - Check: Network tab, /api/shared-data returns JSON
+
+ROLLBACK PLAN
+=============
+
+If something breaks:
+  - git status (see what changed)
+  - git diff app.py (review changes)
+  - git checkout app.py (revert)
+  - Reapply one function at a time
+
+Since these are isolated changes, any one can be reverted independently.
+
+---
+
+DOCUMENTATION CREATED
+=====================
+
+1. CODE_REVIEW.md (25 KB)
+   - Detailed analysis of all 6 issues
+   - Code examples for all fixes
+   - Architecture recommendations
+   - Growth patterns for charts/recipes/ML
+
+2. REFACTOR_30MIN.md (9 KB)
+   - Step-by-step checklist
+   - Copy-paste code for Tier 1
+   - Testing instructions
+   - Time estimates
+
+3. REVIEW_SUMMARY.txt (6 KB)
+   - Executive summary
+   - Direct answers to your 5 questions
+   - Risk assessment
+   - Effort estimates
+
+4. QUICK_FIXES.txt (this file)
+   - Quick reference matrix
+   - Before/after code patterns
+   - Priority guide
+   - Rollback plan
+
+Read REFACTOR_30MIN.md first if you want to start coding immediately.
+Read CODE_REVIEW.md for deep understanding of each issue.
