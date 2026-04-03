@@ -74,8 +74,16 @@
         <!-- Cross-Coffee Comparison -->
         {% if cross_data != '[]' %}
         <section class="chart-section">
-            <h2>All Coffees — Best Grind vs Score</h2>
-            <div class="chart-wrap">
+            <h2>Compare Coffees</h2>
+            <div class="metric-picker">
+                <button class="metric-btn active" data-metric="overall">Overall</button>
+                <button class="metric-btn" data-metric="sweetness">Sweet</button>
+                <button class="metric-btn" data-metric="acidity">Acidity</button>
+                <button class="metric-btn" data-metric="body">Body</button>
+                <button class="metric-btn" data-metric="aroma">Aroma</button>
+                <button class="metric-btn" data-metric="balance">Balance</button>
+            </div>
+            <div class="chart-wrap" id="crossChartWrap">
                 <canvas id="crossChart"></canvas>
             </div>
         </section>
@@ -216,29 +224,62 @@
         });
     }
 
-    // Cross-coffee comparison
-    if (crossData.length > 1) {
-        new Chart(document.getElementById('crossChart'), {
+    // Cross-coffee comparison with metric picker
+    let crossChart = null;
+    const currentLabel = {{ coffee.label | tojson }};
+
+    function renderCrossChart(metric) {
+        if (crossData.length < 2) return;
+        // Sort descending by selected metric
+        const sorted = [...crossData].sort((a, b) => b[metric] - a[metric]);
+        const labels = sorted.map(d => {
+            let name = d.label.length > 14 ? d.label.slice(0, 14) + '…' : d.label;
+            if (d.archived) name += ' ✦';
+            return name;
+        });
+        const values = sorted.map(d => d[metric]);
+        const colors = sorted.map(d => d.label === currentLabel ? ACCENT : d.archived ? '#555' : ACCENT2);
+
+        if (crossChart) crossChart.destroy();
+        crossChart = new Chart(document.getElementById('crossChart'), {
             type: 'bar',
             data: {
-                labels: crossData.map(d => d.label.length > 12 ? d.label.slice(0, 12) + '…' : d.label),
+                labels: labels,
                 datasets: [{
-                    label: 'Best Score',
-                    data: crossData.map(d => d.score),
-                    backgroundColor: crossData.map(d => d.label === {{ coffee.label | tojson }} ? ACCENT : ACCENT2),
+                    data: values,
+                    backgroundColor: colors,
                     borderRadius: 4,
                 }]
             },
             options: {
+                indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: ctx => ctx.raw.toFixed(1) + '/5 (' + sorted[ctx.dataIndex].shots + ' shots)' } }
+                },
                 scales: {
-                    y: { min: 0, max: 5, ticks: { stepSize: 1 } }
+                    x: { min: 0, max: 5, ticks: { stepSize: 1 } },
+                    y: { ticks: { font: { size: 11 } } }
                 }
             }
         });
+
+        // Adjust chart height based on number of coffees
+        document.getElementById('crossChartWrap').style.height = Math.max(120, sorted.length * 36) + 'px';
     }
+
+    // Metric picker buttons
+    document.querySelectorAll('.metric-btn').forEach(btn => {
+        btn.addEventListener('pointerdown', e => {
+            document.querySelectorAll('.metric-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderCrossChart(btn.dataset.metric);
+        });
+    });
+
+    renderCrossChart('overall');
     </script>
 </body>
 </html>

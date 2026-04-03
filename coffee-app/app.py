@@ -984,18 +984,32 @@ def coffee_stats(coffee_id):
             (coffee_id,),
         ).fetchall()
 
-        # All coffees for cross-coffee insights
-        all_coffees = conn.execute("SELECT id, label, process FROM coffees WHERE archived = 0").fetchall()
+        # All coffees for cross-coffee comparison (include archived)
+        all_coffees = conn.execute("SELECT id, label, process, archived FROM coffees").fetchall()
         cross_data = []
         for ac in all_coffees:
-            best = conn.execute(
-                """SELECT s.grind_size, e.overall FROM samples s JOIN evaluations e ON e.sample_id = s.id
-                   WHERE s.coffee_id = ? AND e.overall IS NOT NULL ORDER BY e.overall DESC LIMIT 1""",
+            avgs = conn.execute(
+                """SELECT AVG(e.aroma) as aroma, AVG(e.acidity) as acidity,
+                          AVG(e.sweetness) as sweetness, AVG(e.body) as body,
+                          AVG(e.balance) as balance, AVG(e.overall) as overall,
+                          COUNT(*) as n
+                   FROM evaluations e JOIN samples s ON e.sample_id = s.id
+                   WHERE s.coffee_id = ? AND e.overall IS NOT NULL""",
                 (ac["id"],),
             ).fetchone()
-            if best:
-                cross_data.append({"label": ac["label"], "process": ac["process"] or "?",
-                                   "grind": best["grind_size"], "score": best["overall"]})
+            if avgs and avgs["n"] > 0:
+                cross_data.append({
+                    "id": ac["id"], "label": ac["label"],
+                    "process": ac["process"] or "?",
+                    "archived": ac["archived"],
+                    "aroma": round(avgs["aroma"], 1),
+                    "acidity": round(avgs["acidity"], 1),
+                    "sweetness": round(avgs["sweetness"], 1),
+                    "body": round(avgs["body"], 1),
+                    "balance": round(avgs["balance"], 1),
+                    "overall": round(avgs["overall"], 1),
+                    "shots": avgs["n"],
+                })
 
         rating = coffee_rating(coffee_id, conn) if samples else None
 
