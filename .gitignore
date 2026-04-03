@@ -6,5 +6,6 @@ __pycache__/
 .env
 deploy.conf
 notes/
+reference/*.pdf
 backups/
 .secret_key

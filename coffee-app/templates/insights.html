@@ -68,6 +68,7 @@
         {% if process_radar != '[]' %}
         <section class="chart-section">
             <h2>Flavor Profiles by Process</h2>
+            <div id="radarToggles" class="descriptor-chips" style="margin-bottom:8px"></div>
             <div class="chart-wrap chart-square">
                 <canvas id="processRadar"></canvas>
             </div>
@@ -186,38 +187,81 @@
         });
     }
 
-    // Process flavor radar overlay
-    if (processRadarData.length >= 2) {
-        const radarColors = [ACCENT, ACCENT2, ACCENT3];
-        new Chart(document.getElementById('processRadar'), {
-            type: 'radar',
-            data: {
-                labels: ['Aroma', 'Acidity', 'Sweetness', 'Body', 'Balance'],
-                datasets: processRadarData.map((p, i) => ({
-                    label: p.name,
-                    data: p.data,
-                    borderColor: radarColors[i],
-                    backgroundColor: radarColors[i] + '22',
-                    pointBackgroundColor: radarColors[i],
-                    pointRadius: 4,
-                    borderWidth: 2,
-                }))
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } } },
-                scales: {
-                    r: {
-                        min: 0, max: 5,
-                        ticks: { stepSize: 1, display: false, backdropColor: 'transparent' },
-                        grid: { color: GRID },
-                        angleLines: { color: GRID },
-                        pointLabels: { font: { size: 12 }, color: TEXT }
+    // Process flavor radar overlay with toggles
+    if (processRadarData.length >= 1) {
+        const radarColors = [ACCENT, ACCENT2, ACCENT3, ACCENT4, ACCENT5, '#e0a840', '#60aacc', '#cc8060'];
+        const radarEnabled = new Set(processRadarData.map(p => p.name));
+        let radarChart = null;
+
+        function renderRadar() {
+            const active = processRadarData.filter(p => radarEnabled.has(p.name));
+            if (radarChart) radarChart.destroy();
+            radarChart = new Chart(document.getElementById('processRadar'), {
+                type: 'radar',
+                data: {
+                    labels: ['Aroma', 'Acidity', 'Sweetness', 'Body', 'Balance'],
+                    datasets: active.map((p) => {
+                        const origIdx = processRadarData.indexOf(p);
+                        return {
+                            label: p.name,
+                            data: p.data,
+                            borderColor: radarColors[origIdx],
+                            backgroundColor: radarColors[origIdx] + '22',
+                            pointBackgroundColor: radarColors[origIdx],
+                            pointRadius: 4,
+                            borderWidth: 2,
+                        };
+                    })
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        r: {
+                            min: 0, max: 5,
+                            ticks: { stepSize: 1, display: false, backdropColor: 'transparent' },
+                            grid: { color: GRID },
+                            angleLines: { color: GRID },
+                            pointLabels: { font: { size: 12 }, color: TEXT }
+                        }
                     }
                 }
-            }
+            });
+        }
+
+        // Build toggle chips
+        const toggleWrap = document.getElementById('radarToggles');
+        processRadarData.forEach((p, i) => {
+            const label = document.createElement('label');
+            label.className = 'descriptor-chip active';
+            label.style.borderColor = radarColors[i];
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = true;
+            cb.style.display = 'none';
+            cb.addEventListener('change', () => {
+                if (cb.checked) {
+                    radarEnabled.add(p.name);
+                    label.classList.add('active');
+                    label.style.background = radarColors[i];
+                } else {
+                    radarEnabled.delete(p.name);
+                    label.classList.remove('active');
+                    label.style.background = '';
+                }
+                renderRadar();
+            });
+            label.style.background = radarColors[i];
+            label.style.color = '#fff';
+            const span = document.createElement('span');
+            span.textContent = p.name;
+            label.appendChild(cb);
+            label.appendChild(span);
+            toggleWrap.appendChild(label);
         });
+
+        renderRadar();
     }
     </script>
 </body>

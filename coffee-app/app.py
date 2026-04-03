@@ -1084,7 +1084,7 @@ def insights():
     # Radar overlay: flavor profiles of top 3 processes
     dims = ["aroma", "acidity", "sweetness", "body", "balance"]
     process_radar = []
-    for proc, group in sorted(by_process.items(), key=lambda x: group_avg(x[1], "avg_overall"), reverse=True)[:3]:
+    for proc, group in sorted(by_process.items(), key=lambda x: group_avg(x[1], "avg_overall"), reverse=True):
         process_radar.append({
             "name": proc,
             "data": [group_avg(group, f"avg_{d}") for d in dims],
