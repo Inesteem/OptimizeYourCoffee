@@ -1081,9 +1081,19 @@ def insights():
 
     totals = {"coffees": total_coffees, "shots": total_shots}
 
+    # Radar overlay: flavor profiles of top 3 processes
+    dims = ["aroma", "acidity", "sweetness", "body", "balance"]
+    process_radar = []
+    for proc, group in sorted(by_process.items(), key=lambda x: group_avg(x[1], "avg_overall"), reverse=True)[:3]:
+        process_radar.append({
+            "name": proc,
+            "data": [group_avg(group, f"avg_{d}") for d in dims],
+        })
+
     return render_template("insights.html",
                            process_chart=json.dumps(process_chart),
                            origin_chart=json.dumps(origin_chart),
+                           process_radar=json.dumps(process_radar),
                            text_insights=text_insights, totals=totals)
 
 
