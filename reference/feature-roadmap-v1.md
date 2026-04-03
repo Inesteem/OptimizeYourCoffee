@@ -1,55 +1,57 @@
 # Feature Roadmap — Post beta-v0.5
 
-Researched 2026-04-03. Based on Perplexity research of Beanconqueror, Decent, Baristapp, and home barista needs.
+Researched 2026-04-03. Updated 2026-04-03.
 
-## Tier 1: High Impact (next sprint)
+## Tier 1: High Impact — DONE
 
-### Shot Comparison & Trend Charts
-- Side-by-side shot cards (same coffee, different grind)
-- Line graphs: score trends over time per coffee
-- "Best performing grind" summary
-- Dose vs yield vs score correlation overlay
-- **Why**: Users need to *see* patterns, not just numbers
+### Shot Comparison & Trend Charts — DONE
+- [x] Grind vs Score scatter chart
+- [x] Score + Grind timeline (dual-axis)
+- [x] Flavor radar chart (5 dimensions)
+- [x] Cross-coffee bar chart comparison
+- [x] Key stats summary (shots, avg score, best grind, ratio)
 
-### Recipe Presets per Coffee
-- Save "dialed-in" settings as named recipe (grind + dose + yield + time)
-- Quick-switch presets when returning to a known coffee
-- Low effort, high value — reduces waste
+### Extraction Diagnostics — DONE
+- [x] Taste descriptor-based recommendations (sour→finer, bitter→coarser)
+- [x] Brew time diagnostic (fast/slow confirmation)
+- [x] Output deviation (ratio-based target, ±2g/5g/10g thresholds)
+- [x] Channeling detection (sour+bitter simultaneously)
+- [x] 3 severity levels (1 step, 1-2 steps, 2-3 steps)
+- [x] Real-time output deviation display on sample form
 
-### Extraction Yield Calculator
-- Auto-calculate extraction % from dose + yield
-- Visual guide: aim for 18-22%
-- Link to taste diagnostics: "Sour + low extraction → grind finer"
+### Recipe Presets per Coffee — PARTIAL
+- [x] Roaster's default recipe (dose, yield, time) stored per coffee
+- [x] Pre-fills sample form
+- [ ] Named presets (save "dialed-in" grind as named recipe)
+- [ ] Quick-switch between presets
 
-## Tier 2: Medium Impact
+## Tier 2: Medium Impact — IN PROGRESS
 
-### Ambient Always-On Dashboard (RPi-specific)
-- Idle screen: last 3 days' shots, freshness countdown, weekly summary
-- "Pulled 12 shots this week, avg 4.1, best: Ethiopian at grind 6"
-- Leverages the always-on touchscreen form factor
+### Grind Optimizer — DONE
+- [x] Quadratic regression on scores
+- [x] Confidence levels (low/medium/high)
+- [x] Shown on sample page
 
-### Simple ML Grind Optimizer
-- Expand quadratic regression: predict optimal dose, flag anomalies
-- Cross-coffee patterns: "Washed coffees peak at grind 6-7"
-- ~30-50 shots per coffee sufficient, no external ML needed
+### Ambient Always-On Dashboard
+- [ ] Idle screen with last shots, freshness, weekly summary
 
 ### Bluetooth Scale Integration
-- Acaia scales via `pyacaia` Python library (most mature RPi path)
-- Felicita Arc or Skale II as alternatives
-- Automatic dose/yield logging, live weight tracking
-- Only if manual entry feels like friction
+- [ ] Acaia scales via pyacaia
+- [ ] Auto dose/yield logging
 
 ## Tier 3: Nice to Have
 
-- Coffee journal / sharing
-- Cost-per-cup tracking (bag_price / shots_from_bag)
-- Temperature sensor integration (PID water heater)
-- CSV/JSON data export
-- DB backup to cloud/USB
+- [ ] Named recipe presets with quick-switch
+- [ ] Coffee journal / sharing
+- [ ] Cost-per-cup tracking
+- [ ] CSV/JSON data export
+- [ ] DB backup to cloud/USB
+- [ ] Cross-coffee pattern insights ("Washed coffees peak at grind X")
 
-## Competitive Advantages to Lean Into
+## Competitive Advantages
 
-1. **Dedicated hardware** — always-on display can show ambient info phone apps can't
-2. **Simplicity** — focused on 1-3 shots/day, not $3k machine workflows
-3. **Freshness model** — 6-stage decay tracking is rare among competitors
-4. **Grind optimization** — quadratic regression is more sophisticated than linear logging
+1. **Dedicated hardware** — always-on display for ambient info
+2. **Simplicity** — focused on 1-3 shots/day
+3. **Freshness model** — 6-stage decay tracking
+4. **Grind optimization** — quadratic regression
+5. **Taste-based diagnostics** — zero-shot recommendations from descriptors
