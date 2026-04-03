@@ -115,10 +115,15 @@ def init_db():
                 grams_out REAL NOT NULL,
                 brew_time_sec INTEGER NOT NULL,
                 ratio REAL GENERATED ALWAYS AS (grams_out / NULLIF(grams_in, 0)) STORED,
+                brew_temp_c REAL DEFAULT 91,
                 notes TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # migrate samples
+        sample_cols = [r["name"] for r in conn.execute("PRAGMA table_info(samples)").fetchall()]
+        if "brew_temp_c" not in sample_cols:
+            conn.execute("ALTER TABLE samples ADD COLUMN brew_temp_c REAL DEFAULT 91")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS evaluations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -618,16 +623,19 @@ def add_sample(coffee_id):
     seconds = int(data.get("brew_sec", 0) or 0)
     brew_time_sec = minutes * 60 + seconds
 
+    brew_temp = data.get("brew_temp_c", "").strip()
+
     with get_db() as conn:
         cur = conn.execute(
-            """INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec, notes)
-               VALUES (?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec, brew_temp_c, notes)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (
                 coffee_id,
                 float(data["grind_size"]),
                 float(data["grams_in"]),
                 float(data["grams_out"]),
                 brew_time_sec,
+                float(brew_temp) if brew_temp else 91,
                 data.get("notes", ""),
             ),
         )

@@ -19,6 +19,7 @@
             <span>{{ sample.grams_in }}g &rarr; {{ sample.grams_out }}g</span>
             <span>1:{{ "%.1f"|format(sample.ratio) if sample.ratio else "?" }}</span>
             <span>{{ sample.brew_time_sec }}s</span>
+            <span>{{ sample.brew_temp_c or 91 }}&deg;C</span>
             <span>Grind {{ sample.grind_size }}</span>
             {% if freshness %}<span class="freshness-badge {{ freshness.css }}">{{ freshness.stage }}</span>{% endif %}
         </div>
