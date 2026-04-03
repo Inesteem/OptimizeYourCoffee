@@ -154,11 +154,9 @@ Single SQLite file (`coffee.db`, WAL mode, foreign keys). 4 tables: `coffees`, `
 - **Fixtures:** `client` (Flask test client), `tmp_db` (temp SQLite file via `tmp_path`)
 - **Mocking:** `unittest.mock.patch` for `subprocess.Popen` (quit route), no date mocking (uses relative dates)
 - **No CI configured** — run locally before committing
-- **No coverage threshold** — no coverage tool configured
-- **No known flaky tests**
-
-<!-- TODO: ask project owner — is there a minimum coverage requirement? -->
-<!-- TODO: ask project owner — are there tests that should be intentionally skipped? -->
+- **No known flaky or skipped tests**
+- **Coverage policy:** All logic (DB access, algorithms, business rules) must have thorough test coverage. UI is tested manually by the user — no UI tests needed.
+- **Algorithm verification:** New algorithms (grind optimization, freshness model, diagnostics, rating tiers) should be reviewed by external agents to verify they make sense before merging.
 
 ## Code Style
 
@@ -220,10 +218,7 @@ No code formatter is configured. Follow existing indentation (4 spaces Python, 4
 | reference/coffee-rating-labels.md | reference/ | SCA scoring tiers | Rating logic changes |
 | reference/tasting-note-labels.md | reference/ | Emoji mappings | New tasting notes |
 
-All docs are developer-facing. No generated docs. No external wiki or Confluence.
-
-<!-- TODO: ask project owner — are there docs outside the repo? -->
-<!-- TODO: ask project owner — is there a documentation review process? -->
+All docs are developer-facing. No generated docs. No external wiki. No formal documentation review process — update docs alongside code changes.
 
 ## Multi-Agent Workflow
 
