@@ -2,16 +2,17 @@
 
 Reviewed 2026-04-03. 20 issues found.
 
-## TODO: Critical (fix first)
+## DONE: Critical
 
-- [ ] **Hardcoded secret key** — `app.secret_key = "coffee-sampler-2026"` → use `os.urandom(32)` or env var
-- [ ] **SQL injection in undo** — column names from session interpolated into SQL. Add allowlists (`COFFEE_COLUMNS`, `SAMPLE_COLUMNS`, `EVALUATION_COLUMNS`)
-- [ ] **os.system shell command** — `os.system("pkill ...")` → use `subprocess.Popen(["pkill", ...])`
+- [x] **Hardcoded secret key** — now uses `os.urandom(32)` with env var override
+- [x] **SQL injection in undo** — column allowlists (`COFFEE_COLUMNS`, `SAMPLE_COLUMNS`, `EVALUATION_COLUMNS`)
+- [x] **os.system shell command** — replaced with `subprocess.Popen()`
 
-## TODO: High (fix before sharing)
+## DONE: High
 
-- [ ] **debug=True in production** — hardcoded with `host=0.0.0.0`. Exposes Werkzeug debugger (arbitrary code execution). Use env var `FLASK_DEBUG`
-- [ ] **No input validation on numeric fields** — bare `int()`/`float()` on form data → unhandled ValueError on bad input. Add `safe_int()`/`safe_float()` helpers
+- [x] **debug=True in production** — now uses `FLASK_DEBUG` env var, defaults to off
+- [x] **No input validation on numeric fields** — `safe_int()`/`safe_float()` helpers, all form data validated
+- [x] **numpy imported at top level** — with try/except fallback
 - [ ] **No CSRF protection** — forms have no tokens. Add Flask-WTF or lightweight guard
 - [ ] **N+1 DB connections in index()** — opens 2 connections + 20+ more via `render_tasting_notes` and `coffee_rating` per coffee
 

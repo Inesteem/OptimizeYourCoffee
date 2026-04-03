@@ -2,19 +2,58 @@ import json
 import os
 import shutil
 import sqlite3
+import subprocess
 import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 DB_PATH = Path(__file__).parent / "coffee.db"
 BACKUP_DIR = Path(__file__).parent / "backups"
 BACKUP_MAX_DAYS = 60
 
 app = Flask(__name__)
-app.secret_key = "coffee-sampler-2026"
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32)
 
 APP_VERSION = str(int(time.time()))
+
+
+def safe_int(val, default=None):
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        return default
+
+
+def safe_float(val, default=None):
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
+
+# Column allowlists for undo route (SQL injection prevention)
+COFFEE_COLUMNS = {"roaster", "origin_country", "origin_city", "origin_producer",
+                  "variety", "process", "tasting_notes", "label", "roast_date",
+                  "best_after_days", "consume_within_days", "bag_weight_g", "bag_price",
+                  "default_grams_in", "default_grams_out", "default_brew_time_sec",
+                  "archived", "created_at", "updated_at"}
+SAMPLE_COLUMNS = {"coffee_id", "grind_size", "grams_in", "grams_out", "brew_time_sec",
+                  "brew_temp_c", "notes", "created_at"}
+EVALUATION_COLUMNS = {"sample_id", "aroma", "acidity", "sweetness", "body", "balance",
+                      "overall", "representative", "created_at"}
+
+PROCESS_OPTIONS = [
+    "Washed", "Natural", "Honey", "Black Honey", "Red Honey", "Yellow Honey",
+    "White Honey", "Anaerobic", "Anaerobic Natural", "Anaerobic Washed",
+    "Carbonic Maceration", "Wet Hulled", "Semi-Washed", "Double Washed",
+    "Lactic Process", "Swiss Water Decaf",
+]
 
 
 def backup_db():
@@ -374,7 +413,11 @@ def suggest_grind(coffee_id, conn):
             }
         return None
 
-    import numpy as np
+    if np is None:
+        best = max(rows, key=lambda r: r["overall"])
+        return {"grind": best["grind_size"], "confidence": "low",
+                "detail": f"Best so far: grind {best['grind_size']} ({best['overall']}/5) — numpy not available"}
+
     grinds = np.array([r["grind_size"] for r in rows], dtype=float)
     scores = np.array([r["overall"] for r in rows], dtype=float)
 
@@ -473,7 +516,7 @@ def add_coffee():
         def_sec = data.get("default_brew_sec", "").strip()
         def_time = None
         if def_min or def_sec:
-            def_time = int(def_min or 0) * 60 + int(def_sec or 0)
+            def_time = safe_int(def_min, 0) * 60 + safe_int(def_sec, 0)
         cur = conn.execute(
             """INSERT INTO coffees (roaster, origin_country, origin_city, origin_producer,
                                     variety, process, tasting_notes, label, roast_date,
@@ -490,12 +533,12 @@ def add_coffee():
                 data.get("tasting_notes", "").strip() or None,
                 label,
                 data.get("roast_date", "").strip() or None,
-                int(best_after) if best_after else 7,
-                int(consume_within) if consume_within else 50,
-                float(bag_weight) if bag_weight else None,
-                float(bag_price) if bag_price else None,
-                float(def_in) if def_in else None,
-                float(def_out) if def_out else None,
+                safe_int(best_after, 7),
+                safe_int(consume_within, 50),
+                safe_float(bag_weight),
+                safe_float(bag_price),
+                safe_float(def_in),
+                safe_float(def_out),
                 def_time,
             ),
         )
@@ -526,7 +569,7 @@ def save_coffee(coffee_id):
     def_sec = data.get("default_brew_sec", "").strip()
     def_time = None
     if def_min or def_sec:
-        def_time = int(def_min or 0) * 60 + int(def_sec or 0)
+        def_time = safe_int(def_min, 0) * 60 + safe_int(def_sec, 0)
     with get_db() as conn:
         conn.execute(
             """UPDATE coffees SET roaster=?, origin_country=?, origin_city=?, origin_producer=?,
@@ -546,12 +589,12 @@ def save_coffee(coffee_id):
                 data.get("tasting_notes", "").strip() or None,
                 label,
                 data.get("roast_date", "").strip() or None,
-                int(best_after) if best_after else 7,
-                int(consume_within) if consume_within else 50,
-                float(bag_weight) if bag_weight else None,
-                float(bag_price) if bag_price else None,
-                float(def_in) if def_in else None,
-                float(def_out) if def_out else None,
+                safe_int(best_after, 7),
+                safe_int(consume_within, 50),
+                safe_float(bag_weight),
+                safe_float(bag_price),
+                safe_float(def_in),
+                safe_float(def_out),
                 def_time,
                 coffee_id,
             ),
@@ -619,8 +662,8 @@ def new_sample(coffee_id):
 @app.route("/sample/<int:coffee_id>/add", methods=["POST"])
 def add_sample(coffee_id):
     data = request.form
-    minutes = int(data.get("brew_min", 0) or 0)
-    seconds = int(data.get("brew_sec", 0) or 0)
+    minutes = safe_int(data.get("brew_min"), 0)
+    seconds = safe_int(data.get("brew_sec"), 0)
     brew_time_sec = minutes * 60 + seconds
 
     brew_temp = data.get("brew_temp_c", "").strip()
@@ -631,11 +674,11 @@ def add_sample(coffee_id):
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (
                 coffee_id,
-                float(data["grind_size"]),
-                float(data["grams_in"]),
-                float(data["grams_out"]),
+                safe_float(data["grind_size"], 0),
+                safe_float(data["grams_in"], 0),
+                safe_float(data["grams_out"], 0),
                 brew_time_sec,
-                float(brew_temp) if brew_temp else 91,
+                safe_float(brew_temp, 91),
                 data.get("notes", ""),
             ),
         )
@@ -671,7 +714,7 @@ def undo_delete():
     with get_db() as conn:
         if undo["type"] == "coffee":
             c = undo["coffee"]
-            cols = [k for k in c if k != "id"]
+            cols = [k for k in c if k != "id" and k in COFFEE_COLUMNS]
             placeholders = ",".join("?" for _ in cols)
             conn.execute(
                 f"INSERT INTO coffees ({','.join(cols)}) VALUES ({placeholders})",
@@ -680,17 +723,16 @@ def undo_delete():
             new_cid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             for s in undo.get("samples", []):
                 old_sid = s["id"]
-                s_cols = [k for k in s if k not in ("id", "ratio")]
-                s_cols_fixed = ["coffee_id" if k == "coffee_id" else k for k in s_cols]
+                s_cols = [k for k in s if k not in ("id", "ratio") and k in SAMPLE_COLUMNS]
                 s_vals = [new_cid if k == "coffee_id" else s[k] for k in s_cols]
                 conn.execute(
-                    f"INSERT INTO samples ({','.join(s_cols_fixed)}) VALUES ({','.join('?' for _ in s_cols)})",
+                    f"INSERT INTO samples ({','.join(s_cols)}) VALUES ({','.join('?' for _ in s_cols)})",
                     s_vals,
                 )
                 new_sid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
                 for ev in undo.get("evaluations", []):
                     if ev.get("sample_id") == old_sid:
-                        ev_cols = [k for k in ev if k not in ("id", "sample_id")]
+                        ev_cols = [k for k in ev if k not in ("id", "sample_id") and k in EVALUATION_COLUMNS]
                         conn.execute(
                             f"INSERT INTO evaluations (sample_id,{','.join(ev_cols)}) VALUES (?,{','.join('?' for _ in ev_cols)})",
                             [new_sid] + [ev[k] for k in ev_cols],
@@ -699,7 +741,7 @@ def undo_delete():
 
         elif undo["type"] == "sample":
             s = undo["sample"]
-            s_cols = [k for k in s if k not in ("id", "ratio")]
+            s_cols = [k for k in s if k not in ("id", "ratio") and k in SAMPLE_COLUMNS]
             conn.execute(
                 f"INSERT INTO samples ({','.join(s_cols)}) VALUES ({','.join('?' for _ in s_cols)})",
                 [s[k] for k in s_cols],
@@ -707,7 +749,7 @@ def undo_delete():
             new_sid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
             ev = undo.get("evaluation")
             if ev:
-                ev_cols = [k for k in ev if k not in ("id", "sample_id")]
+                ev_cols = [k for k in ev if k not in ("id", "sample_id") and k in EVALUATION_COLUMNS]
                 conn.execute(
                     f"INSERT INTO evaluations (sample_id,{','.join(ev_cols)}) VALUES (?,{','.join('?' for _ in ev_cols)})",
                     [new_sid] + [ev[k] for k in ev_cols],
@@ -741,7 +783,7 @@ def save_evaluation(sample_id):
     scores = {}
     for dim in EVAL_DIMENSIONS:
         val = data.get(dim["key"])
-        scores[dim["key"]] = int(val) if val else None
+        scores[dim["key"]] = safe_int(val)
     representative = 1 if data.get("representative") else 0
 
     with get_db() as conn:
@@ -911,11 +953,12 @@ def api_samples():
 @app.route("/quit", methods=["POST"])
 def quit_app():
     """Kill Chromium kiosk to return to desktop."""
-    os.system("pkill -f 'chromium.*kiosk' &")
+    subprocess.Popen(["pkill", "-f", "chromium.*kiosk"])
     return "<html><body style='background:#1a1a1a;color:#e8e0d6;display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif'><h2>App closed.</h2></body></html>"
 
 
 if __name__ == "__main__":
     init_db()
     backup_db()
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    debug = os.environ.get("FLASK_DEBUG", "0") == "1"
+    app.run(host="0.0.0.0", port=5000, debug=debug)

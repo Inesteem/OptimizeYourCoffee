@@ -1005,13 +1005,13 @@ class TestRouteQuit:
         assert resp.status_code == 200
 
     def test_quit_calls_pkill(self, client):
-        with patch("app.os.system") as mock_sys:
+        with patch("app.subprocess.Popen") as mock_popen:
             client.post("/quit")
-        mock_sys.assert_called_once()
-        args = mock_sys.call_args[0][0]
-        assert "chromium" in args
+        mock_popen.assert_called_once()
+        args = mock_popen.call_args[0][0]
+        assert "chromium" in " ".join(args)
 
     def test_quit_returns_html(self, client):
-        with patch("app.os.system"):
+        with patch("app.subprocess.Popen"):
             resp = client.post("/quit")
         assert b"html" in resp.data.lower()
