@@ -130,7 +130,7 @@
     <script src="{{ url_for('static', filename='simple-keyboard.min.js') }}"></script>
     <script src="{{ url_for('static', filename='keyboard.js') }}?v={{ v }}"></script>
     <script>
-    // Auto-adjust output grams when input changes, based on target ratio
+    // Auto-adjust output grams when input dose changes (one-directional only)
     (function() {
         const defIn = {{ coffee.default_grams_in or 0 }};
         const defOut = {{ coffee.default_grams_out or 0 }};
@@ -140,35 +140,21 @@
         const inField = document.getElementById('grams_in');
         const outField = document.getElementById('grams_out');
 
-        if (window.coffeeKbd && window.coffeeKbd.onChange) {
-            window.coffeeKbd.onChange(function(input, value) {
-                if (input === inField && value) {
-                    const newIn = parseFloat(value);
-                    if (!isNaN(newIn) && newIn > 0) {
-                        const newOut = (newIn * targetRatio).toFixed(1);
-                        outField.value = newOut;
-                        if (window.coffeeKbd) window.coffeeKbd.setInput(newOut);
-                    }
-                }
-            });
-        } else {
-            function waitKbd() {
-                if (window.coffeeKbd && window.coffeeKbd.onChange) {
-                    window.coffeeKbd.onChange(function(input, value) {
-                        if (input === inField && value) {
-                            const newIn = parseFloat(value);
-                            if (!isNaN(newIn) && newIn > 0) {
-                                const newOut = (newIn * targetRatio).toFixed(1);
-                                outField.value = newOut;
-                            }
+        function waitKbd() {
+            if (window.coffeeKbd && window.coffeeKbd.onChange) {
+                window.coffeeKbd.onChange(function(input, value) {
+                    if (input === inField) {
+                        const newIn = parseFloat(value);
+                        if (!isNaN(newIn) && newIn > 0) {
+                            outField.value = (newIn * targetRatio).toFixed(1);
                         }
-                    });
-                } else {
-                    setTimeout(waitKbd, 50);
-                }
+                    }
+                });
+            } else {
+                setTimeout(waitKbd, 50);
             }
-            waitKbd();
         }
+        waitKbd();
     })();
     </script>
 </body>
