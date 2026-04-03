@@ -624,6 +624,14 @@ def index():
             cd["tasting_chips"] = render_tasting_notes(c["tasting_notes"])
             cd["rating"] = coffee_rating(c["id"], conn2)
             cd["grams_used"] = usage.get(c["id"], 0)
+            # Compute days since opened
+            cd["days_open"] = None
+            if c["opened_date"]:
+                try:
+                    opened = datetime.strptime(c["opened_date"], "%Y-%m-%d").date()
+                    cd["days_open"] = (date.today() - opened).days
+                except (ValueError, TypeError):
+                    pass
             if c["bag_weight_g"]:
                 cd["grams_left"] = max(0, c["bag_weight_g"] - cd["grams_used"])
             else:
@@ -760,8 +768,15 @@ def new_sample(coffee_id):
     grind_hint = None
     with get_db() as conn:
         grind_hint = suggest_grind(coffee_id, conn)
+    # Compute days since opened
+    days_open = None
+    if coffee["opened_date"]:
+        try:
+            days_open = (date.today() - datetime.strptime(coffee["opened_date"], "%Y-%m-%d").date()).days
+        except (ValueError, TypeError):
+            pass
     return render_template("step2_sample.html", coffee=coffee, samples=samples,
-                           freshness=freshness, grind_hint=grind_hint)
+                           freshness=freshness, grind_hint=grind_hint, days_open=days_open)
 
 
 @app.route("/sample/<int:coffee_id>/add", methods=["POST"])
@@ -947,10 +962,19 @@ def coffee_stats(coffee_id):
         stats["best_score"] = best["overall"]
         stats["avg_ratio"] = round(sum(s["ratio"] or 0 for s in evaluated) / len(evaluated), 1)
 
+    # Compute days since opened
+    days_open = None
+    if coffee["opened_date"]:
+        try:
+            days_open = (date.today() - datetime.strptime(coffee["opened_date"], "%Y-%m-%d").date()).days
+        except (ValueError, TypeError):
+            pass
+
     return render_template("stats.html", coffee=coffee, freshness=freshness, rating=rating,
                            stats=stats, timeline=json.dumps(timeline),
                            grind_scores=json.dumps(grind_scores),
-                           radar=json.dumps(radar), cross_data=json.dumps(cross_data))
+                           radar=json.dumps(radar), cross_data=json.dumps(cross_data),
+                           days_open=days_open)
 
 
 # --- Step 3: Evaluate a sample ---

@@ -23,6 +23,7 @@
             <span>{{ sample.brew_temp_c or 91 }}&deg;C</span>
             <span>Grind {{ sample.grind_size }}</span>
             {% if sample.days_since_roast is not none %}<span>Day {{ sample.days_since_roast }}</span>{% endif %}
+            {% if sample.days_since_opened is not none %}<span>Open {{ sample.days_since_opened }}d</span>{% endif %}
             {% if freshness %}<span class="freshness-badge {{ freshness.css }}">{{ freshness.stage }}</span>{% endif %}
         </div>
 

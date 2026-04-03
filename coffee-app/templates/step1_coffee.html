@@ -146,11 +146,11 @@
                 <div class="row">
                     <div class="field">
                         <label for="default_grams_in">Dose In (g)</label>
-                        <input type="number" id="default_grams_in" name="default_grams_in" step="0.1" min="0" placeholder="e.g. 18">
+                        <input type="number" id="default_grams_in" name="default_grams_in" step="0.01" min="0" placeholder="e.g. 18">
                     </div>
                     <div class="field">
                         <label for="default_grams_out">Yield Out (g)</label>
-                        <input type="number" id="default_grams_out" name="default_grams_out" step="0.1" min="0" placeholder="e.g. 36">
+                        <input type="number" id="default_grams_out" name="default_grams_out" step="0.01" min="0" placeholder="e.g. 36">
                     </div>
                 </div>
                 <div class="field">
@@ -199,6 +199,7 @@
                         {% if c.origin_country %}<span>{{ c.origin_country }}</span>{% endif %}
                         {% if c.process %}<span>{{ c.process }}</span>{% endif %}
                         {% if c.roast_date %}<span>Roasted {{ c.roast_date }}</span>{% endif %}
+                        {% if c.days_open is not none %}<span>Open {{ c.days_open }} day{{ 's' if c.days_open != 1 }}</span>{% endif %}
                         {% if c.bag_price %}<span>{{ "%.2f"|format(c.bag_price) }} &euro;</span>{% endif %}
                     </div>
                     {% if c.freshness %}

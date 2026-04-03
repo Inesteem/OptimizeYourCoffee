@@ -30,6 +30,7 @@
             {% if coffee.process %}<span>{{ coffee.process }}</span>{% endif %}
             {% if coffee.tasting_notes %}<span class="tasting">"{{ coffee.tasting_notes }}"</span>{% endif %}
             {% if coffee.roast_date %}<span>Roasted {{ coffee.roast_date }}</span>{% endif %}
+            {% if days_open is not none %}<span>Open {{ days_open }}d</span>{% endif %}
             {% if freshness %}<span class="freshness-badge {{ freshness.css }}">{{ freshness.stage }}</span> <span class="freshness-detail">{{ freshness.detail }}</span>{% endif %}
         </div>
 
@@ -46,18 +47,18 @@
                 <div class="field">
                     <label for="grind_size">Grind{% if grind_hint %} (suggested: {{ grind_hint.grind }}){% endif %}</label>
                     <input type="number" id="grind_size" name="grind_size" required
-                           step="0.1" min="0" placeholder="{% if grind_hint %}{{ grind_hint.grind }}{% else %}e.g. 15{% endif %}">
+                           step="0.01" min="0" placeholder="{% if grind_hint %}{{ grind_hint.grind }}{% else %}e.g. 15{% endif %}">
                 </div>
                 <div class="field">
                     <label for="grams_in">In (g)</label>
                     <input type="number" id="grams_in" name="grams_in" required
-                           step="0.1" min="0" placeholder="18.0"
+                           step="0.01" min="0" placeholder="18.0"
                            value="{{ coffee.default_grams_in or '' }}">
                 </div>
                 <div class="field">
                     <label for="grams_out">Out (g)</label>
                     <input type="number" id="grams_out" name="grams_out" required
-                           step="0.1" min="0" placeholder="actual output">
+                           step="0.01" min="0" placeholder="actual output">
                     <div id="out-error" class="field-error"></div>
                 </div>
             </div>
