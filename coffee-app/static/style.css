@@ -1023,6 +1023,12 @@ header h1 {
     opacity: 1;
 }
 
+.info-link {
+    color: var(--accent) !important;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 .info-popup {
     position: absolute;
     left: 0;
@@ -1043,6 +1049,16 @@ header h1 {
     color: var(--accent);
     margin-bottom: 4px;
     font-size: 0.85rem;
+}
+
+.info-species {
+    font-weight: 400;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    background: #333;
+    padding: 1px 6px;
+    border-radius: 8px;
+    vertical-align: middle;
 }
 
 .info-popup-desc {

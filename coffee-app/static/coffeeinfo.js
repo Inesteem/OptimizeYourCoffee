@@ -22,12 +22,13 @@
         closePopup();
         const popup = document.createElement('div');
         popup.className = 'info-popup';
-        popup.innerHTML = [
-            '<div class="info-popup-title">' + esc(title) + '</div>',
+        const parts = [
+            '<div class="info-popup-title">' + esc(title) + (info.species ? ' <span class="info-species">' + esc(info.species) + '</span>' : '') + '</div>',
             '<div class="info-popup-desc">' + esc(info.desc) + '</div>',
             '<div class="info-popup-flavor"><strong>Flavor:</strong> ' + esc(info.flavor) + '</div>',
             '<div class="info-popup-note"><strong>Tip:</strong> ' + esc(info.note) + '</div>',
-        ].join('');
+        ];
+        popup.innerHTML = parts.join('');
         el.parentNode.style.position = 'relative';
         el.parentNode.appendChild(popup);
         activePopup = popup;
@@ -49,20 +50,12 @@
     }
 
     function attachInfoIcons() {
-        // Find variety and process text in coffee-meta and coffee-detail spans
-        document.querySelectorAll('.coffee-meta span, .coffee-detail span').forEach(span => {
+        // Skip coffee-meta (overview cards — tapping those navigates to sample page)
+        // Only attach to coffee-detail (sample page, stats page, eval page)
+        document.querySelectorAll('.coffee-detail span').forEach(span => {
             const text = span.textContent.trim();
-            // Check varieties
-            const varInfo = getInfo('varieties', text);
-            if (varInfo) {
-                addIcon(span, 'varieties', text, varInfo);
-                return;
-            }
-            // Check processes
-            const procInfo = getInfo('processes', text);
-            if (procInfo) {
-                addIcon(span, 'processes', text, procInfo);
-            }
+            const info = getInfo('varieties', text) || getInfo('processes', text);
+            if (info) makeClickable(span, text, info);
         });
 
         // Also check select dropdowns on form pages (process)
@@ -85,11 +78,9 @@
         });
     }
 
-    function addIcon(span, type, name, info) {
-        const icon = document.createElement('span');
-        icon.className = 'info-icon';
-        icon.textContent = 'ⓘ';
-        icon.addEventListener('pointerdown', e => {
+    function makeClickable(span, name, info) {
+        span.classList.add('info-link');
+        span.addEventListener('pointerdown', e => {
             e.preventDefault();
             e.stopPropagation();
             if (activePopup && activePopup.parentNode === span.parentNode) {
@@ -98,13 +89,11 @@
                 showPopup(span, info, name);
             }
         });
-        span.appendChild(document.createTextNode(' '));
-        span.appendChild(icon);
     }
 
     // Close popup on outside tap
     document.addEventListener('pointerdown', e => {
-        if (activePopup && !activePopup.contains(e.target) && !e.target.classList.contains('info-icon')) {
+        if (activePopup && !activePopup.contains(e.target) && !e.target.classList.contains('info-icon') && !e.target.classList.contains('info-link')) {
             closePopup();
         }
     });
