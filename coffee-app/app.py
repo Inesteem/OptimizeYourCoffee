@@ -367,8 +367,8 @@ def freshness_status(coffee):
                 "detail": f"Past prime by {over} day{'s' if over != 1 else ''}"}
 
 
-def diagnose(ev, taste_desc=None, actual_out=None, target_out=None):
-    """Return diagnostic tips based on scores, taste descriptors, and output deviation."""
+def diagnose(ev, taste_desc=None, actual_out=None, target_out=None, brew_time=None):
+    """Return diagnostic tips based on scores, taste descriptors, output deviation, and brew time."""
     tips = []
     acidity = ev.get("acidity", 3)
     sweetness = ev.get("sweetness", 3)
@@ -380,8 +380,7 @@ def diagnose(ev, taste_desc=None, actual_out=None, target_out=None):
     over_signs = taste_tags & {"bitter", "burned", "ashy", "dry", "astringent", "harsh"}
 
     if under_signs and over_signs:
-        # Both sour AND bitter = channeling or uneven extraction
-        tips.append("Sour AND bitter — likely channeling. Check puck prep (WDT, distribution, tamp evenness).")
+        tips.append("Sour AND bitter — likely channeling. Fix puck prep first: use WDT, distribute evenly, tamp consistently. Don't adjust grind until prep is consistent.")
     elif len(under_signs) >= 3 or (len(under_signs) >= 2 and acidity >= 4):
         tips.append(f"Strongly under-extracted ({', '.join(under_signs)}). Grind significantly finer (2-3 steps).")
     elif under_signs:
@@ -391,7 +390,7 @@ def diagnose(ev, taste_desc=None, actual_out=None, target_out=None):
     elif over_signs:
         tips.append(f"Over-extracted ({', '.join(over_signs)}). Grind a little coarser (1 step).")
 
-    # Score-based diagnostics (existing logic, as fallback)
+    # Score-based diagnostics (fallback when no taste descriptors selected)
     if not tips:
         if acidity >= 4 and sweetness <= 2 and body <= 2:
             tips.append("Likely under-extracted. Try grinding somewhat finer (1-2 steps).")
@@ -402,17 +401,32 @@ def diagnose(ev, taste_desc=None, actual_out=None, target_out=None):
         elif body <= 2 and sweetness >= 3:
             tips.append("Thin body — try increasing dose or grinding slightly finer.")
 
-    # Output deviation diagnostic
+    # Brew time diagnostic
+    if brew_time:
+        if brew_time < 20:
+            tips.append(f"Very fast shot ({brew_time}s). Target is 25-30s — grind much finer.")
+        elif brew_time < 25 and under_signs:
+            tips.append(f"Fast shot ({brew_time}s) confirms under-extraction — grind finer.")
+        elif brew_time > 35:
+            tips.append(f"Very slow shot ({brew_time}s). Target is 25-30s — grind coarser or check for choke.")
+        elif brew_time > 30 and over_signs:
+            tips.append(f"Slow shot ({brew_time}s) confirms over-extraction — grind coarser.")
+
+    # Output deviation diagnostic (granular thresholds from research)
     if actual_out and target_out and target_out > 0:
-        deviation = (actual_out - target_out) / target_out
-        if deviation > 0.25:
-            tips.append(f"Output {actual_out:.0f}g is way above target {target_out:.0f}g — grind is likely too coarse or shot ran too long.")
-        elif deviation > 0.10:
-            tips.append(f"Output {actual_out:.0f}g is above target {target_out:.0f}g — consider grinding a little finer.")
-        elif deviation < -0.25:
-            tips.append(f"Output {actual_out:.0f}g is way below target {target_out:.0f}g — grind is likely too fine (choked).")
-        elif deviation < -0.10:
-            tips.append(f"Output {actual_out:.0f}g is below target {target_out:.0f}g — consider grinding a little coarser.")
+        dev_g = actual_out - target_out
+        if dev_g > 10:
+            tips.append(f"Output +{dev_g:.0f}g over target — severe. Check for channeling, grind much finer.")
+        elif dev_g > 5:
+            tips.append(f"Output +{dev_g:.0f}g over target — grind finer (2 steps) and check distribution.")
+        elif dev_g > 2:
+            tips.append(f"Output +{dev_g:.0f}g over target — grind a little finer (1 step).")
+        elif dev_g < -10:
+            tips.append(f"Output {dev_g:.0f}g under target — severely choked. Grind much coarser.")
+        elif dev_g < -5:
+            tips.append(f"Output {dev_g:.0f}g under target — grind coarser (2 steps), check tamp pressure.")
+        elif dev_g < -2:
+            tips.append(f"Output {dev_g:.0f}g under target — grind a little coarser (1 step).")
 
     # Positive feedback
     if ev.get("balance", 3) >= 4 and ev.get("overall", 3) >= 4:
@@ -1001,10 +1015,11 @@ def save_evaluation(sample_id):
         evaluation = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
         freshness = freshness_status(coffee)
 
-    # Enhanced diagnostics with taste descriptors and output deviation
+    # Enhanced diagnostics with taste descriptors, output deviation, and brew time
     target_out = coffee["default_grams_out"] if coffee else None
     actual_out = sample["grams_out"] if sample else None
-    tips = diagnose(scores, taste_desc, actual_out, target_out)
+    brew_time = sample["brew_time_sec"] if sample else None
+    tips = diagnose(scores, taste_desc, actual_out, target_out, brew_time)
     return render_template(
         "step3_evaluate.html",
         coffee=coffee, sample=sample, evaluation=evaluation,
