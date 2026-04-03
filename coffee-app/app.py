@@ -759,6 +759,75 @@ def undo_delete():
     return redirect(url_for("index"))
 
 
+# --- Coffee Stats & Charts ---
+
+@app.route("/stats/<int:coffee_id>")
+def coffee_stats(coffee_id):
+    with get_db() as conn:
+        coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (coffee_id,)).fetchone()
+        if not coffee:
+            return redirect(url_for("index"))
+
+        samples = conn.execute(
+            """SELECT s.*, e.aroma, e.acidity, e.sweetness, e.body, e.balance, e.overall, e.representative
+               FROM samples s LEFT JOIN evaluations e ON e.sample_id = s.id
+               WHERE s.coffee_id = ? ORDER BY s.created_at ASC""",
+            (coffee_id,),
+        ).fetchall()
+
+        # All coffees for cross-coffee insights
+        all_coffees = conn.execute("SELECT id, label, process FROM coffees WHERE archived = 0").fetchall()
+        cross_data = []
+        for ac in all_coffees:
+            best = conn.execute(
+                """SELECT s.grind_size, e.overall FROM samples s JOIN evaluations e ON e.sample_id = s.id
+                   WHERE s.coffee_id = ? AND e.overall IS NOT NULL ORDER BY e.overall DESC LIMIT 1""",
+                (ac["id"],),
+            ).fetchone()
+            if best:
+                cross_data.append({"label": ac["label"], "process": ac["process"] or "?",
+                                   "grind": best["grind_size"], "score": best["overall"]})
+
+    freshness = freshness_status(coffee)
+    rating = coffee_rating(coffee_id, conn) if samples else None
+
+    # Build chart data
+    evaluated = [dict(s) for s in samples if s["overall"] is not None]
+    representative = [s for s in evaluated if s["representative"]]
+
+    # Timeline data (all evaluated shots)
+    timeline = [{"date": s["created_at"][:10], "score": s["overall"], "grind": s["grind_size"]} for s in evaluated]
+
+    # Grind vs score
+    grind_scores = [{"grind": s["grind_size"], "score": s["overall"]} for s in evaluated]
+
+    # Radar chart (average of representative, or all if no rep)
+    radar_source = representative if representative else evaluated
+    dims = ["aroma", "acidity", "sweetness", "body", "balance"]
+    if radar_source:
+        radar = {d: round(sum(s[d] or 0 for s in radar_source) / len(radar_source), 1) for d in dims}
+    else:
+        radar = None
+
+    # Key stats
+    stats = {
+        "total_shots": len(samples),
+        "evaluated": len(evaluated),
+        "representative": len(representative),
+    }
+    if evaluated:
+        stats["avg_score"] = round(sum(s["overall"] for s in evaluated) / len(evaluated), 1)
+        best = max(evaluated, key=lambda s: s["overall"])
+        stats["best_grind"] = best["grind_size"]
+        stats["best_score"] = best["overall"]
+        stats["avg_ratio"] = round(sum(s["ratio"] or 0 for s in evaluated) / len(evaluated), 1)
+
+    return render_template("stats.html", coffee=coffee, freshness=freshness, rating=rating,
+                           stats=stats, timeline=json.dumps(timeline),
+                           grind_scores=json.dumps(grind_scores),
+                           radar=json.dumps(radar), cross_data=json.dumps(cross_data))
+
+
 # --- Step 3: Evaluate a sample ---
 
 @app.route("/evaluate/<int:sample_id>")

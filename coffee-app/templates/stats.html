@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>{{ coffee.label }} — Stats</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ v }}">
+</head>
+<body>
+    <header>
+        <a href="/sample/{{ coffee.id }}" class="back-btn">&larr;</a>
+        <h1>{{ coffee.label }}</h1>
+    </header>
+
+    <main>
+        <!-- Coffee info + freshness -->
+        <div class="coffee-detail">
+            {% if coffee.process %}<span>{{ coffee.process }}</span>{% endif %}
+            {% if coffee.variety %}<span>{{ coffee.variety }}</span>{% endif %}
+            {% if freshness %}<span class="freshness-badge {{ freshness.css }}">{{ freshness.stage }}</span>{% endif %}
+            {% if rating %}<span class="rating-badge {{ rating.css }}">{{ rating.tier }} {{ rating.avg_taste }}/5</span>{% endif %}
+        </div>
+
+        <!-- Key stats -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total_shots }}</div>
+                <div class="stat-label">Shots</div>
+            </div>
+            {% if stats.avg_score %}
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.avg_score }}</div>
+                <div class="stat-label">Avg Score</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.best_grind }}</div>
+                <div class="stat-label">Best Grind</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">1:{{ stats.avg_ratio }}</div>
+                <div class="stat-label">Avg Ratio</div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if stats.evaluated > 0 %}
+        <!-- Grind vs Score -->
+        <section class="chart-section">
+            <h2>Grind vs Score</h2>
+            <div class="chart-wrap">
+                <canvas id="grindChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Score Timeline -->
+        <section class="chart-section">
+            <h2>Score Over Time</h2>
+            <div class="chart-wrap">
+                <canvas id="timelineChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Flavor Radar -->
+        {% if radar != 'null' %}
+        <section class="chart-section">
+            <h2>Flavor Profile{% if stats.representative > 0 %} ({{ stats.representative }} rep.){% endif %}</h2>
+            <div class="chart-wrap chart-square">
+                <canvas id="radarChart"></canvas>
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- Cross-Coffee Comparison -->
+        {% if cross_data != '[]' %}
+        <section class="chart-section">
+            <h2>All Coffees — Best Grind vs Score</h2>
+            <div class="chart-wrap">
+                <canvas id="crossChart"></canvas>
+            </div>
+        </section>
+        {% endif %}
+
+        {% else %}
+        <div class="diagnostic" style="margin-top:12px">
+            <p>No evaluated shots yet. Brew a sample and rate it to see charts.</p>
+        </div>
+        {% endif %}
+    </main>
+
+    <script src="{{ url_for('static', filename='chart.min.js') }}"></script>
+    <script>
+    const ACCENT = '#c0873a';
+    const ACCENT2 = '#5ac0e0';
+    const TEXT = '#e8e0d6';
+    const MUTED = '#9a9089';
+    const GRID = '#333';
+
+    Chart.defaults.color = TEXT;
+    Chart.defaults.borderColor = GRID;
+    Chart.defaults.font.size = 11;
+
+    const grindScores = {{ grind_scores | safe }};
+    const timeline = {{ timeline | safe }};
+    const radar = {{ radar | safe }};
+    const crossData = {{ cross_data | safe }};
+
+    // Grind vs Score scatter
+    if (grindScores.length > 0) {
+        new Chart(document.getElementById('grindChart'), {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Score',
+                    data: grindScores.map(d => ({x: d.grind, y: d.score})),
+                    backgroundColor: ACCENT,
+                    pointRadius: 8,
+                    pointHoverRadius: 10,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { title: { display: true, text: 'Grind Size', color: MUTED } },
+                    y: { title: { display: true, text: 'Score', color: MUTED }, min: 0, max: 5, ticks: { stepSize: 1 } }
+                }
+            }
+        });
+    }
+
+    // Timeline
+    if (timeline.length > 0) {
+        new Chart(document.getElementById('timelineChart'), {
+            type: 'line',
+            data: {
+                labels: timeline.map(d => d.date),
+                datasets: [{
+                    label: 'Score',
+                    data: timeline.map(d => d.score),
+                    borderColor: ACCENT,
+                    backgroundColor: ACCENT + '33',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 6,
+                    pointBackgroundColor: ACCENT,
+                }, {
+                    label: 'Grind',
+                    data: timeline.map(d => d.grind),
+                    borderColor: ACCENT2,
+                    borderDash: [4, 4],
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointBackgroundColor: ACCENT2,
+                    yAxisID: 'y2',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { labels: { boxWidth: 12 } } },
+                scales: {
+                    x: { ticks: { maxRotation: 45 } },
+                    y: { title: { display: true, text: 'Score', color: MUTED }, min: 0, max: 5, ticks: { stepSize: 1 } },
+                    y2: { position: 'right', title: { display: true, text: 'Grind', color: ACCENT2 }, grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Radar
+    if (radar) {
+        new Chart(document.getElementById('radarChart'), {
+            type: 'radar',
+            data: {
+                labels: ['Aroma', 'Acidity', 'Sweetness', 'Body', 'Balance'],
+                datasets: [{
+                    label: 'Average',
+                    data: [radar.aroma, radar.acidity, radar.sweetness, radar.body, radar.balance],
+                    borderColor: ACCENT,
+                    backgroundColor: ACCENT + '33',
+                    pointBackgroundColor: ACCENT,
+                    pointRadius: 5,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    r: {
+                        min: 0, max: 5,
+                        ticks: { stepSize: 1, backdropColor: 'transparent' },
+                        grid: { color: GRID },
+                        angleLines: { color: GRID },
+                        pointLabels: { font: { size: 12 }, color: TEXT }
+                    }
+                }
+            }
+        });
+    }
+
+    // Cross-coffee comparison
+    if (crossData.length > 1) {
+        new Chart(document.getElementById('crossChart'), {
+            type: 'bar',
+            data: {
+                labels: crossData.map(d => d.label.length > 12 ? d.label.slice(0, 12) + '…' : d.label),
+                datasets: [{
+                    label: 'Best Score',
+                    data: crossData.map(d => d.score),
+                    backgroundColor: crossData.map(d => d.label === '{{ coffee.label }}' ? ACCENT : ACCENT2),
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { min: 0, max: 5, ticks: { stepSize: 1 } }
+                }
+            }
+        });
+    }
+    </script>
+</body>
+</html>

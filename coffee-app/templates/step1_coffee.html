@@ -187,7 +187,10 @@
                         {% endif %}
                     </div>
                 </a>
-                <a href="/coffee/{{ c.id }}/edit" class="card-edit-btn" title="Edit">&#9998;</a>
+                <div class="card-actions">
+                    <a href="/stats/{{ c.id }}" class="card-action-btn" title="Stats">&#9776;</a>
+                    <a href="/coffee/{{ c.id }}/edit" class="card-action-btn" title="Edit">&#9998;</a>
+                </div>
             </div>
             {% endfor %}
         </section>
