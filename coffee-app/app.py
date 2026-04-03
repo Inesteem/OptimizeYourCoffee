@@ -110,17 +110,19 @@ TASTE_DESCRIPTORS = [
 
 
 def backup_db():
-    """Create a daily backup of coffee.db. Prune backups older than BACKUP_MAX_DAYS."""
+    """Create a timestamped backup of coffee.db on every startup. Prune backups older than BACKUP_MAX_DAYS."""
     BACKUP_DIR.mkdir(exist_ok=True)
-    today = date.today().isoformat()
-    backup_file = BACKUP_DIR / f"coffee-{today}.db"
-    if not backup_file.exists() and DB_PATH.exists():
+    if DB_PATH.exists() and DB_PATH.stat().st_size > 0:
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        backup_file = BACKUP_DIR / f"coffee-{timestamp}.db"
         shutil.copy2(DB_PATH, backup_file)
     # Prune old backups
     cutoff = datetime.now() - timedelta(days=BACKUP_MAX_DAYS)
     for f in BACKUP_DIR.glob("coffee-*.db"):
         try:
-            fdate = datetime.strptime(f.stem.replace("coffee-", ""), "%Y-%m-%d")
+            # Parse both formats: YYYY-MM-DD and YYYY-MM-DD_HHMMSS
+            name = f.stem.replace("coffee-", "")
+            fdate = datetime.strptime(name[:10], "%Y-%m-%d")
             if fdate < cutoff:
                 f.unlink()
         except ValueError:
