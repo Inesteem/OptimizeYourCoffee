@@ -47,7 +47,8 @@ COFFEE_COLUMNS = {"roaster", "origin_country", "origin_city", "origin_producer",
 SAMPLE_COLUMNS = {"coffee_id", "grind_size", "grams_in", "grams_out", "brew_time_sec",
                   "brew_temp_c", "days_since_roast", "days_since_opened", "notes", "created_at"}
 EVALUATION_COLUMNS = {"sample_id", "aroma", "acidity", "sweetness", "body", "balance",
-                      "overall", "grind_aroma", "preheat_portafilter", "preheat_cup",
+                      "overall", "grind_aroma", "aroma_descriptors", "taste_descriptors",
+                      "preheat_portafilter", "preheat_cup",
                       "preheat_machine", "eval_notes", "with_milk", "representative", "created_at"}
 
 PROCESS_OPTIONS = [
@@ -59,6 +60,25 @@ PROCESS_OPTIONS = [
 
 AUTOCOMPLETE_FIELDS = frozenset(["roaster", "origin_country", "origin_city",
                                   "origin_producer", "variety", "process"])
+
+AROMA_DESCRIPTORS = [
+    "Fruity", "Citrus", "Berry", "Stone fruit",
+    "Nutty", "Chocolate", "Cocoa",
+    "Floral", "Jasmine",
+    "Caramel", "Honey", "Vanilla",
+    "Roasted", "Toasted", "Smoky",
+    "Green", "Fresh",
+]
+
+TASTE_DESCRIPTORS = [
+    "Fruity", "Citrus", "Berry", "Stone fruit",
+    "Nutty", "Chocolate", "Cocoa", "Almond",
+    "Caramel", "Honey", "Brown sugar", "Vanilla",
+    "Spicy", "Pepper", "Cinnamon",
+    "Roasted", "Smoky", "Earthy",
+    "Creamy", "Silky", "Clean",
+    "Wine-like",
+]
 
 
 def backup_db():
@@ -88,7 +108,8 @@ def inject_globals():
             undo_label = f"Deleted coffee: {undo['coffee'].get('label', '?')}"
         elif undo["type"] == "sample":
             undo_label = "Deleted sample"
-    return {"v": APP_VERSION, "undo_label": undo_label, "process_options": PROCESS_OPTIONS}
+    return {"v": APP_VERSION, "undo_label": undo_label, "process_options": PROCESS_OPTIONS,
+            "aroma_descriptors": AROMA_DESCRIPTORS, "taste_descriptors": TASTE_DESCRIPTORS}
 
 
 EVAL_DIMENSIONS = [
@@ -194,6 +215,8 @@ def init_db():
                 preheat_portafilter INTEGER DEFAULT 1,
                 preheat_cup INTEGER DEFAULT 1,
                 preheat_machine INTEGER DEFAULT 1,
+                aroma_descriptors TEXT,
+                taste_descriptors TEXT,
                 eval_notes TEXT,
                 with_milk INTEGER DEFAULT 0,
                 representative INTEGER DEFAULT 0,
@@ -209,6 +232,8 @@ def init_db():
             ("preheat_portafilter", "INTEGER DEFAULT 1"),
             ("preheat_cup", "INTEGER DEFAULT 1"),
             ("preheat_machine", "INTEGER DEFAULT 1"),
+            ("aroma_descriptors", "TEXT"),
+            ("taste_descriptors", "TEXT"),
             ("eval_notes", "TEXT"),
             ("with_milk", "INTEGER DEFAULT 0"),
         ]:
@@ -896,6 +921,8 @@ def save_evaluation(sample_id):
     preheat_machine = 1 if data.get("preheat_machine") else 0
     eval_notes = data.get("eval_notes", "").strip() or None
     with_milk = 1 if data.get("with_milk") else 0
+    aroma_desc = ",".join(data.getlist("aroma_descriptors")) or None
+    taste_desc = ",".join(data.getlist("taste_descriptors")) or None
 
     with get_db() as conn:
         sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
@@ -905,19 +932,22 @@ def save_evaluation(sample_id):
 
         conn.execute("""
     INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall,
-       grind_aroma, preheat_portafilter, preheat_cup, preheat_machine,
+       grind_aroma, aroma_descriptors, taste_descriptors,
+       preheat_portafilter, preheat_cup, preheat_machine,
        eval_notes, with_milk, representative)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(sample_id) DO UPDATE SET
        aroma=excluded.aroma, acidity=excluded.acidity, sweetness=excluded.sweetness,
        body=excluded.body, balance=excluded.balance, overall=excluded.overall,
-       grind_aroma=excluded.grind_aroma, preheat_portafilter=excluded.preheat_portafilter,
+       grind_aroma=excluded.grind_aroma, aroma_descriptors=excluded.aroma_descriptors,
+       taste_descriptors=excluded.taste_descriptors,
+       preheat_portafilter=excluded.preheat_portafilter,
        preheat_cup=excluded.preheat_cup, preheat_machine=excluded.preheat_machine,
        eval_notes=excluded.eval_notes, with_milk=excluded.with_milk,
        representative=excluded.representative
 """, (sample_id, scores["aroma"], scores["acidity"], scores["sweetness"],
       scores["body"], scores["balance"], scores["overall"],
-      grind_aroma, preheat_pf, preheat_cup, preheat_machine,
+      grind_aroma, aroma_desc, taste_desc, preheat_pf, preheat_cup, preheat_machine,
       eval_notes, with_milk, representative))
 
         evaluation = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
