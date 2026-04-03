@@ -20,10 +20,11 @@ BACKUP_MAX_DAYS = 60
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32)
 
-APP_VERSION = str(int(time.time()))
+CACHE_BUST = str(int(time.time()))
 
 
 def safe_int(val, default=None):
+    """Parse val as int, returning default if conversion fails."""
     try:
         return int(val)
     except (ValueError, TypeError):
@@ -31,6 +32,7 @@ def safe_int(val, default=None):
 
 
 def safe_float(val, default=None):
+    """Parse val as float, returning default if conversion fails."""
     try:
         return float(val)
     except (ValueError, TypeError):
@@ -90,9 +92,14 @@ TASTE_DESCRIPTORS = [
     "Dry", "Astringent", "Thin", "Flat", "Harsh",
 ]
 
+# =============================================================================
+# Sections: backup_db, init_db, helpers, routes (coffee → sample → evaluate →
+# stats → settings → API → quit)
+# =============================================================================
+
 
 def backup_db():
-    """Create a daily backup of the database. Prune backups older than BACKUP_MAX_DAYS."""
+    """Create a daily backup of coffee.db. Prune backups older than BACKUP_MAX_DAYS."""
     BACKUP_DIR.mkdir(exist_ok=True)
     today = date.today().isoformat()
     backup_file = BACKUP_DIR / f"coffee-{today}.db"
@@ -111,6 +118,7 @@ def backup_db():
 
 @app.context_processor
 def inject_globals():
+    """Inject app version, undo state, process options, and descriptor lists into all templates."""
     undo = session.get("undo")
     undo_label = None
     if undo:
@@ -118,7 +126,7 @@ def inject_globals():
             undo_label = f"Deleted coffee: {undo['coffee'].get('label', '?')}"
         elif undo["type"] == "sample":
             undo_label = "Deleted sample"
-    return {"v": APP_VERSION, "undo_label": undo_label, "process_options": PROCESS_OPTIONS,
+    return {"v": CACHE_BUST, "undo_label": undo_label, "process_options": PROCESS_OPTIONS,
             "grind_smell_descriptors": GRIND_SMELL_DESCRIPTORS,
             "brew_smell_descriptors": BREW_SMELL_DESCRIPTORS,
             "taste_descriptors": TASTE_DESCRIPTORS}
@@ -135,6 +143,7 @@ EVAL_DIMENSIONS = [
 
 
 def get_db():
+    """Open a SQLite connection with WAL journal mode and foreign keys enabled."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -262,6 +271,8 @@ def init_db():
         """)
 
 
+# IMPORTANT: This dict must stay in sync with the NOTES object in
+# static/tastingnotes.js. Future: generate one from the other via shared JSON.
 TASTING_EMOJIS = {
     "dried apricot": "🍑", "apricot": "🍑", "lemonade": "🍋", "lemon": "🍋",
     "orange": "🍊", "tangerine": "🍊", "black currant": "🫐", "blueberry": "🫐",
@@ -284,7 +295,7 @@ TASTING_EMOJIS = {
 
 
 def render_tasting_notes(notes_str):
-    """Convert comma-separated tasting notes to emoji + name pairs."""
+    """Convert comma-separated tasting notes to emoji + name display strings."""
     if not notes_str:
         return []
     merged = dict(TASTING_EMOJIS)
@@ -306,6 +317,7 @@ def render_tasting_notes(notes_str):
 
 
 def make_label(data):
+    """Build a display label from roaster, variety, and process (e.g. 'Roaster - Variety - Process')."""
     parts = [data.get("roaster", ""), data.get("variety", ""), data.get("process", "")]
     label = " - ".join(p.strip() for p in parts if p and p.strip())
     return label or "Unnamed Coffee"
@@ -439,7 +451,7 @@ def diagnose(ev, taste_desc=None, actual_out=None, target_out=None, brew_time=No
 
 
 def coffee_rating(coffee_id, conn):
-    """Compute aggregate rating from representative evaluated shots."""
+    """Compute aggregate rating from representative evaluated shots for a coffee."""
     rows = conn.execute(
         """SELECT e.aroma, e.acidity, e.sweetness, e.body, e.balance, e.overall
            FROM evaluations e JOIN samples s ON e.sample_id = s.id
@@ -511,7 +523,7 @@ def coffee_rating(coffee_id, conn):
 
 
 def suggest_grind(coffee_id, conn):
-    """Suggest optimal grind size based on past evaluated shots using quadratic regression."""
+    """Suggest optimal grind size using quadratic regression on past evaluated shots."""
     rows = conn.execute(
         """SELECT s.grind_size, e.overall
            FROM samples s JOIN evaluations e ON e.sample_id = s.id
@@ -604,6 +616,7 @@ def index():
         ).fetchall():
             usage[row["coffee_id"]] = row["total_used"]
     coffee_data = []
+    # Separate connection needed: coffee_rating() runs per-coffee queries
     with get_db() as conn2:
         for c in coffees:
             cd = dict(c)
@@ -620,7 +633,7 @@ def index():
 
 
 def parse_coffee_form(data):
-    """Extract and validate coffee fields from form data."""
+    """Extract and validate all coffee fields from form submission data."""
     label = data.get("label", "").strip() or make_label(data)
     def_min = data.get("default_brew_min", "").strip()
     def_sec = data.get("default_brew_sec", "").strip()
@@ -658,7 +671,7 @@ def parse_coffee_form(data):
 @app.route("/coffee/add", methods=["POST"])
 def add_coffee():
     fields = parse_coffee_form(request.form)
-    # Safety: validate all columns are allowed
+    # Guard against SQL injection from unexpected columns
     assert all(c in COFFEE_COLUMNS for c in fields.keys()), "Invalid column in form fields"
     cols = list(fields.keys())
     placeholders = ", ".join("?" for _ in cols)
@@ -683,7 +696,7 @@ def edit_coffee(coffee_id):
 @app.route("/coffee/<int:coffee_id>/edit", methods=["POST"])
 def save_coffee(coffee_id):
     fields = parse_coffee_form(request.form)
-    # Safety: validate all columns are allowed
+    # Guard against SQL injection from unexpected columns
     assert all(c in COFFEE_COLUMNS for c in fields.keys()), "Invalid column in form fields"
     set_clause = ", ".join(f"{c}=?" for c in fields.keys())
     with get_db() as conn:
@@ -767,16 +780,16 @@ def add_sample(coffee_id):
         days_since_opened = None
         today = date.today()
         if coffee:
-            for field, target in [("roast_date", "roast"), ("opened_date", "opened")]:
-                if coffee[field]:
-                    try:
-                        d = datetime.strptime(coffee[field], "%Y-%m-%d").date()
-                        if field == "roast_date":
-                            days_since_roast = (today - d).days
-                        else:
-                            days_since_opened = (today - d).days
-                    except (ValueError, TypeError):
-                        pass
+            if coffee["roast_date"]:
+                try:
+                    days_since_roast = (today - datetime.strptime(coffee["roast_date"], "%Y-%m-%d").date()).days
+                except (ValueError, TypeError):
+                    pass
+            if coffee["opened_date"]:
+                try:
+                    days_since_opened = (today - datetime.strptime(coffee["opened_date"], "%Y-%m-%d").date()).days
+                except (ValueError, TypeError):
+                    pass
 
         cur = conn.execute(
             """INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec, brew_temp_c, days_since_roast, days_since_opened, notes)

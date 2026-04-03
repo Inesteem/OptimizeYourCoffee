@@ -193,9 +193,9 @@
                 // Show common defaults when empty
                 matches = available.slice(0, 12);
             } else {
-                const sw = available.filter(n => n.startsWith(val));
-                const co = available.filter(n => !n.startsWith(val) && n.includes(val));
-                matches = [...sw, ...co].slice(0, 8);
+                const startsWithMatches = available.filter(n => n.startsWith(val));
+                const containsMatches = available.filter(n => !n.startsWith(val) && n.includes(val));
+                matches = [...startsWithMatches, ...containsMatches].slice(0, 8);
             }
 
             if (matches.length === 0) {

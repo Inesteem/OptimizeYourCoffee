@@ -80,9 +80,9 @@
 
         if (!val) { box.innerHTML = ''; if (box._field) box._field.classList.remove('ac-active'); return; }
 
-        const sw = items.filter(i => i.toLowerCase().startsWith(val));
-        const co = items.filter(i => !i.toLowerCase().startsWith(val) && i.toLowerCase().includes(val));
-        const matches = [...sw, ...co].slice(0, 6);
+        const startsWithMatches = items.filter(i => i.toLowerCase().startsWith(val));
+        const containsMatches = items.filter(i => !i.toLowerCase().startsWith(val) && i.toLowerCase().includes(val));
+        const matches = [...startsWithMatches, ...containsMatches].slice(0, 6);
 
         if (matches.length === 0 || (matches.length === 1 && matches[0].toLowerCase() === val)) {
             box.innerHTML = '';
@@ -109,6 +109,10 @@
     }
 
     // Hook into virtual keyboard
+    /**
+     * Poll for the virtual keyboard API (window.coffeeKbd) which may load after this script.
+     * Retries up to 100 times at 50ms intervals (5 seconds total).
+     */
     function waitForKeyboard(retries) {
         if (retries === undefined) retries = 100;
         if (window.coffeeKbd && window.coffeeKbd.onChange) {

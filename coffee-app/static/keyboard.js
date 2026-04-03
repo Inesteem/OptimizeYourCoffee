@@ -1,7 +1,7 @@
 (function() {
-    let activeInput = null;
-    let layoutChanging = false;
-    let ignoreNextDismiss = false;
+    let activeInput = null;           // Currently focused input element
+    let layoutChanging = false;       // True during layout transitions; prevents stale pointerdown from dismissing keyboard
+    let ignoreNextDismiss = false;    // Briefly true after autocomplete selection to prevent keyboard hide
     const kbdWrap = document.getElementById('keyboard');
 
     const kbd = new SimpleKeyboard.default({
