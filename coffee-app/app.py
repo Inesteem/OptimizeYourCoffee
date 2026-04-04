@@ -1363,7 +1363,7 @@ def save_coffee(coffee_id):
             f"UPDATE coffees SET {set_clause}, updated_at=CURRENT_TIMESTAMP WHERE id=?",
             list(fields.values()) + [coffee_id],
         )
-    return redirect(url_for("new_sample", coffee_id=coffee_id))
+    return redirect(url_for("index"))
 
 
 @app.route("/coffee/<int:coffee_id>/archive", methods=["POST"])
