@@ -30,12 +30,6 @@
       "note": "Variable; high acidity; rewards careful dialing.",
       "species": "Arabica"
     },
-    "Ethiopian Heirloom": {
-      "desc": "Ancient Ethiopian landrace. Diverse genetics, complex.",
-      "flavor": "Jasmine, bergamot, blueberry, stone fruit",
-      "note": "Variable; high acidity; rewards careful dialing.",
-      "species": "Arabica"
-    },
     "Typica": {
       "desc": "The original Arabica cultivar. Clean, bright, tea-like.",
       "flavor": "Citrus, honey, cacao",
@@ -52,12 +46,6 @@
       "desc": "Kenyan cultivar. Complex with spicy undertones.",
       "flavor": "Citrus, fruity, spicy, full mouthfeel",
       "note": "Heavy-bodied; less demanding than SL28.",
-      "species": "Arabica"
-    },
-    "Gesha": {
-      "desc": "Panamanian/Ethiopian origin. Floral, delicate, tea-like.",
-      "flavor": "Jasmine, bergamot, peach, tea-like",
-      "note": "Light roasts preferred; high price; nuanced.",
       "species": "Arabica"
     },
     "Geisha": {

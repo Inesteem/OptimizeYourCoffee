@@ -138,7 +138,7 @@ Requires at least 3 evaluated shots across at least 1 other coffee to fire.
 |-------|---------|
 | Low | <3 shots, or algorithm fell back (U-shaped curve, out of range, etc.) |
 | Medium | 3-5 shots, reasonable suggestion but could shift with more data |
-| High | 6+ shots, stable suggestion |
+| High | 6+ shots (4+ for ratio accuracy), stable suggestion |
 
 ## Edge Cases
 

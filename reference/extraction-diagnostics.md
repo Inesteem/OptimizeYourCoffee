@@ -12,11 +12,11 @@ The `diagnose()` function identifies extraction problems from taste descriptors 
 |-------|-----------|---------|
 | Sour, acidic | Under | Not enough extraction |
 | Thin, watery | Under | Insufficient body from low extraction |
-| Flat, salty | Under | Underdeveloped flavors |
+| Flat | Under | Underdeveloped flavors |
 | Bitter | Over | Too much extraction |
-| Harsh, acrid | Over | Aggressive over-extraction |
+| Harsh | Over | Aggressive over-extraction |
 | Astringent, dry | Over | Tannin-like over-extraction |
-| Ashy, woody | Over | Burnt extraction character |
+| Ashy | Over | Burnt extraction character |
 | Sour AND bitter | Channeling | Uneven extraction — fix puck prep |
 | Earthy | Ambiguous | Only adjust if also bitter/harsh |
 | Smoky | Ambiguous | Check if also bitter; may be roast profile |

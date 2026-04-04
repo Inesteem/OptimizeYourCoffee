@@ -117,7 +117,7 @@ TASTE_DESCRIPTORS = [
     "Roasted", "Smoky", "Earthy",
     "Creamy", "Silky", "Clean", "Wine-like",
     "Sour", "Acidic", "Bitter", "Burned", "Ashy",
-    "Dry", "Astringent", "Thin", "Flat", "Harsh",
+    "Dry", "Astringent", "Thin", "Watery", "Flat", "Harsh",
 ]
 
 # =============================================================================
@@ -324,23 +324,39 @@ def set_setting(conn, key, value):
 # IMPORTANT: This dict must stay in sync with the NOTES object in
 # static/tastingnotes.js. Future: generate one from the other via shared JSON.
 TASTING_EMOJIS = {
+    # Fruits
     "dried apricot": "🍑", "apricot": "🍑", "lemonade": "🍋", "lemon": "🍋",
-    "orange": "🍊", "tangerine": "🍊", "black currant": "🫐", "blueberry": "🫐",
-    "strawberry": "🍓", "wild strawberry": "🍓", "raspberry": "🍓",
-    "raspberry jam": "🍓", "cherry": "🍒", "apple": "🍏", "peach": "🍑",
+    "orange": "🍊", "tangerine": "🍊", "black currant": "🫐", "blackcurrant": "🫐",
+    "blueberry": "🫐", "strawberry": "🍓", "wild strawberry": "🍓",
+    "raspberry": "🍓", "raspberry jam": "🍓", "cherry": "🍒",
+    "apple": "🍏", "green apple": "🍏", "peach": "🍑",
     "plum": "🍇", "grape": "🍇", "tropical": "🍍", "pineapple": "🍍",
-    "mango": "🥭", "passionfruit": "🍈", "melon": "🍈", "banana": "🍌",
+    "mango": "🥭", "passionfruit": "🍈", "melon": "🍈", "watermelon": "🍉",
+    "banana": "🍌", "fig": "🫐", "dates": "🫐", "cranberry": "🫐",
     "grapefruit": "🍊", "lime": "🍋", "citrus": "🍋", "bergamot": "🍋",
-    "cacao nibs": "🍫", "chocolate": "🍫", "dark chocolate": "🍫", "cocoa": "🍫",
-    "hazelnut": "🌰", "almond": "🌰", "walnut": "🌰", "nutty": "🌰",
+    # Chocolate & nuts
+    "cacao nibs": "🍫", "cacao": "🍫", "chocolate": "🍫",
+    "dark chocolate": "🍫", "milk chocolate": "🍫", "cocoa": "🍫",
+    "hazelnut": "🌰", "almond": "🌰", "walnut": "🌰", "peanut": "🥜",
+    "nutty": "🌰",
+    # Sweet
     "honey": "🍯", "caramel": "🍮", "toffee": "🍮", "brown sugar": "🍮",
-    "vanilla": "🍦", "jasmine": "🌸", "rose": "🌹", "floral": "🌺",
-    "hibiscus": "🌺", "tea": "🍵", "black tea": "🍵", "herbal": "🌿",
-    "mint": "🌿", "cinnamon": "✨", "cardamom": "✨", "ginger": "✨",
-    "pepper": "🌶️", "smoky": "🔥", "tobacco": "🍂", "wine": "🍷",
-    "red wine": "🍷", "butter": "🧈", "cream": "🥛", "cedar": "🪵",
-    "woody": "🪵", "earthy": "🌍", "berry": "🫐", "stone fruit": "🍑",
-    "nougat": "🍮",
+    "maple": "🍁", "molasses": "🍮", "vanilla": "🍦", "butterscotch": "🍮",
+    "candy": "🍬", "sugarcane": "🍬",
+    # Floral & herbal
+    "jasmine": "🌸", "rose": "🌹", "lavender": "💜", "floral": "🌺",
+    "hibiscus": "🌺", "chamomile": "🌼", "tea": "🍵", "black tea": "🍵",
+    "green tea": "🍵", "earl grey": "🍵", "herbal": "🌿", "mint": "🌿",
+    "basil": "🌿",
+    # Spice
+    "cinnamon": "✨", "clove": "✨", "cardamom": "✨", "ginger": "✨",
+    "pepper": "🌶️", "spicy": "🌶️", "nutmeg": "✨",
+    # Other
+    "smoky": "🔥", "tobacco": "🍂", "wine": "🍷", "red wine": "🍷",
+    "whiskey": "🥃", "rum": "🥃", "butter": "🧈", "cream": "🥛",
+    "yogurt": "🥛", "cedar": "🪵", "woody": "🪵", "earthy": "🌍",
+    "berry": "🫐", "stone fruit": "🍑", "tropical fruit": "🍍",
+    "dried fruit": "🍑", "nougat": "🍮",
 }
 
 
@@ -495,7 +511,7 @@ def diagnose(ev, taste_desc=None, actual_out=None, target_out=None, brew_time=No
     taste_tags = set(t.strip().lower() for t in (taste_desc or "").split(",") if t.strip())
 
     # Taste descriptor-based diagnostics (work even with 0 prior shots)
-    under_signs = taste_tags & {"sour", "acidic", "thin", "flat"}
+    under_signs = taste_tags & {"sour", "acidic", "thin", "watery", "flat"}
     over_signs = taste_tags & {"bitter", "burned", "ashy", "dry", "astringent", "harsh"}
 
     if under_signs and over_signs:
