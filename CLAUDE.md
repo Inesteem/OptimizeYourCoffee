@@ -7,7 +7,7 @@ Solves the problem of systematically tracking espresso shots, evaluating flavors
 **Stack:** Python 3 / Flask / SQLite / Chart.js / simple-keyboard. Runs as a Chromium kiosk on Wayland (800x480 DSI touchscreen).
 
 **Entry points:**
-- `coffee-app/app.py` — Flask application (~2200 lines), all routes and business logic
+- `coffee-app/app.py` — Flask application (~2275 lines), all routes and business logic
 - `./deploy.sh` — safe deploy to Raspberry Pi (backs up DB, stops Flask, syncs, restarts)
 - `python3 -m pytest tests/test_app.py` — test suite (218 tests)
 
@@ -56,12 +56,14 @@ coffee-settings/
 │   │   ├── keyboard.js       # Virtual keyboard (wraps simple-keyboard)
 │   │   ├── autocomplete.js   # Inline chip autocomplete for form fields
 │   │   ├── tastingnotes.js   # Tasting note chip input with emoji lookup
-│   │   ├── coffeeinfo.js     # Variety/process info popups
+│   │   ├── coffeeinfo.js     # Variety/process info popups + roast guide overlay
 │   │   ├── coffee-info.json  # 18 variety + 16 process descriptions
-│   │   └── varieties.json    # ~100 cultivar names for autocomplete
-│   └── templates/        # 11 Jinja2 templates (step1-3, edit, stats, insights, settings_notes, settings_grind, settings_taste)
+│   │   ├── varieties.json    # ~100 cultivar names for autocomplete
+│   │   └── maps/             # SVG origin country map icons (46 countries)
+│   └── templates/        # 12 Jinja2 templates (step1-3, edit, stats, insights, settings_notes, settings_grind, settings_taste, settings_design)
 ├── reference/            # Domain knowledge docs (tracked in git)
 ├── notes/                # Process artifacts (gitignored)
+├── scripts/              # Build-time tools (map generation)
 ├── tests/                # pytest suite
 ├── deploy.sh             # Safe deploy script
 ├── deploy.conf           # Pi credentials (gitignored)
@@ -111,10 +113,10 @@ Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in
 ### State
 - **Database** — `~/coffee-app/coffee.db` on Pi (gitignored, backed up to `backups/` on every startup + deploy)
 - **Session** — Flask cookie-based (undo state). Secret key in `.secret_key` file.
-- **Static data** — `coffee-info.json`, `varieties.json` (checked in, loaded client-side)
+- **Static data** — `coffee-info.json`, `varieties.json`, `maps/*.svg` + `origin-map-index.json` (checked in, loaded client-side/server-side)
 
 ### Key design decisions
-- **Monolithic app.py** — deliberate for a single-developer kiosk project. At ~2200 lines; consider splitting if it grows past ~2500.
+- **Monolithic app.py** — deliberate for a single-developer kiosk project. At ~2275 lines; consider splitting if it grows past ~2500.
 - **Inline chart JS** — server renders JSON into template `<script>` blocks. Avoids extra API calls.
 - **Autocomplete as inline chips** (not floating dropdown) — Chromium/Wayland repaint bug prevents `position: fixed` elements toggled via display.
 - **`days_since_roast` snapshot on samples** — frozen at creation time, not computed live. Shows bean age when that specific shot was pulled.
@@ -124,6 +126,11 @@ Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in
 - **Settings auto-save** — grind optimizer settings page saves on every change via debounced fetch (no save button). Route returns JSON for auto-save (`X-Auto-Save` header), redirect for manual POST.
 - **Score-source-dependent UI** — grind settings page swaps algorithm cards based on selected score source. Ratio accuracy shows a dedicated "Directed Search" algorithm; all taste-based sources show the 3 generic algorithms.
 - **Diagnostics vs optimizer separation** — `diagnose()` provides observational feedback (what went wrong), grind optimizer provides statistical next-shot suggestions. Diagnostics no longer give grind step advice.
+- **Freshness roast-level windows** — `FRESHNESS_WINDOWS` dict maps bean_color to (degas, best_after, peak_dur, good_dur, consume_within). Default (no bean_color) assumes espresso roast (Medium-Dark). User-set best_after/consume_within override roast-level defaults; NULL means auto.
+- **Opened-date acceleration** — penalty added to effective days_since_roast (0-7d open: 0, 8-14d: +5, 15-21d: +12, 22+: +20). Real `days` preserved for display.
+- **Origin map icons** — 46 SVG continent silhouettes with highlighted country, generated from Natural Earth 110m via `scripts/generate_origin_maps.py`. Index loaded at startup via `ORIGIN_MAP_INDEX`.
+- **Card design settings** — 3 selectable card layouts (Modern, Showcase, Legacy) stored in `app_settings`. Showcase has large 72px map spanning identity+flavor zones.
+- **Roast guide overlay** — fullscreen overlay created/removed via DOM (Wayland-safe). Triggered by tapping "Bean Color" label (info-link pattern, no ⓘ icons).
 
 ## Key Conventions
 
@@ -211,6 +218,9 @@ Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in
 - Using `display: none/block` for dynamic UI → won't work on Chromium/Wayland, use `:empty` or opacity
 - Adding a new grind algorithm → must add: algorithm function, dispatch case in `suggest_grind()`, algorithm card in `settings_grind.html`, preview support, tests
 - Adding a new score source → must add: entry in `SCORE_SOURCES`, handler in `_extract_score()`, any needed columns in preview API's in-memory schema
+- Adding a new card design → must add: template branch in `step1_coffee.html` (conditional on `card_design`), CSS classes, option in `settings_design.html`, validation in `save_design_settings()`
+- Adding a new coffee-producing country → run `scripts/generate_origin_maps.py` after adding it to `COFFEE_COUNTRIES` list; also add aliases to `ALIASES` dict
+- Using `.get()` on sqlite3.Row → will crash; use bracket access `row["col"]` or try/except
 
 ## Code Quality
 
@@ -255,6 +265,7 @@ No code formatter is configured. Follow existing indentation (4 spaces Python, 4
 | reference/algorithm-improvements.md | reference/ | Improvement backlog + implementation status | New improvements |
 | reference/coffee-rating-labels.md | reference/ | SCA scoring tiers | Rating logic changes |
 | reference/tasting-note-labels.md | reference/ | Emoji mappings | New tasting notes |
+| scripts/generate_origin_maps.py | scripts/ | SVG map icon generator | New countries, map styling |
 
 All docs are developer-facing. No generated docs. No external wiki. No formal documentation review process — update docs alongside code changes.
 

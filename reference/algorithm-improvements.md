@@ -26,6 +26,10 @@ Sources: External review by Gemini and Perplexity AI (2026-04-04), SCA research,
 | Insights: forgiveness metric | Done |
 | Insights: shot-weighted group averages | Done |
 | Insights: price-per-shot value metric | Done |
+| UI: origin country map icons (46 countries, SVG) | Done |
+| UI: roast level guide popup (bean color reference) | Done |
+| UI: 3 card designs (Modern, Showcase, Legacy) with settings toggle | Done |
+| UI: cost per shot on coffee overview cards | Done |
 
 ## 1. Grind Optimizer: Weighted Centroid with Time Decay
 
