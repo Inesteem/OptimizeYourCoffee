@@ -1174,7 +1174,7 @@ header h1 {
 .origin-group {
     display: flex;
     gap: 14px;
-    align-items: flex-start;
+    align-items: center;
     margin-bottom: 10px;
     padding-bottom: 10px;
     border-bottom: 1px solid #333;
