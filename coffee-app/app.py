@@ -1202,6 +1202,7 @@ def index():
         if sort_dir not in ("asc", "desc"):
             # Default direction per sort type
             sort_dir = "desc" if sort_by == "rating" else "asc"
+        card_design = get_setting(conn, "card_design", "modern")
         if show_archived:
             coffees = conn.execute(
                 "SELECT * FROM coffees WHERE archived = 1 ORDER BY updated_at DESC"
@@ -1248,7 +1249,8 @@ def index():
         coffee_data.sort(key=lambda c: c["days_open"] if c["days_open"] is not None else 9999, reverse=reverse)
 
     return render_template("step1_coffee.html", coffees=coffee_data,
-                           show_archived=show_archived, sort_by=sort_by, sort_dir=sort_dir)
+                           show_archived=show_archived, sort_by=sort_by, sort_dir=sort_dir,
+                           card_design=card_design)
 
 
 def parse_coffee_form(data):
@@ -2050,6 +2052,24 @@ def api_custom_tasting_notes():
     with get_db() as conn:
         notes = conn.execute("SELECT name, emoji FROM custom_tasting_notes ORDER BY name").fetchall()
     return jsonify([dict(n) for n in notes])
+
+
+@app.route("/settings/design")
+def settings_design():
+    with get_db() as conn:
+        card_design = get_setting(conn, "card_design", "modern")
+    return render_template("settings_design.html", card_design=card_design)
+
+
+@app.route("/settings/design/save", methods=["POST"])
+def save_design_settings():
+    data = request.get_json(silent=True) or {}
+    design = data.get("card_design", "modern")
+    if design not in ("modern", "legacy"):
+        design = "modern"
+    with get_db() as conn:
+        set_setting(conn, "card_design", design)
+    return jsonify({"ok": True})
 
 
 @app.route("/settings/taste")

@@ -2026,3 +2026,184 @@ header h1 {
     color: var(--text-muted);
     margin-bottom: 4px;
 }
+
+/* Modern card design */
+.card-modern {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.card-zone-identity {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.card-map {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    opacity: 0.9;
+    object-fit: contain;
+}
+
+.card-identity-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.card-roaster {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 1px;
+}
+
+.card-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 3px;
+}
+
+.card-origin-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.card-origin-line span:not(:last-child)::after {
+    content: '·';
+    margin-left: 8px;
+    color: #555;
+}
+
+.card-scores {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+    align-items: flex-end;
+}
+
+.card-freshness-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+.card-rating-badge {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+
+.card-badge-value {
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.card-rating-badge .card-badge-label {
+    font-size: 0.6rem;
+    opacity: 0.8;
+}
+
+.card-zone-flavor {
+    border-top: 1px solid #333;
+    padding-top: 8px;
+}
+
+.card-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.card-chip {
+    font-size: 0.72rem;
+    background: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    padding: 2px 8px;
+    border-radius: 8px;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+.card-profile {
+    font-size: 0.7rem;
+    color: var(--accent);
+    font-style: italic;
+}
+
+.card-zone-status {
+    border-top: 1px solid #333;
+    padding-top: 8px;
+}
+
+.card-bag-bar {
+    height: 4px;
+    background: #333;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.card-bag-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+}
+
+.card-status-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-size: 0.68rem;
+    color: #777;
+}
+
+/* Design settings */
+.design-option {
+    display: block;
+    background: var(--surface);
+    border: 2px solid #333;
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+
+.design-option.active {
+    border-color: var(--accent);
+}
+
+.design-option:active {
+    background: #333;
+}
+
+.design-option-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+}
+
+.design-option-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
