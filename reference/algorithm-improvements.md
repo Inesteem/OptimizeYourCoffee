@@ -21,11 +21,11 @@ Sources: External review by Gemini and Perplexity AI (2026-04-04), SCA research,
 | Rating: quality-weighted tiers (incorporate overall score) | Done |
 | Rating: separate quality from flavor profile dimensions | Done |
 | Rating: user taste preferences (bipolar 1-5 per dimension) | Done |
-| Coffee list: sorting by rating, freshness, opened date | Done |
+| Coffee list: sorting by roasted, rating, opened (persistent + reversible) | Done |
 | Insights: preference-weighted quality in all rankings | Done |
-| Insights: forgiveness metric | Not yet |
-| Insights: shot-weighted group averages | Not yet |
-| Insights: price-per-shot value metric | Not yet |
+| Insights: forgiveness metric | Done |
+| Insights: shot-weighted group averages | Done |
+| Insights: price-per-shot value metric | Done |
 
 ## 1. Grind Optimizer: Weighted Centroid with Time Decay
 
