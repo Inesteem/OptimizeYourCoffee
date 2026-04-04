@@ -127,9 +127,15 @@ TASTE_DESCRIPTORS = [
 
 
 def backup_db():
-    """Create a timestamped backup of coffee.db on every startup. Prune backups older than BACKUP_MAX_DAYS."""
+    """Create a timestamped backup of coffee.db if it changed since last backup. Prune old backups."""
     BACKUP_DIR.mkdir(exist_ok=True)
     if DB_PATH.exists() and DB_PATH.stat().st_size > 0:
+        # Skip backup if DB hasn't been modified since the latest backup
+        existing = sorted(BACKUP_DIR.glob("coffee-*.db"))
+        if existing:
+            latest_backup_mtime = existing[-1].stat().st_mtime
+            if DB_PATH.stat().st_mtime <= latest_backup_mtime:
+                return  # DB unchanged since last backup
         timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
         backup_file = BACKUP_DIR / f"coffee-{timestamp}.db"
         shutil.copy2(DB_PATH, backup_file)
