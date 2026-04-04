@@ -195,11 +195,11 @@ def render_svg(region_countries, highlight_name, region_name):
             ratio = h_area / r_area
 
             if ratio < 0.02:
-                context = 6.0
+                context = 10.0
             elif ratio < 0.08:
-                context = 4.0
+                context = 7.0
             elif ratio < 0.25:
-                context = 2.5
+                context = 4.5
             else:
                 context = 0
 
