@@ -1113,20 +1113,16 @@ header h1 {
     margin-bottom: 4px;
 }
 
-.info-popup-flavor {
+.info-popup-meta {
+    font-size: 0.85em;
     color: var(--text-muted);
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
-.info-popup-flavor strong,
-.info-popup-note strong {
-    color: var(--text);
+.info-popup-meta strong {
+    color: var(--accent);
 }
 
-.info-popup-note {
-    color: var(--text-muted);
-    font-style: italic;
-}
 
 .roast-guide-overlay {
     position: fixed;

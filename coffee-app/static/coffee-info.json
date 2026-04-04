@@ -1,118 +1,1057 @@
 {
   "varieties": {
-    "Red Bourbon": {
-      "desc": "Brazilian/Cuban heirloom. Naturally sweet with full body.",
-      "flavor": "Caramel, chocolate, nuts, red fruits",
-      "note": "Excellent for milk drinks; consistent sweetness.",
-      "species": "Arabica"
+    "AB3": {
+      "species": "Arabica",
+      "desc": "High cup quality, adapted for agroforestry; limited cultivation in Java",
+      "stature": "Tall",
+      "leaf_tip": "Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
+    },
+    "Anacafe 14": {
+      "species": "Arabica",
+      "desc": "Very high yielding variety, with rust resistance and good quality at elevations above 1300 meters. Variety not uniform.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Very Large",
+      "yield_potential": "High",
+      "optimal_altitude": "Medium , High"
+    },
+    "Batian": {
+      "species": "Arabica",
+      "desc": "A tall variety that combines high yields, tolerance to coffee leaf rust, resistance to coffee berry disease, and good cup quality.",
+      "stature": "Tall",
+      "leaf_tip": "Green or Bronze",
+      "bean_size": "Very Large",
+      "yield_potential": "High",
+      "optimal_altitude": "Low"
     },
     "Bourbon": {
-      "desc": "Heirloom cultivar from Reunion Island. Sweet, balanced.",
-      "flavor": "Caramel, chocolate, stone fruit",
-      "note": "Foundation of many specialty coffees.",
-      "species": "Arabica"
+      "species": "Arabica",
+      "desc": "One of the most culturally and genetically important C. arabica varieties in the world, known for excellent quality in the cup at the highest altitudes.",
+      "stature": "Tall",
+      "leaf_tip": "Green",
+      "bean_size": "Average",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
     },
-    "Yellow Bourbon": {
-      "desc": "Bourbon mutation with yellow cherries. Extra sweetness.",
-      "flavor": "Honey, stone fruit, creamy",
-      "note": "Slightly sweeter than Red Bourbon.",
-      "species": "Arabica"
+    "Bourbon Mayaguez 139": {
+      "species": "Arabica",
+      "desc": "Vigorous and highly productive tall variety with very good cup quality. Found commonly in Rwanda and Burundi.",
+      "stature": "Tall",
+      "leaf_tip": "Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
     },
-    "Pink Bourbon": {
-      "desc": "Rare Colombian Bourbon variant. Complex and floral.",
-      "flavor": "Floral, tropical, juicy",
-      "note": "Highly sought after; limited availability.",
-      "species": "Arabica"
+    "Bourbon Mayaguez 71": {
+      "species": "Arabica",
+      "desc": "Moderate yield, good cup potential, and susceptible to major diseases. Adapted for medium altitudes. Found commonly in Rwanda and Burundi.",
+      "stature": "Tall",
+      "leaf_tip": "Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Medium , High"
     },
-    "Heirloom": {
-      "desc": "Ancient Ethiopian landrace. Diverse genetics, complex.",
-      "flavor": "Jasmine, bergamot, blueberry, stone fruit",
-      "note": "Variable; high acidity; rewards careful dialing.",
-      "species": "Arabica"
+    "BPL10": {
+      "species": "Arabica",
+      "desc": "Rust-tolerant with high vigor; limited cultivation in Java.",
+      "stature": "Tall",
+      "leaf_tip": "Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
     },
-    "Typica": {
-      "desc": "The original Arabica cultivar. Clean, bright, tea-like.",
-      "flavor": "Citrus, honey, cacao",
-      "note": "Prized for clarity and terroir expression.",
-      "species": "Arabica"
+    "Caripe": {
+      "species": "Arabica",
+      "desc": "Very good cup quality with large beans. An important regional variety in Monagas state in northeastern Venezuela.",
+      "stature": "Tall",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Medium , High"
     },
-    "SL28": {
-      "desc": "Kenyan selection. Wine-forward with intense acidity.",
-      "flavor": "Blackcurrant, citrus, wine-like",
-      "note": "Sparkling acidity; needs precise dialing.",
-      "species": "Arabica"
+    "Casiopea": {
+      "species": "Arabica",
+      "desc": "High yielding variety, with exceptional quality at elevations above 1300 meters.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Bronze",
+      "bean_size": "Large",
+      "yield_potential": "High",
+      "optimal_altitude": "High"
     },
-    "SL34": {
-      "desc": "Kenyan cultivar. Complex with spicy undertones.",
-      "flavor": "Citrus, fruity, spicy, full mouthfeel",
-      "note": "Heavy-bodied; less demanding than SL28.",
-      "species": "Arabica"
+    "Catigua MG2": {
+      "species": "Arabica",
+      "desc": "Recommended for specialty coffee production in Brazil. Broadly adaptable and drought-tolerant.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Bronze",
+      "bean_size": "Below Average",
+      "yield_potential": "High",
+      "optimal_altitude": "High"
     },
-    "Geisha": {
-      "desc": "Panamanian/Ethiopian origin. Floral, delicate, tea-like.",
-      "flavor": "Jasmine, bergamot, peach, tea-like",
-      "note": "Light roasts preferred; high price; nuanced.",
-      "species": "Arabica"
+    "Catimor 129": {
+      "species": "Arabica",
+      "desc": "High yielding/Dwarf/Compact variety resistant to coffee leaf rust and coffee berry disease. Found commonly in Malawi, Zambia, and Zimbabwe.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "High",
+      "optimal_altitude": "High"
     },
-    "Caturra": {
-      "desc": "Brazilian Bourbon mutation. Compact, balanced.",
-      "flavor": "Citrus, caramel, mild cocoa",
-      "note": "Easy to dial; good entry-point for espresso.",
-      "species": "Arabica"
+    "Catisic": {
+      "species": "Arabica",
+      "desc": "Adapted to warmest zones and acidic soils. High yielding.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Bronze",
+      "bean_size": "Average",
+      "yield_potential": "High",
+      "optimal_altitude": "Low , Medium"
     },
     "Catuai": {
-      "desc": "Caturra x Mundo Novo hybrid. Robust and reliable.",
-      "flavor": "Dark cherry, almond, cacao",
-      "note": "Forgiving extraction; great for blends.",
-      "species": "Arabica"
+      "species": "Arabica",
+      "desc": "A compact plant with high yielding potential of standard quality in Central America. Very high susceptibility to coffee leaf rust.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Average",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
     },
-    "Pacamara": {
-      "desc": "Largest Arabica bean. Salvadoran specialty.",
-      "flavor": "Tropical fruit, chocolate, spice, creamy",
-      "note": "Full body; slower extraction; great for milk drinks.",
-      "species": "Arabica"
+    "Caturra": {
+      "species": "Arabica",
+      "desc": "A compact plant with good yielding potential of standard quality in Central America. Very high susceptibility to coffee leaf rust.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Average",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
     },
-    "Castillo": {
-      "desc": "Colombian rust-resistant cultivar. Balanced.",
-      "flavor": "Caramel, chocolate, almond, strawberry",
-      "note": "Clean cup; consistent; good daily espresso.",
-      "species": "Arabica"
+    "Centroamericano": {
+      "species": "Arabica",
+      "desc": "Very high yielding with very good quality potential if planted in healthy soil and at elevations >1300 meters, with resistance to rust. Well-adapted for agroforestry.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "Very High",
+      "optimal_altitude": "Low , Medium , High"
+    },
+    "Costa Rica 95": {
+      "species": "Arabica",
+      "desc": "High yielding variety adapted to warmest zones and acidic soils.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Bronze",
+      "bean_size": "Average",
+      "yield_potential": "High",
+      "optimal_altitude": "Low , Medium"
+    },
+    "Cuscatleco": {
+      "species": "Arabica",
+      "desc": "Well-adapted to medium altitudes. Resistant to coffee leaf rust and some nematodes.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Low , Medium"
+    },
+    "EC15": {
+      "species": "Arabica",
+      "desc": "High production yield and very good quality potential. Suitable for agroforestry systems.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Bronze",
+      "bean_size": "Large",
+      "yield_potential": "High",
+      "optimal_altitude": "Medium , High"
+    },
+    "Esperanza": {
+      "species": "Arabica",
+      "desc": "Variety with very high productivity, tolerance to rust, and very good quality. Excellent adaptation to humid environments.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "Very High",
+      "optimal_altitude": "Low , Medium , High"
+    },
+    "Evaluna": {
+      "species": "Arabica",
+      "desc": "Very high yielding variety at elevations at high altitudes.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Light Bronze",
+      "bean_size": "Large",
+      "yield_potential": "High",
+      "optimal_altitude": "High"
+    },
+    "Fronton": {
+      "species": "Arabica",
+      "desc": "Early production and high yielding plant resistant to coffee leaf rust. Well- adapted to low and medium altitudes. Found primarily in Puerto Rico.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green or Bronze",
+      "bean_size": "Average",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Low , Medium"
+    },
+    "Geisha (Panama)": {
+      "species": "Arabica",
+      "desc": "Panamanian Geisha has exceptionally high quality at high altitudes. The term \"Geisha\" is often applied to other coffees that do not share the distinct genetics of Panamanian Geisha. Geisha is also cultivated widely in Malawi.",
+      "stature": "Tall",
+      "leaf_tip": "Green or Bronze",
+      "bean_size": "Average",
+      "yield_potential": "Low",
+      "optimal_altitude": "High"
+    },
+    "H3": {
+      "species": "Arabica",
+      "desc": "High yielding variety, with very good quality at elevations above 1300 meters.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "High",
+      "optimal_altitude": "High"
+    },
+    "Harar Rwanda": {
+      "species": "Arabica",
+      "desc": "High yielding with very good cup quality potential, but susceptible to the major diseases and prone to die back. This is the Harar variety sometimes found in Rwanda (no longer recommended by Rwandan coffee authorities because of its short productive life)",
+      "stature": "Tall",
+      "leaf_tip": "Dark Bronze",
+      "bean_size": "Average",
+      "yield_potential": "High",
+      "optimal_altitude": "Medium , High"
+    },
+    "IAPAR 59": {
+      "species": "Arabica",
+      "desc": "High yielding plant adapted to medium altitudes. Resistant to coffee leaf rust and some nematodes.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Light Bronze",
+      "bean_size": "Average",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Low , Medium"
+    },
+    "IHCAFE 90": {
+      "species": "Arabica",
+      "desc": "High yielding plant adapted to lowest altitudes. Requires high fertilization.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Dark Bronze",
+      "bean_size": "Average",
+      "yield_potential": "High",
+      "optimal_altitude": "Low , Medium"
+    },
+    "IPR 103": {
+      "species": "Arabica",
+      "desc": "Good tolerance to heat, drought, and low-fertility soil. Adapted to various coffee-growing regions in Brazil, with high productivity especially in the early harvests.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Bronze",
+      "bean_size": "Average",
+      "yield_potential": "High",
+      "optimal_altitude": "Medium"
+    },
+    "IPR 107": {
+      "species": "Arabica",
+      "desc": "Highly resistant to coffee leaf rust, suitable for high altitude cultivation and mechanical harvesting.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green or Bronze",
+      "bean_size": "Large",
+      "yield_potential": "High",
+      "optimal_altitude": "Medium , High"
+    },
+    "Jackson 2/1257": {
+      "species": "Arabica",
+      "desc": "Very vigorous and highly productive. Found commonly in Rwanda and Burundi.",
+      "stature": "Tall",
+      "leaf_tip": "Bronze",
+      "bean_size": "Large",
+      "yield_potential": "High",
+      "optimal_altitude": "Medium , High"
+    },
+    "Java": {
+      "species": "Arabica",
+      "desc": "High quality in Central America. Tolerant to major diseases, with low fertilizer requirement. Good choice for smallholder farmers.",
+      "stature": "Tall",
+      "leaf_tip": "Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
+    },
+    "K7": {
+      "species": "Arabica",
+      "desc": "Tolerant to coffee berry disease. Found primarily in Kenya and Tanzania.",
+      "stature": "Tall",
+      "leaf_tip": "Light Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Low , Medium"
+    },
+    "Kartika 1": {
+      "species": "Arabica",
+      "desc": "Adapted for agroforestry, with good yields and high resistance to rust in global trials.",
+      "stature": "Tall",
+      "leaf_tip": "Green",
+      "bean_size": "Average",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
+    },
+    "KP423": {
+      "species": "Arabica",
+      "desc": "Tolerant of drought and coffee leaf rust but highly susceptible to coffee berry disease. Found mostly in Uganda.",
+      "stature": "Tall",
+      "leaf_tip": "Light Bronze",
+      "bean_size": "Average",
+      "yield_potential": "High",
+      "optimal_altitude": "Medium"
+    },
+    "Lempira": {
+      "species": "Arabica",
+      "desc": "High yielding variety adapted to warmest zones and acidic soils.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Bronze",
+      "bean_size": "Average",
+      "yield_potential": "High",
+      "optimal_altitude": "Low , Medium"
+    },
+    "Limani": {
+      "species": "Arabica",
+      "desc": "An elusive Puerto Rican variety.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Bronze",
+      "bean_size": "Average",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Low , Medium"
+    },
+    "Maragogipe": {
+      "species": "Arabica",
+      "desc": "Good to very good cup quality in Central America, but highly susceptible to rust. Very low yielding, large leaves and large internodes.",
+      "stature": "Tall",
+      "leaf_tip": "Bronze",
+      "bean_size": "Very Large",
+      "yield_potential": "Low",
+      "optimal_altitude": "High"
+    },
+    "Marsellesa": {
+      "species": "Arabica",
+      "desc": "High yielding plant adapted to medium altitudes. Notably high acidity in the cup.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Average",
+      "yield_potential": "High",
+      "optimal_altitude": "Low , Medium"
+    },
+    "Mibirizi": {
+      "species": "Arabica",
+      "desc": "Exceptional cup quality and drought tolerant, but highly susceptible to major diseases. Important variety for smallholder coffee growers in Rwanda and Burundi.",
+      "stature": "Tall",
+      "leaf_tip": "Green or Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
+    },
+    "Milenio": {
+      "species": "Arabica",
+      "desc": "Very high-yielding variety, with rust resistance and good quality at elevations above 1300 meters. Variety not uniform.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "Very High",
+      "optimal_altitude": "Medium , High"
+    },
+    "Monte Claro": {
+      "species": "Arabica",
+      "desc": "Compact variety with very good cup quality and large beans, tolerance to coffee leaf rust and nematodes, and high yield potential. An important regional variety in Venezuela.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Bronze",
+      "bean_size": "Very Large",
+      "yield_potential": "High",
+      "optimal_altitude": "Medium"
+    },
+    "Mundo Maya": {
+      "species": "Arabica",
+      "desc": "Very high yielding variety if planted in healthy soil, with very good quality at elevations above 1300 meters. Well-adapted to agroforestery conditions.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Very High",
+      "optimal_altitude": "Medium , High"
     },
     "Mundo Novo": {
-      "desc": "Typica x Bourbon natural hybrid from Brazil.",
-      "flavor": "Chocolate, nuts, low acidity",
-      "note": "Full body; classic Brazilian espresso base.",
-      "species": "Arabica"
+      "species": "Arabica",
+      "desc": "A vigorous and productive plant with good quality cup but susceptible to major diseases. Grown widely in South America, but rarely in Central America and the Caribbean.",
+      "stature": "Tall",
+      "leaf_tip": "Green or Bronze",
+      "bean_size": "Average",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
     },
-    "Sidra": {
-      "desc": "Rare Colombian variety gaining popularity.",
-      "flavor": "Complex, fruity, wine-like",
-      "note": "Emerging specialty; commands premium prices.",
-      "species": "Arabica"
+    "Nayarita": {
+      "species": "Arabica",
+      "desc": "High yielding variety at high altitudes with very good cup quality.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Dark Bronze",
+      "bean_size": "Large",
+      "yield_potential": "High",
+      "optimal_altitude": "High"
     },
-    "Chiroso": {
-      "desc": "Colombian variety. Bright and fruity.",
-      "flavor": "Tropical, citrus, floral",
-      "note": "Increasingly popular in specialty market.",
-      "species": "Arabica"
+    "Nemaya (Coffea canephora)": {
+      "species": "Arabica",
+      "desc": "A Robusta variety used for rootstock grafting because of its high resistance to nematodes. Arabica plants (any variety) can be grafted onto Nemaya roostock to make the plant resistant to nematodes.",
+      "stature": "Not applicable",
+      "leaf_tip": "Not applicable",
+      "bean_size": "Not applicable",
+      "yield_potential": "Not applicable",
+      "optimal_altitude": "Not applicable"
     },
-    "Robusta": {
-      "desc": "Coffea canephora. Hardy, high caffeine, bitter.",
-      "flavor": "Earthy, nutty, bitter, woody",
-      "note": "Used in blends for crema and body. Rarely single-origin.",
-      "species": "Robusta"
+    "Nyasaland": {
+      "species": "Arabica",
+      "desc": "Good cup quality, but susceptible to major diseases. Preferred by smallholder farmers in Uganda.",
+      "stature": "Tall",
+      "leaf_tip": "Light Bronze",
+      "bean_size": "Average",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Medium , High"
     },
-    "Liberica": {
-      "desc": "Coffea liberica. Rare, large cherries, smoky.",
-      "flavor": "Smoky, floral, woody, fruity",
-      "note": "Uncommon in specialty. Distinctive jackfruit-like aroma.",
-      "species": "Liberica"
+    "Obata (Red)": {
+      "species": "Arabica",
+      "desc": "A high yielding, rust-resistant Brazilian variety recently introduced to Costa Rica.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "High",
+      "optimal_altitude": "Low , Medium"
     },
-    "Excelsa": {
-      "desc": "Sub-species of Liberica. Tart and fruity.",
-      "flavor": "Tart, fruity, dark, complex",
-      "note": "Used in blends for complexity. Rare as single origin.",
-      "species": "Excelsa"
+    "Oro Azteca": {
+      "species": "Arabica",
+      "desc": "Adapted to warmest zones and acidic soils. High yielding.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Average",
+      "yield_potential": "High",
+      "optimal_altitude": "Low , Medium"
+    },
+    "Pacamara": {
+      "species": "Arabica",
+      "desc": "Capable of producing exceptional cup quality. Very high susceptibility to coffee leaf rust. Variety not uniform; plants are not stable from one generation to the next.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green or Bronze",
+      "bean_size": "Very Large",
+      "yield_potential": "Low",
+      "optimal_altitude": "High"
+    },
+    "Pacas": {
+      "species": "Arabica",
+      "desc": "Standard quality in Central America. Very high susceptibility to coffee leaf rust.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Average",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
+    },
+    "Pache": {
+      "species": "Arabica",
+      "desc": "A compact plant with medium yield and good quality, but highly susceptible to major diseases.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
+    },
+    "Parainema": {
+      "species": "Arabica",
+      "desc": "Well-adapted to medium altitudes, resistant to coffee leaf rust and some nematodes.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "Very High",
+      "optimal_altitude": "Low , Medium"
+    },
+    "Paraiso": {
+      "species": "Arabica",
+      "desc": "Very high-yielding and rust-resistant compact variety developed in Brazil and recently introduced to Central America.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Medium"
+    },
+    "Pop3303/21": {
+      "species": "Arabica",
+      "desc": "High yielding with tolerance to drought, coffee leaf rust, and coffee berry disease. Adapted to a wide range of ecosystems. Found mostly in Rwanda.",
+      "stature": "Tall",
+      "leaf_tip": "Bronze",
+      "bean_size": "Average",
+      "yield_potential": "High",
+      "optimal_altitude": "Medium , High"
+    },
+    "RAB C15": {
+      "species": "Arabica",
+      "desc": "High yielding tall variety resistant to rust and coffee berry disease recently released in Rwanda.",
+      "stature": "Tall",
+      "leaf_tip": "Green or Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Very High",
+      "optimal_altitude": "Medium , High"
+    },
+    "Ruiru 11": {
+      "species": "Arabica",
+      "desc": "High-yielding, Dwarf/Compact hybrid tolerant to coffee leaf rust and resistant to coffee berry disease (CBD). Released in Kenya.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green or Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Very High",
+      "optimal_altitude": "Low , Medium , High"
+    },
+    "S4808": {
+      "species": "Arabica",
+      "desc": "An Indian breeding line this is not yet commercially released.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Light Bronze",
+      "bean_size": "Large",
+      "yield_potential": "High",
+      "optimal_altitude": "Low , Medium"
+    },
+    "S795": {
+      "species": "Arabica",
+      "desc": "High-yielding variety that is widely cultivated in India.",
+      "stature": "Tall",
+      "leaf_tip": "Bronze",
+      "bean_size": "Large",
+      "yield_potential": "High",
+      "optimal_altitude": "High , Medium"
+    },
+    "SL14": {
+      "species": "Arabica",
+      "desc": "A good-yielding tall variety with drought and cold tolerance. Found mostly in Kenya and Uganda.",
+      "stature": "Tall",
+      "leaf_tip": "Light Bronze",
+      "bean_size": "Average",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Medium , High"
+    },
+    "SL28": {
+      "species": "Arabica",
+      "desc": "Drought tolerant and very good cup quality potential, but susceptible to major diseases. Found commonly in Kenya, Malawi, Uganda, Zimbabwe.",
+      "stature": "Tall",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "Low",
+      "optimal_altitude": "Medium , High"
+    },
+    "SL34": {
+      "species": "Arabica",
+      "desc": "Exceptional cup quality but highly susceptible to coffee berry disease. Found mostly in Kenya.",
+      "stature": "Tall",
+      "leaf_tip": "Dark Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Medium , High"
+    },
+    "Sln.5B": {
+      "species": "Arabica",
+      "desc": "High yield and strong rust tolerance coming from both robusta and liberica parentage.",
+      "stature": "Tall",
+      "leaf_tip": "Light Bronze",
+      "bean_size": "Large",
+      "yield_potential": "High",
+      "optimal_altitude": "High"
+    },
+    "Sln.6": {
+      "species": "Arabica",
+      "desc": "Adapted to mid-to-high altitude Indian tropics, with good rust resistance and yields.",
+      "stature": "Tall",
+      "leaf_tip": "Light Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Medium"
+    },
+    "Starmaya": {
+      "species": "Arabica",
+      "desc": "High yielding plant adapted to medium altitudes. Notably high acidity in the cup.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "High",
+      "optimal_altitude": "Medium"
+    },
+    "T5175": {
+      "species": "Arabica",
+      "desc": "High-yielding plant adapted to lowest altitudes. Requires high fertilization. Variety not uniform.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Dark Bronze",
+      "bean_size": "Average",
+      "yield_potential": "High",
+      "optimal_altitude": "Low , Medium"
+    },
+    "T5296": {
+      "species": "Arabica",
+      "desc": "Well-adapted to medium altitudes. Variety not uniform.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Low , Medium"
+    },
+    "T8667": {
+      "species": "Arabica",
+      "desc": "High-yielding variety, resistant to rust, and adapted to warmest zones and acidic soils.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Bronze",
+      "bean_size": "Average",
+      "yield_potential": "High",
+      "optimal_altitude": "Low , Medium"
+    },
+    "Tekisic": {
+      "species": "Arabica",
+      "desc": "A variety selected in El Salvador, and known for very good cup quality in the highest altitudes.",
+      "stature": "Tall",
+      "leaf_tip": "Green",
+      "bean_size": "Average",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
+    },
+    "Typica": {
+      "species": "Arabica",
+      "desc": "One of the most culturally and genetically important C. arabica coffees in the world, with high quality in Central America. Very high susceptibility to coffee leaf rust, well-adapted to the coldest conditions.",
+      "stature": "Tall",
+      "leaf_tip": "Bronze",
+      "bean_size": "Large",
+      "yield_potential": "Low",
+      "optimal_altitude": "High"
+    },
+    "Venecia": {
+      "species": "Arabica",
+      "desc": "Very high susceptibility to coffee leaf rust. Well-adapted to rainy zones due to late harvest during dry season.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Large",
+      "yield_potential": "Medium",
+      "optimal_altitude": "Medium , High"
+    },
+    "Villa Sarchi": {
+      "species": "Arabica",
+      "desc": "Well-adpated to highest altitude conditions and tolerant of strong winds.",
+      "stature": "Dwarf/Compact",
+      "leaf_tip": "Green",
+      "bean_size": "Below Average",
+      "yield_potential": "Medium",
+      "optimal_altitude": "High"
+    },
+    "BP 534": {
+      "species": "Robusta",
+      "desc": "Most commonly grown clone by farmers in Indonesia; suitable for cultivation under agroforestry systems.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Large (screen size >17)",
+      "yield_potential": "1700-2200 kg/ha",
+      "optimal_altitude": ""
+    },
+    "BP 936": {
+      "species": "Robusta",
+      "desc": "Wide adaptability to different environments, with optimal productivity in areas with wet climates; suitable for cultivation under agroforestry systems.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Large (screen size >17)",
+      "yield_potential": "1600-2200 kg/ha",
+      "optimal_altitude": ""
+    },
+    "BP 939": {
+      "species": "Robusta",
+      "desc": "Wide adaptability to different environments that produces best in areas with dry climates; suitable for cultivation under agroforestry systems.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Large (screen size >17)",
+      "yield_potential": "1400-1900 kg/ha",
+      "optimal_altitude": ""
+    },
+    "BRS 1216": {
+      "species": "Robusta",
+      "desc": "Adaptable to the environments of the Western Amazon with high productivity. Plant structure suitable for mechanized harvesting. Resistant to nematodes and coffee rust.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "7200 kg/ha",
+      "optimal_altitude": ""
+    },
+    "BRS 2299": {
+      "species": "Robusta",
+      "desc": "Plant structure suitable for mechanized harvesting. Stands out for its tolerance to the root-knot nematode Meloidogyne sp.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "6600 kg/ha",
+      "optimal_altitude": ""
+    },
+    "BRS 2314": {
+      "species": "Robusta",
+      "desc": "High cupping scores; has been classified as a 'fine robusta.'",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Small (screen size 14 or below",
+      "yield_potential": "6600 kg/ha",
+      "optimal_altitude": ""
+    },
+    "BRS 2336": {
+      "species": "Robusta",
+      "desc": "Adaptable to the environments of the Western Amazon, with high productivity and bean size.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "7200 kg/ha",
+      "optimal_altitude": ""
+    },
+    "BRS 2357": {
+      "species": "Robusta",
+      "desc": "Compact canopy, which allows for densification. Short stems allow one additional harvest before renewal.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "6000 kg/ha",
+      "optimal_altitude": ""
+    },
+    "BRS 3137": {
+      "species": "Robusta",
+      "desc": "Recognized for its rusticity, presenting good vegetative and productive characteristics in dry conditions and low-fertility soils.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Small (screen size 14 or below",
+      "yield_potential": "6600 kg/ha",
+      "optimal_altitude": ""
+    },
+    "BRS 3193": {
+      "species": "Robusta",
+      "desc": "Long primary branches. Production peak in the second or third commercial harvest due to its initial growth, which reduces the biannual production of the crop by compensating for lower yields of other clones.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Small (screen size 14 or below",
+      "yield_potential": "6000 kg/ha",
+      "optimal_altitude": ""
+    },
+    "BRS 3210": {
+      "species": "Robusta",
+      "desc": "Good adaptability and stability in the environments of the Western Amazon. Good productivity and bean size.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "7200 kg/ha",
+      "optimal_altitude": ""
+    },
+    "BRS 3213": {
+      "species": "Robusta",
+      "desc": "Adaptable to the environments of the Western Amazon recognized for good productivity and bean size.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "7200 kg/ha",
+      "optimal_altitude": ""
+    },
+    "BRS 3220": {
+      "species": "Robusta",
+      "desc": "Adaptable to the environments of the Western Amazon, recognized for good productivity and bean size.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "6600 kg/ha",
+      "optimal_altitude": ""
+    },
+    "INIFAP 00-24": {
+      "species": "Robusta",
+      "desc": "Compact plant grown under the conditions of the Chiapas coast in Mexico. Reduced plant size lends itself to higher yields in dry conditions and differentiates it from any other clone.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "Unknown/Desconocido- kg/ha",
+      "optimal_altitude": ""
+    },
+    "INIFAP 00-28": {
+      "species": "Robusta",
+      "desc": "Tall plants with large and numerous leaves and fruits; highest-yielding clone for the conditions of the coast of Chiapas, Mexico.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "Unknown/Desconocido- kg/ha",
+      "optimal_altitude": ""
+    },
+    "INIFAP 95-9": {
+      "species": "Robusta",
+      "desc": "Tall plant with very large fruit. Susceptible to shoot hole borer.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Large (screen size >17)",
+      "yield_potential": "Unknown/Desconocido- kg/ha",
+      "optimal_altitude": ""
+    },
+    "INIFAP 97-14": {
+      "species": "Robusta",
+      "desc": "Tall growth, tendency to form plants with more than three productive stems and good yield of cherries. Very susceptible to stem borers and anthracnose.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "Unknown/Desconocido- kg/ha",
+      "optimal_altitude": ""
+    },
+    "INIFAP 97-15": {
+      "species": "Robusta",
+      "desc": "Tall growth, tendency to form plants with more than three productive stems. Good yield potential, wide range of adaptation to the climatic conditions of the coast of Chiapas and Veracruz, Mexico.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "Unknown/Desconocido- kg/ha",
+      "optimal_altitude": ""
+    },
+    "NARO-Kituza Robusta 1": {
+      "species": "Robusta",
+      "desc": "Resistant to coffee wilt disease (CWD).",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "2800 kg/ha",
+      "optimal_altitude": ""
+    },
+    "NARO-Kituza Robusta 10": {
+      "species": "Robusta",
+      "desc": "Resistant to coffee wilt disease (CWD).",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "4800 kg/ha",
+      "optimal_altitude": ""
+    },
+    "NARO-Kituza Robusta 2": {
+      "species": "Robusta",
+      "desc": "Resistant to coffee wilt disease (CWD).",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "2600 kg/ha",
+      "optimal_altitude": ""
+    },
+    "NARO-Kituza Robusta 3": {
+      "species": "Robusta",
+      "desc": "Resistant to coffee wilt disease (CWD).",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "4900 kg/ha",
+      "optimal_altitude": ""
+    },
+    "NARO-Kituza Robusta 4": {
+      "species": "Robusta",
+      "desc": "Resistant to coffee wilt disease (CWD).",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "2300 kg/ha",
+      "optimal_altitude": ""
+    },
+    "NARO-Kituza Robusta 5": {
+      "species": "Robusta",
+      "desc": "Resistant to coffee wilt disease (CWD).",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "2860 kg/ha",
+      "optimal_altitude": ""
+    },
+    "NARO-Kituza Robusta 6": {
+      "species": "Robusta",
+      "desc": "Resistant to coffee wilt disease (CWD).",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "2650 kg/ha",
+      "optimal_altitude": ""
+    },
+    "NARO-Kituza Robusta 7": {
+      "species": "Robusta",
+      "desc": "Resistant to coffee wilt disease (CWD).",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "3000 kg/ha",
+      "optimal_altitude": ""
+    },
+    "NARO-Kituza Robusta 8": {
+      "species": "Robusta",
+      "desc": "Resistant to coffee wilt disease (CWD).",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "3100 kg/ha",
+      "optimal_altitude": ""
+    },
+    "NARO-Kituza Robusta 9": {
+      "species": "Robusta",
+      "desc": "Resistant to coffee wilt disease (CWD).",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "3900 kg/ha",
+      "optimal_altitude": ""
+    },
+    "Perdenia": {
+      "species": "Robusta",
+      "desc": "Vigorous, wide-spreading, grow into moderately large trees. High-yielding, beans relatively small in size.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Small (screen size 14 or below",
+      "yield_potential": "1500-3000 kg/ha",
+      "optimal_altitude": ""
+    },
+    "Roubi 1": {
+      "species": "Robusta",
+      "desc": "Combines excellent yield and cup quality. Very high acceptance among farmers.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "ADDITIONAL AGRONOMIC INFORMATI",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "Medium-High kg/ha",
+      "optimal_altitude": ""
+    },
+    "Roubi 10": {
+      "species": "Robusta",
+      "desc": "High productivity and high cup quality.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "ADDITIONAL AGRONOMIC INFORMATI",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "Medium-High kg/ha",
+      "optimal_altitude": ""
+    },
+    "Roubi 2": {
+      "species": "Robusta",
+      "desc": "Combines excellent yield and cup quality. Very high acceptance among farmers.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "ADDITIONAL AGRONOMIC INFORMATI",
+      "bean_size": "Large (screen size >17)",
+      "yield_potential": "Medium-High kg/ha",
+      "optimal_altitude": ""
+    },
+    "Roubi 4": {
+      "species": "Robusta",
+      "desc": "High productivity in combination with large bean size.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "ADDITIONAL AGRONOMIC INFORMATI",
+      "bean_size": "Large (screen size >17)",
+      "yield_potential": "Medium-High kg/ha",
+      "optimal_altitude": ""
+    },
+    "Roubi 5": {
+      "species": "Robusta",
+      "desc": "High produtivity in combination with large bean size.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "ADDITIONAL AGRONOMIC INFORMATI",
+      "bean_size": "Large (screen size >17)",
+      "yield_potential": "Medium-High kg/ha",
+      "optimal_altitude": ""
+    },
+    "Roubi 6": {
+      "species": "Robusta",
+      "desc": "High productivity and high cup quality.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "ADDITIONAL AGRONOMIC INFORMATI",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "Medium-High kg/ha",
+      "optimal_altitude": ""
+    },
+    "Roubi 7": {
+      "species": "Robusta",
+      "desc": "Very good cup quality and high productivity.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "ADDITIONAL AGRONOMIC INFORMATI",
+      "bean_size": "Small (screen size 14 or below",
+      "yield_potential": "Medium-High kg/ha",
+      "optimal_altitude": ""
+    },
+    "Roubi 8": {
+      "species": "Robusta",
+      "desc": "High productivity and high cup quality.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "ADDITIONAL AGRONOMIC INFORMATI",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "Medium-High kg/ha",
+      "optimal_altitude": ""
+    },
+    "Roubi 9": {
+      "species": "Robusta",
+      "desc": "High productivity and high cup quality.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "ADDITIONAL AGRONOMIC INFORMATI",
+      "bean_size": "Small (screen size 14 or below",
+      "yield_potential": "Medium-High kg/ha",
+      "optimal_altitude": ""
+    },
+    "SA 237": {
+      "species": "Robusta",
+      "desc": "Suitable for cultivation under agroforestry systems in areas with dry climates.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Large (screen size >17)",
+      "yield_potential": "800-2100 kg/ha",
+      "optimal_altitude": ""
+    },
+    "Sln.1R": {
+      "species": "Robusta",
+      "desc": "Plants that are very vigorous and grow into moderately large trees.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "1500-3000 kg/ha",
+      "optimal_altitude": ""
+    },
+    "Sln.2R": {
+      "species": "Robusta",
+      "desc": "Plants that are very vigorous and grow into moderately large trees and produce large beans.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Large (screen size >17)",
+      "yield_potential": "1500-3000 kg/ha",
+      "optimal_altitude": ""
+    },
+    "Sln.3R": {
+      "species": "Robusta",
+      "desc": "Compact plant stature with good yielding potential, suitable for high-density planting.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Large (screen size >17)",
+      "yield_potential": "1500-2500 kg/ha",
+      "optimal_altitude": ""
+    },
+    "TR11": {
+      "species": "Robusta",
+      "desc": "Very high yield and quality. Strong growth.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "5000-6000 kg/ha",
+      "optimal_altitude": ""
+    },
+    "TR4": {
+      "species": "Robusta",
+      "desc": "High yield and wide adaptation to different environments.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "5000-7000 kg/ha",
+      "optimal_altitude": ""
+    },
+    "TR9": {
+      "species": "Robusta",
+      "desc": "Very high yield and cup quality, large bean size.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Large (screen size >17)",
+      "yield_potential": "5000-6000 kg/ha",
+      "optimal_altitude": ""
+    },
+    "TRS1": {
+      "species": "Robusta",
+      "desc": "Wide adaptation to different environments; average input requirements.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Medium (screen size 15-16)",
+      "yield_potential": "4000-5000 kg/ha",
+      "optimal_altitude": ""
+    },
+    "Xanh lun": {
+      "species": "Robusta",
+      "desc": "Compact, very high yield. High-quality, relative drought tolerance, late to ripen.",
+      "stature": "YEAR OF FIRST PRODUCTION",
+      "leaf_tip": "",
+      "bean_size": "Large (screen size >17)",
+      "yield_potential": "5000-6000 kg/ha",
+      "optimal_altitude": ""
     }
   },
   "processes": {
@@ -200,15 +1139,15 @@
   "dimensions": {
     "Aroma": {
       "desc": "How rich and complex the dry and wet aroma is. Sniff the grounds, then the crema.",
-      "note": "Cup your hand over the cup and inhale. A complex aroma has multiple distinct scents — fruity, nutty, floral — not just 'coffee'."
+      "note": "Cup your hand over the cup and inhale. A complex aroma has multiple distinct scents \u2014 fruity, nutty, floral \u2014 not just \"coffee\"."
     },
     "Acidity": {
-      "desc": "The bright, tangy liveliness on your tongue — not sourness. Think citrus sparkle, not vinegar.",
+      "desc": "The bright, tangy liveliness on your tongue \u2014 not sourness. Think citrus sparkle, not vinegar.",
       "note": "Take a small sip and focus on the sides of your tongue. Pleasant acidity feels crisp and juicy; too much feels sour or sharp."
     },
     "Sweetness": {
-      "desc": "Natural sugars perceived in the cup — caramel, honey, fruit sweetness.",
-      "note": "Let the coffee cool slightly — sweetness becomes more apparent. A well-extracted shot should have some sweetness even without sugar."
+      "desc": "Natural sugars perceived in the cup \u2014 caramel, honey, fruit sweetness.",
+      "note": "Let the coffee cool slightly \u2014 sweetness becomes more apparent. A well-extracted shot should have some sweetness even without sugar."
     },
     "Body": {
       "desc": "The weight and texture of the coffee in your mouth. Thin like tea, or thick like syrup?",
@@ -216,11 +1155,11 @@
     },
     "Balance": {
       "desc": "How well acidity, sweetness, and body work together. No single attribute dominates.",
-      "note": "A balanced shot feels harmonious — nothing jumps out as too much. If one quality overwhelms the rest, score lower."
+      "note": "A balanced shot feels harmonious \u2014 nothing jumps out as too much. If one quality overwhelms the rest, score lower."
     },
     "Overall": {
       "desc": "Your personal enjoyment. Would you happily drink this again?",
-      "note": "Trust your gut. This is subjective — a technically flawed shot you enjoyed rates higher than a 'correct' one you didn't."
+      "note": "Trust your gut. This is subjective \u2014 a technically flawed shot you enjoyed rates higher than a \"correct\" one you didn't."
     },
     "Grind Aroma": {
       "desc": "Intensity of the smell from freshly ground coffee, before brewing.",

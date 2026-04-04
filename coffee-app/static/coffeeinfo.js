@@ -2,6 +2,46 @@
     let INFO = null;
     let activePopup = null;
 
+    // Altitude label → meter range, per latitude band (from reference/altitude.md)
+    var ALT_BANDS = {
+        equatorial: {Low:"1000–1200m","Low , Medium":"1000–1600m",Medium:"1200–1600m","Medium , High":">1200m",High:">1600m","High , Medium":">1200m","Low , Medium , High":">1000m"},
+        tropical: {Low:"700–900m","Low , Medium":"700–1300m",Medium:"900–1300m","Medium , High":">900m",High:">1300m","High , Medium":">900m","Low , Medium , High":">700m"},
+        subtropical: {Low:"400–700m","Low , Medium":"400–1000m",Medium:"700–1000m","Medium , High":">700m",High:">1000m","High , Medium":">700m","Low , Medium , High":">400m"}
+    };
+    var COUNTRY_BANDS = {
+        ecuador:"equatorial",colombia:"equatorial",kenya:"equatorial",uganda:"equatorial",
+        rwanda:"equatorial",burundi:"equatorial",indonesia:"equatorial","dem. rep. congo":"equatorial",
+        "papua new guinea":"equatorial","timor-leste":"equatorial",
+        ethiopia:"tropical","costa rica":"tropical",panama:"tropical",nicaragua:"tropical",
+        honduras:"tropical","el salvador":"tropical",guatemala:"tropical",jamaica:"tropical",
+        vietnam:"tropical",india:"tropical",yemen:"tropical",laos:"tropical",thailand:"tropical",
+        philippines:"tropical",myanmar:"tropical",cameroon:"tropical",nigeria:"tropical",
+        "ivory coast":"tropical",tanzania:"tropical",malawi:"tropical",zambia:"tropical",
+        madagascar:"tropical",
+        brazil:"subtropical",mexico:"subtropical",peru:"subtropical",bolivia:"subtropical",
+        cuba:"subtropical","dominican rep.":"subtropical",haiti:"subtropical",
+        "puerto rico":"subtropical",china:"subtropical",nepal:"subtropical",
+        zimbabwe:"subtropical",venezuela:"subtropical"
+    };
+
+    function resolveAltitude(label) {
+        if (!label || label === 'Not applicable') return label;
+        // Try to find origin country on the page
+        var country = null;
+        var detail = document.querySelector('.coffee-detail');
+        if (detail) {
+            var spans = detail.querySelectorAll('span');
+            if (spans.length > 0) {
+                // First span is usually "Country, City" — grab the country part
+                var text = spans[0].textContent.split(',')[0].trim().toLowerCase();
+                country = text;
+            }
+        }
+        var band = COUNTRY_BANDS[country] || 'tropical';
+        var resolved = (ALT_BANDS[band] || ALT_BANDS.tropical)[label];
+        return resolved ? label + ' (' + resolved + ')' : label;
+    }
+
     fetch('/static/coffee-info.json')
         .then(r => r.json())
         .then(data => {
@@ -26,8 +66,9 @@
             '<div class="info-popup-title">' + esc(title) + (info.species ? ' <span class="info-species">' + esc(info.species) + '</span>' : '') + '</div>',
             '<div class="info-popup-desc">' + esc(info.desc) + '</div>',
         ];
-        if (info.flavor) parts.push('<div class="info-popup-flavor"><strong>Flavor:</strong> ' + esc(info.flavor) + '</div>');
-        if (info.note) parts.push('<div class="info-popup-note"><strong>Tip:</strong> ' + esc(info.note) + '</div>');
+        if (info.stature) parts.push('<div class="info-popup-meta"><strong>Stature:</strong> ' + esc(info.stature) + '</div>');
+        if (info.bean_size) parts.push('<div class="info-popup-meta"><strong>Bean Size:</strong> ' + esc(info.bean_size) + '</div>');
+        if (info.optimal_altitude) parts.push('<div class="info-popup-meta"><strong>Altitude:</strong> ' + esc(resolveAltitude(info.optimal_altitude)) + '</div>');
         popup.innerHTML = parts.join('');
         el.parentNode.style.position = 'relative';
         el.parentNode.appendChild(popup);

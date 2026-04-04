@@ -10,3 +10,4 @@ reference/*.pdf
 backups/
 .secret_key
 GEMINI.md
+.claude/*
