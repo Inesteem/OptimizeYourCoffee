@@ -147,6 +147,26 @@
             }
         });
 
+        // Variety input — make label tappable for variety info popup
+        var varietyInput = document.getElementById('variety');
+        if (varietyInput) {
+            var wrapper = varietyInput.closest('.field');
+            if (wrapper) {
+                var label = wrapper.querySelector('label');
+                if (label) {
+                    label.classList.add('info-link');
+                    label.addEventListener('pointerdown', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        var val = varietyInput.value.trim();
+                        var info = getInfo('varieties', val);
+                        if (info) showPopup(label, info, val);
+                        else closePopup();
+                    });
+                }
+            }
+        }
+
         // Origin map preview — updates live as user types country
         attachOriginMapPreview();
     }
