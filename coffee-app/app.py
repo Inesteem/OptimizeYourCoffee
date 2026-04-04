@@ -132,14 +132,15 @@ def backup_db():
     if DB_PATH.exists() and DB_PATH.stat().st_size > 0:
         # Skip backup if DB hasn't been modified since the latest backup
         existing = sorted(BACKUP_DIR.glob("coffee-*.db"))
+        skip = False
         if existing:
             latest_backup_mtime = existing[-1].stat().st_mtime
-            if DB_PATH.stat().st_mtime <= latest_backup_mtime:
-                return  # DB unchanged since last backup
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        backup_file = BACKUP_DIR / f"coffee-{timestamp}.db"
-        shutil.copy2(DB_PATH, backup_file)
-    # Prune old backups
+            skip = DB_PATH.stat().st_mtime <= latest_backup_mtime
+        if not skip:
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+            backup_file = BACKUP_DIR / f"coffee-{timestamp}.db"
+            shutil.copy2(DB_PATH, backup_file)
+    # Prune old backups (always runs)
     cutoff = datetime.now() - timedelta(days=BACKUP_MAX_DAYS)
     for f in BACKUP_DIR.glob("coffee-*.db"):
         try:
