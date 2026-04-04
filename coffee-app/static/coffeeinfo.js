@@ -82,7 +82,37 @@
                 wrapper.querySelector('label').appendChild(document.createTextNode(' '));
                 wrapper.querySelector('label').appendChild(icon);
             }
+            if (select.name === 'bean_color') {
+                const wrapper = select.closest('.field');
+                if (!wrapper) return;
+                const icon = document.createElement('span');
+                icon.className = 'info-icon';
+                icon.textContent = 'ⓘ';
+                icon.addEventListener('pointerdown', e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showRoastGuide();
+                });
+                wrapper.querySelector('label').appendChild(document.createTextNode(' '));
+                wrapper.querySelector('label').appendChild(icon);
+            }
         });
+    }
+
+    function showRoastGuide() {
+        closePopup();
+        var overlay = document.createElement('div');
+        overlay.className = 'roast-guide-overlay';
+        overlay.innerHTML =
+            '<div class="roast-guide-panel">' +
+                '<div class="info-popup-title">Roast Level Guide</div>' +
+                '<img src="/static/roast-guide.png" class="roast-guide-img" alt="Coffee roast levels from light to dark">' +
+                '<div class="roast-guide-hint">Tap anywhere to close</div>' +
+            '</div>';
+        overlay.addEventListener('pointerdown', function() { closePopup(); });
+        document.body.appendChild(overlay);
+        activePopup = overlay;
+        void overlay.offsetHeight;
     }
 
     function makeClickable(span, name, info) {
