@@ -69,11 +69,8 @@ def extract_coffee_data(pdf_path):
         # Extract variety-specific metadata
         variety_entry = {
             "species": species,
-            "desc": " ".join(desc_lines).split("STATURE")[0].strip(),
-            "stature": get_variety_value(lines, "STATURE", 0),
-            "leaf_tip": get_variety_value(lines, "LEAF TIP COLOR", 0),
+            "desc": " ".join(desc_lines).split("YIELD POTENTIAL")[0].strip(),
             "bean_size": get_variety_value(lines, "BEAN SIZE", 0),
-            "yield_potential": get_variety_value(lines, "YIELD POTENTIAL", 0),
             "optimal_altitude": get_variety_value(lines, "OPTIMAL ALTITUDE", 0)
         }
         

@@ -74,7 +74,6 @@
             '<div class="info-popup-title">' + esc(title) + (info.species ? ' <span class="info-species">' + esc(info.species) + '</span>' : '') + '</div>',
             '<div class="info-popup-desc">' + esc(info.desc) + '</div>',
         ];
-        if (info.stature) parts.push('<div class="info-popup-meta"><strong>Stature:</strong> ' + esc(info.stature) + '</div>');
         if (info.bean_size) parts.push('<div class="info-popup-meta"><strong>Bean Size:</strong> ' + esc(info.bean_size) + '</div>');
         if (info.optimal_altitude) parts.push('<div class="info-popup-meta"><strong>Altitude:</strong> ' + esc(resolveAltitude(info.optimal_altitude)) + '</div>');
         popup.innerHTML = parts.join('');
