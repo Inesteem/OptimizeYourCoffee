@@ -7,9 +7,9 @@ Solves the problem of systematically tracking espresso shots, evaluating flavors
 **Stack:** Python 3 / Flask / SQLite / Chart.js / simple-keyboard. Runs as a Chromium kiosk on Wayland (800x480 DSI touchscreen).
 
 **Entry points:**
-- `coffee-app/app.py` — Flask application (~1440 lines), all routes and business logic
+- `coffee-app/app.py` — Flask application (~2200 lines), all routes and business logic
 - `./deploy.sh` — safe deploy to Raspberry Pi (backs up DB, stops Flask, syncs, restarts)
-- `python3 -m pytest tests/test_app.py` — test suite (193 tests)
+- `python3 -m pytest tests/test_app.py` — test suite (218 tests)
 
 ## Project Context
 
@@ -26,7 +26,7 @@ FLASK_DEBUG=1 python3 coffee-app/app.py  # with debug mode
 
 ### Run tests
 ```bash
-python3 -m pytest tests/test_app.py -v      # full suite (193 tests, ~8s)
+python3 -m pytest tests/test_app.py -v      # full suite (218 tests, ~8s)
 python3 -m pytest tests/test_app.py::TestFreshnessStatus -v  # single class
 ```
 
@@ -59,7 +59,7 @@ coffee-settings/
 │   │   ├── coffeeinfo.js     # Variety/process info popups
 │   │   ├── coffee-info.json  # 18 variety + 16 process descriptions
 │   │   └── varieties.json    # ~100 cultivar names for autocomplete
-│   └── templates/        # 12 Jinja2 templates (step1-3, edit, stats, insights, settings_notes, settings_grind, settings_taste)
+│   └── templates/        # 11 Jinja2 templates (step1-3, edit, stats, insights, settings_notes, settings_grind, settings_taste)
 ├── reference/            # Domain knowledge docs (tracked in git)
 ├── notes/                # Process artifacts (gitignored)
 ├── tests/                # pytest suite
@@ -114,7 +114,7 @@ Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in
 - **Static data** — `coffee-info.json`, `varieties.json` (checked in, loaded client-side)
 
 ### Key design decisions
-- **Monolithic app.py** — deliberate for a single-developer kiosk project. Split only needed at ~1500+ lines.
+- **Monolithic app.py** — deliberate for a single-developer kiosk project. At ~2200 lines; consider splitting if it grows past ~2500.
 - **Inline chart JS** — server renders JSON into template `<script>` blocks. Avoids extra API calls.
 - **Autocomplete as inline chips** (not floating dropdown) — Chromium/Wayland repaint bug prevents `position: fixed` elements toggled via display.
 - **`days_since_roast` snapshot on samples** — frozen at creation time, not computed live. Shows bean age when that specific shot was pulled.
@@ -179,7 +179,7 @@ Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in
 
 - **Framework:** pytest
 - **Runner:** `python3 -m pytest tests/test_app.py -v`
-- **Structure:** `tests/test_app.py` — single file, 193 tests in 28 test classes
+- **Structure:** `tests/test_app.py` — single file, 218 tests in 34 test classes
 - **Naming:** `TestClassName` classes, `test_descriptive_name` methods
 - **Fixtures:** `client` (Flask test client), `tmp_db` (temp SQLite file via `tmp_path`)
 - **Mocking:** `unittest.mock.patch` for `subprocess.Popen` (quit route), no date mocking (uses relative dates)
