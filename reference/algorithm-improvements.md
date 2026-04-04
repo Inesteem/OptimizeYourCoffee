@@ -30,6 +30,14 @@ Sources: External review by Gemini and Perplexity AI (2026-04-04), SCA research,
 | UI: roast level guide popup (bean color reference) | Done |
 | UI: 3 card designs (Modern, Showcase, Legacy) with settings toggle | Done |
 | UI: cost per shot on coffee overview cards | Done |
+| UI: live origin map preview on add/edit coffee forms | Done |
+| UI: bean size guide popup with screen size mappings | Done |
+| UI: altitude field (masl) on coffees | Done |
+| Data: 117 varieties from WCR catalog + 13 hand-curated | Done |
+| Data: altitude resolution by origin country latitude band | Done |
+| UI: variety info popup on add/edit forms | Done |
+| Fix: save coffee redirects to index (not sample page) | Done |
+| Fix: backup skips unchanged DB, includes WAL/SHM files | Done |
 
 ## 1. Grind Optimizer: Weighted Centroid with Time Decay
 

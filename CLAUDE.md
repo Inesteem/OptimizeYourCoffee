@@ -7,7 +7,7 @@ Solves the problem of systematically tracking espresso shots, evaluating flavors
 **Stack:** Python 3 / Flask / SQLite / Chart.js / simple-keyboard. Runs as a Chromium kiosk on Wayland (800x480 DSI touchscreen).
 
 **Entry points:**
-- `coffee-app/app.py` — Flask application (~2275 lines), all routes and business logic
+- `coffee-app/app.py` — Flask application (~2310 lines), all routes and business logic
 - `./deploy.sh` — safe deploy to Raspberry Pi (backs up DB, stops Flask, syncs, restarts)
 - `python3 -m pytest tests/test_app.py` — test suite (218 tests)
 
@@ -56,9 +56,10 @@ coffee-settings/
 │   │   ├── keyboard.js       # Virtual keyboard (wraps simple-keyboard)
 │   │   ├── autocomplete.js   # Inline chip autocomplete for form fields
 │   │   ├── tastingnotes.js   # Tasting note chip input with emoji lookup
-│   │   ├── coffeeinfo.js     # Variety/process info popups + roast guide overlay
-│   │   ├── coffee-info.json  # 18 variety + 16 process descriptions
-│   │   ├── varieties.json    # ~100 cultivar names for autocomplete
+│   │   ├── coffeeinfo.js     # Variety/process/bean info popups + roast guide + origin map preview
+│   │   ├── coffee-info.json  # 117 varieties (scraped from WCR catalog) + 16 processes
+│   │   ├── coffee-info-manual.json  # Hand-curated varieties (merged on top at load time)
+│   │   ├── varieties.json    # 132 cultivar names for autocomplete
 │   │   └── maps/             # SVG origin country map icons (46 countries)
 │   └── templates/        # 12 Jinja2 templates (step1-3, edit, stats, insights, settings_notes, settings_grind, settings_taste, settings_design)
 ├── reference/            # Domain knowledge docs (tracked in git)
@@ -116,7 +117,7 @@ Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in
 - **Static data** — `coffee-info.json`, `varieties.json`, `maps/*.svg` + `origin-map-index.json` (checked in, loaded client-side/server-side)
 
 ### Key design decisions
-- **Monolithic app.py** — deliberate for a single-developer kiosk project. At ~2275 lines; consider splitting if it grows past ~2500.
+- **Monolithic app.py** — deliberate for a single-developer kiosk project. At ~2310 lines; consider splitting if it grows past ~2500.
 - **Inline chart JS** — server renders JSON into template `<script>` blocks. Avoids extra API calls.
 - **Autocomplete as inline chips** (not floating dropdown) — Chromium/Wayland repaint bug prevents `position: fixed` elements toggled via display.
 - **`days_since_roast` snapshot on samples** — frozen at creation time, not computed live. Shows bean age when that specific shot was pulled.
@@ -151,15 +152,21 @@ Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in
 - Chip rendering uses DOM methods (`createElement`, `textContent`) not `innerHTML`
 
 ### Info popups
-- Form labels (e.g., "Bean Color", "Process") are the tappable element — styled with `info-link` (yellow, underlined). Do not use separate ⓘ icons next to labels.
+- Form labels (e.g., "Bean Color", "Process", "Variety") are the tappable element — styled with `info-link` (yellow, underlined). Do not use separate ⓘ icons next to labels.
+- **Must `removeAttribute('for')` on info-link labels** — otherwise tapping the label focuses the associated input/select, which triggers the outside-click dismiss handler and closes the popup immediately.
+- **300ms open guard** — `popupOpenedAt` timestamp prevents the same tap that opened a popup from also closing it (touchscreens fire both `pointerdown` and `click` from one tap).
+- Outside-click uses `click` event (not `pointerdown`) so scrolling doesn't dismiss popups.
+- Popups have a × close button for explicit dismissal.
 - Info popups on detail pages use `info-link` class on the data span itself (variety, process names)
-- Roast guide uses a fullscreen overlay (`roast-guide-overlay`) created/removed via DOM — Wayland-safe
+- Roast guide and bean size guide use fullscreen overlays (`roast-guide-overlay`) created/removed via DOM — Wayland-safe
+- Variety data loaded from two JSON files: `coffee-info.json` (scraped catalog) + `coffee-info-manual.json` (hand-curated), merged at load time with manual winning on conflicts.
 
 ### Chromium/Wayland workarounds
 - No `display: none` → `display: block` toggling on fixed/absolute elements — use `:empty` CSS collapse
 - Autocomplete chips are regular inline DOM, not floating overlays
 - `--disk-cache-size=1 --aggressive-cache-discard` on Chromium launch
 - Asset cache busting: `?v={{ v }}` where `v` = `CACHE_BUST` (startup timestamp)
+- **Touch events**: a single tap fires both `pointerdown` and `click`. Use `click` for dismiss handlers (not `pointerdown`) and add a timing guard when opening popups to prevent the opening tap from immediately closing them.
 
 ### Error handling
 - No exceptions for flow control. Routes redirect on invalid input.
@@ -221,6 +228,8 @@ Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in
 - Adding a new card design → must add: template branch in `step1_coffee.html` (conditional on `card_design`), CSS classes, option in `settings_design.html`, validation in `save_design_settings()`
 - Adding a new coffee-producing country → run `scripts/generate_origin_maps.py` after adding it to `COFFEE_COUNTRIES` list; also add aliases to `ALIASES` dict
 - Using `.get()` on sqlite3.Row → will crash; use bracket access `row["col"]` or try/except
+- Adding a new variety → add to `coffee-info-manual.json` (not `coffee-info.json` which is scraped) and to `varieties.json` for autocomplete
+- Making a form label tappable for info → must `removeAttribute('for')` or the label will focus the input and dismiss the popup
 
 ## Code Quality
 
@@ -265,7 +274,10 @@ No code formatter is configured. Follow existing indentation (4 spaces Python, 4
 | reference/algorithm-improvements.md | reference/ | Improvement backlog + implementation status | New improvements |
 | reference/coffee-rating-labels.md | reference/ | SCA scoring tiers | Rating logic changes |
 | reference/tasting-note-labels.md | reference/ | Emoji mappings | New tasting notes |
+| reference/altitude.md | reference/ | Altitude label → meter range by latitude | Altitude resolution logic changes |
 | scripts/generate_origin_maps.py | scripts/ | SVG map icon generator | New countries, map styling |
+| scripts/resolve_altitude.py | scripts/ | Altitude label resolver utility | Altitude bands change |
+| scripts/extract_coffee_data.py | scripts/ | WCR catalog PDF extractor | Re-extract after catalog update |
 
 All docs are developer-facing. No generated docs. No external wiki. No formal documentation review process — update docs alongside code changes.
 
