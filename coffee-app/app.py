@@ -1178,7 +1178,7 @@ def _suggest_grind_ratio(coffee_id, conn):
     # Finer grind = lower grind number → less output
     if abs(dev) <= 1:
         return {"grind": round(latest_grind, 1), "confidence": "high",
-                "detail": f"On target! Output {latest_out:.0f}g vs {target_out:.0f}g target. Keep grind at {latest_grind}."}
+                "detail": f"On target! Last shot hit {latest_out:.0f}g (target {target_out:.0f}g). Keep grind at {latest_grind}."}
 
     # Grinder direction: finer_is_lower means lower number = finer grind (default)
     # For reversed grinders, the sign flips
@@ -1195,7 +1195,7 @@ def _suggest_grind_ratio(coffee_id, conn):
     return {
         "grind": suggested,
         "confidence": conf,
-        "detail": f"Output was {latest_out:.0f}g vs {target_out:.0f}g target ({dev:+.0f}g). Go {direction} by ~{abs(steps):.1f} steps. Based on {n} shot{'s' if n != 1 else ''}.",
+        "detail": f"Last shot: {latest_out:.0f}g (target {target_out:.0f}g, {dev:+.0f}g). Try {direction} by ~{abs(steps):.1f} steps.",
     }
 
 
