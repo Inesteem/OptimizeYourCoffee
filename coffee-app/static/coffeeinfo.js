@@ -140,6 +140,7 @@
                 });
             }
             if (select.name === 'bean_color') {
+                label.removeAttribute('for');
                 label.classList.add('info-link');
                 label.addEventListener('pointerdown', e => {
                     e.preventDefault();
@@ -148,6 +149,7 @@
                 });
             }
             if (select.name === 'bean_size') {
+                label.removeAttribute('for');
                 label.classList.add('info-link');
                 label.addEventListener('pointerdown', e => {
                     e.preventDefault();
