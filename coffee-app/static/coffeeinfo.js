@@ -194,7 +194,9 @@
                 '<img src="/static/roast-guide.png" class="roast-guide-img" alt="Coffee roast levels from light to dark">' +
                 '<div class="roast-guide-hint">Tap anywhere to close</div>' +
             '</div>';
-        overlay.addEventListener('pointerdown', function() { closePopup(); });
+        setTimeout(function() {
+            overlay.addEventListener('pointerdown', function() { closePopup(); });
+        }, 100);
         document.body.appendChild(overlay);
         activePopup = overlay;
         void overlay.offsetHeight;
@@ -217,7 +219,9 @@
                 '<div class="bean-size-hint">Screen number = diameter in 1/64 inch. Most specialty bags list the screen size or grade (AA, Supremo, etc).</div>' +
                 '<div class="roast-guide-hint">Tap anywhere to close</div>' +
             '</div>';
-        overlay.addEventListener('pointerdown', function() { closePopup(); });
+        setTimeout(function() {
+            overlay.addEventListener('pointerdown', function() { closePopup(); });
+        }, 100);
         document.body.appendChild(overlay);
         activePopup = overlay;
         void overlay.offsetHeight;
