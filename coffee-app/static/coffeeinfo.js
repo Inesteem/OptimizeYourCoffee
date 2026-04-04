@@ -129,6 +129,7 @@
             var label = wrapper.querySelector('label');
             if (!label) return;
             if (select.name === 'process') {
+                label.removeAttribute('for');
                 label.classList.add('info-link');
                 label.addEventListener('pointerdown', e => {
                     e.preventDefault();
