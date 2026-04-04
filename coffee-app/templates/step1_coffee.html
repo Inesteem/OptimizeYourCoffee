@@ -190,11 +190,11 @@
                     {% endif %}
                     <div class="coffee-meta">
                         {% if c.roaster %}<span>{{ c.roaster }}</span>{% endif %}
-                        {% if c.origin_country %}<span>{{ c.origin_country }}</span>{% endif %}
+                        {% if c.origin_country %}<span>{% if c.origin_map %}<img src="{{ url_for('static', filename='maps/' + c.origin_map) }}" class="origin-map-icon" alt="{{ c.origin_country }}"> {% endif %}{{ c.origin_country }}</span>{% endif %}
                         {% if c.process %}<span>{{ c.process }}</span>{% endif %}
                         {% if c.roast_date %}<span>Roasted {{ c.roast_date }}</span>{% endif %}
                         {% if c.days_open is not none %}<span>Open {{ c.days_open }} day{{ 's' if c.days_open != 1 }}</span>{% endif %}
-                        {% if c.bag_price %}<span>{{ "%.2f"|format(c.bag_price) }} &euro;</span>{% endif %}
+                        {% if c.cost_per_shot %}<span>{{ "%.2f"|format(c.cost_per_shot) }} &euro;/shot</span>{% elif c.bag_price %}<span>{{ "%.2f"|format(c.bag_price) }} &euro;</span>{% endif %}
                     </div>
                     {% if c.freshness %}
                     <div class="freshness-detail">{{ c.freshness.detail }}</div>

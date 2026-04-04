@@ -34,6 +34,14 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY") or _get_secret_key()
 
 CACHE_BUST = str(int(time.time()))
 
+# Origin map index: country name (lowercase) → SVG filename
+_map_index_path = os.path.join(os.path.dirname(__file__), "static", "maps", "origin-map-index.json")
+try:
+    with open(_map_index_path) as f:
+        ORIGIN_MAP_INDEX = json.loads(f.read())
+except (FileNotFoundError, json.JSONDecodeError):
+    ORIGIN_MAP_INDEX = {}
+
 
 def safe_int(val, default=None):
     """Parse val as int, returning default if conversion fails."""
@@ -1202,10 +1210,16 @@ def index():
             cd["rating"] = coffee_rating(c["id"], conn2)
             cd["grams_used"] = usage.get(c["id"], 0)
             cd["days_open"] = days_since(c["opened_date"])
+            cd["origin_map"] = ORIGIN_MAP_INDEX.get((c["origin_country"] or "").lower())
             if c["bag_weight_g"]:
                 cd["grams_left"] = max(0, c["bag_weight_g"] - cd["grams_used"])
             else:
                 cd["grams_left"] = None
+            if c["bag_price"] and c["bag_weight_g"]:
+                dose = c["default_grams_in"] or 18
+                cd["cost_per_shot"] = (c["bag_price"] / c["bag_weight_g"]) * dose
+            else:
+                cd["cost_per_shot"] = None
             coffee_data.append(cd)
 
     # Sort
