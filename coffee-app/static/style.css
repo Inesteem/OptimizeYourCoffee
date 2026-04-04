@@ -1091,6 +1091,19 @@ header h1 {
     line-height: 1.4;
 }
 
+.info-popup-close {
+    float: right;
+    font-size: 1.2rem;
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 0 4px 8px;
+}
+
+.info-popup-close:active {
+    color: var(--text);
+}
+
 .info-popup-title {
     font-weight: 700;
     color: var(--accent);

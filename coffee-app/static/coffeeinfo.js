@@ -70,6 +70,14 @@
         closePopup();
         const popup = document.createElement('div');
         popup.className = 'info-popup';
+        const closeBtn = document.createElement('span');
+        closeBtn.className = 'info-popup-close';
+        closeBtn.textContent = '\u00d7';
+        closeBtn.addEventListener('pointerdown', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closePopup();
+        });
         const parts = [
             '<div class="info-popup-title">' + esc(title) + (info.species ? ' <span class="info-species">' + esc(info.species) + '</span>' : '') + '</div>',
             '<div class="info-popup-desc">' + esc(info.desc) + '</div>',
@@ -77,6 +85,7 @@
         if (info.bean_size) parts.push('<div class="info-popup-meta"><strong>Bean Size:</strong> ' + esc(info.bean_size) + '</div>');
         if (info.optimal_altitude) parts.push('<div class="info-popup-meta"><strong>Altitude:</strong> ' + esc(resolveAltitude(info.optimal_altitude)) + '</div>');
         popup.innerHTML = parts.join('');
+        popup.insertBefore(closeBtn, popup.firstChild);
         el.parentNode.style.position = 'relative';
         el.parentNode.appendChild(popup);
         activePopup = popup;
@@ -154,6 +163,7 @@
             if (wrapper) {
                 var label = wrapper.querySelector('label');
                 if (label) {
+                    label.removeAttribute('for');  // prevent focusing the input on tap
                     label.classList.add('info-link');
                     label.addEventListener('pointerdown', function(e) {
                         e.preventDefault();
@@ -258,9 +268,9 @@
         });
     }
 
-    // Close popup on outside tap
-    document.addEventListener('pointerdown', e => {
-        if (activePopup && !activePopup.contains(e.target) && !e.target.classList.contains('info-icon') && !e.target.classList.contains('info-link')) {
+    // Close popup on outside tap (click, not pointerdown — so scrolling doesn't dismiss)
+    document.addEventListener('click', e => {
+        if (activePopup && !activePopup.contains(e.target) && !e.target.classList.contains('info-icon') && !e.target.classList.contains('info-link') && !e.target.classList.contains('info-popup-close')) {
             closePopup();
         }
     });
