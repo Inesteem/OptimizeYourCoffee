@@ -9,7 +9,7 @@ Solves the problem of systematically tracking espresso shots, evaluating flavors
 **Entry points:**
 - `coffee-app/app.py` — Flask application (~1440 lines), all routes and business logic
 - `./deploy.sh` — safe deploy to Raspberry Pi (backs up DB, stops Flask, syncs, restarts)
-- `python3 -m pytest tests/test_app.py` — test suite (108 tests)
+- `python3 -m pytest tests/test_app.py` — test suite (193 tests)
 
 ## Project Context
 
@@ -26,7 +26,7 @@ FLASK_DEBUG=1 python3 coffee-app/app.py  # with debug mode
 
 ### Run tests
 ```bash
-python3 -m pytest tests/test_app.py -v      # full suite (108 tests, ~4s)
+python3 -m pytest tests/test_app.py -v      # full suite (193 tests, ~8s)
 python3 -m pytest tests/test_app.py::TestFreshnessStatus -v  # single class
 ```
 
@@ -59,7 +59,7 @@ coffee-settings/
 │   │   ├── coffeeinfo.js     # Variety/process info popups
 │   │   ├── coffee-info.json  # 18 variety + 16 process descriptions
 │   │   └── varieties.json    # ~100 cultivar names for autocomplete
-│   └── templates/        # 10 Jinja2 templates (step1-3, edit, stats, insights, settings)
+│   └── templates/        # 12 Jinja2 templates (step1-3, edit, stats, insights, settings_notes, settings_grind, settings_taste)
 ├── reference/            # Domain knowledge docs (tracked in git)
 ├── notes/                # Process artifacts (gitignored)
 ├── tests/                # pytest suite
@@ -92,7 +92,21 @@ Prefill priority chain (both sample and eval pages):
 This means grind aroma "sticks" across shots of the same coffee, while fresh selections from the sample page always override the sticky value on the eval page.
 
 ### Database
-Single SQLite file (`coffee.db`, WAL mode, foreign keys). 4 tables: `coffees`, `samples`, `evaluations`, `custom_tasting_notes`. Schema migrations via `ALTER TABLE` in `init_db()` — **never drop/recreate tables** (user has real data).
+Single SQLite file (`coffee.db`, WAL mode, foreign keys). 5 tables: `coffees`, `samples`, `evaluations`, `custom_tasting_notes`, `app_settings`. Schema migrations via `ALTER TABLE` in `init_db()` — **never drop/recreate tables** (user has real data).
+
+### Grind optimizer
+Three selectable algorithms in Settings → Grind Optimizer, all dispatched via `suggest_grind()`:
+- **Best Shots** (`weighted_centroid`): Weighted average of top-scoring shots with time-decay. Default.
+- **Smart Curve** (`bayesian_quadratic`): Ridge regression with configurable regularization + optional recency. Pure Python.
+- **Classic Curve Fit** (`quadratic`): Standard quadratic regression via numpy. No recency, no regularization.
+
+All share:
+- Configurable score source (overall, taste avg, ratio accuracy, single dimension)
+- Recipe-matching filter (temp/dose tolerance to exclude shots from different brew setups)
+- Cross-coffee prior for sparse data (fallback grind from similar coffees on the same grinder)
+- Settings stored in `app_settings` table as JSON via `get_setting()`/`set_setting()`
+
+Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in-memory SQLite DB.
 
 ### State
 - **Database** — `~/coffee-app/coffee.db` on Pi (gitignored, backed up to `backups/` on every startup + deploy)
@@ -107,6 +121,9 @@ Single SQLite file (`coffee.db`, WAL mode, foreign keys). 4 tables: `coffees`, `
 - **Grind aroma lives on evaluations, not samples** — captured on the sample page for UX but only persisted to `evaluations` on save. Carried between pages via query params, with sticky prefill from the last eval of the same coffee.
 - **Sample↔eval navigation loop** — back arrow on eval goes to edit sample (`?from=eval`), save returns to eval. User escapes via the edit page's back arrow or eval's "Done" button.
 - **Timestamped backups** — every Flask startup creates `coffee-YYYY-MM-DD_HHMMSS.db`. Pruned after 60 days.
+- **Settings auto-save** — grind optimizer settings page saves on every change via debounced fetch (no save button). Route returns JSON for auto-save (`X-Auto-Save` header), redirect for manual POST.
+- **Score-source-dependent UI** — grind settings page swaps algorithm cards based on selected score source. Ratio accuracy shows a dedicated "Directed Search" algorithm; all taste-based sources show the 3 generic algorithms.
+- **Diagnostics vs optimizer separation** — `diagnose()` provides observational feedback (what went wrong), grind optimizer provides statistical next-shot suggestions. Diagnostics no longer give grind step advice.
 
 ## Key Conventions
 
@@ -162,7 +179,7 @@ Single SQLite file (`coffee.db`, WAL mode, foreign keys). 4 tables: `coffees`, `
 
 - **Framework:** pytest
 - **Runner:** `python3 -m pytest tests/test_app.py -v`
-- **Structure:** `tests/test_app.py` — single file, 108 tests in 18 test classes
+- **Structure:** `tests/test_app.py` — single file, 193 tests in 28 test classes
 - **Naming:** `TestClassName` classes, `test_descriptive_name` methods
 - **Fixtures:** `client` (Flask test client), `tmp_db` (temp SQLite file via `tmp_path`)
 - **Mocking:** `unittest.mock.patch` for `subprocess.Popen` (quit route), no date mocking (uses relative dates)
@@ -187,6 +204,8 @@ Single SQLite file (`coffee.db`, WAL mode, foreign keys). 4 tables: `coffees`, `
 - Adding a coffee field → must update: schema, migration, `parse_coffee_form()`, `COFFEE_COLUMNS` allowlist, both templates (add + edit), and tests
 - Deploying with `scp` instead of `./deploy.sh` → can corrupt the live database
 - Using `display: none/block` for dynamic UI → won't work on Chromium/Wayland, use `:empty` or opacity
+- Adding a new grind algorithm → must add: algorithm function, dispatch case in `suggest_grind()`, algorithm card in `settings_grind.html`, preview support, tests
+- Adding a new score source → must add: entry in `SCORE_SOURCES`, handler in `_extract_score()`, any needed columns in preview API's in-memory schema
 
 ## Code Quality
 
@@ -227,7 +246,8 @@ No code formatter is configured. Follow existing indentation (4 spaces Python, 4
 | reference/coffee-freshness.md | reference/ | Degradation science | Freshness model changes |
 | reference/extraction-diagnostics.md | reference/ | Taste→grind mapping rules | Diagnostic logic changes |
 | reference/espresso-evaluation.md | reference/ | Scoring framework | Evaluation fields change |
-| reference/grind-optimization.md | reference/ | Quadratic regression approach | Algorithm changes |
+| reference/grind-optimization.md | reference/ | 4 grind algorithms, score sources, filters | Algorithm changes |
+| reference/algorithm-improvements.md | reference/ | Improvement backlog + implementation status | New improvements |
 | reference/coffee-rating-labels.md | reference/ | SCA scoring tiers | Rating logic changes |
 | reference/tasting-note-labels.md | reference/ | Emoji mappings | New tasting notes |
 

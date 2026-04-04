@@ -2,62 +2,72 @@
 
 Source: Perplexity research, SCA extraction science.
 
+## Overview
+
+The `diagnose()` function identifies extraction problems from taste descriptors and scores. It provides **observational feedback** — what went wrong and why. Grind size adjustment suggestions are handled by the grind optimizer (Settings → Grind Optimizer).
+
 ## Taste → Extraction Mapping
 
-| Taste | Extraction | Action |
-|-------|-----------|--------|
-| Sour, acidic | Under | Grind finer |
-| Thin, watery | Under | Grind finer |
-| Flat, salty | Under | Grind finer + extend time |
-| Bitter | Over | Grind coarser |
-| Harsh, acrid | Over | Grind coarser |
-| Astringent, dry | Over | Grind coarser + reduce yield |
-| Ashy, woody | Over | Grind coarser |
-| Sour AND bitter | Channeling | Fix puck prep (WDT, tamp) |
+| Taste | Extraction | Meaning |
+|-------|-----------|---------|
+| Sour, acidic | Under | Not enough extraction |
+| Thin, watery | Under | Insufficient body from low extraction |
+| Flat, salty | Under | Underdeveloped flavors |
+| Bitter | Over | Too much extraction |
+| Harsh, acrid | Over | Aggressive over-extraction |
+| Astringent, dry | Over | Tannin-like over-extraction |
+| Ashy, woody | Over | Burnt extraction character |
+| Sour AND bitter | Channeling | Uneven extraction — fix puck prep |
 | Earthy | Ambiguous | Only adjust if also bitter/harsh |
 | Smoky | Ambiguous | Check if also bitter; may be roast profile |
 
-## Intensity Levels
+## Diagnostic Priority
 
-| # of negative descriptors | Severity | Adjustment |
-|--------------------------|----------|-----------|
-| 1 descriptor | Mild | 1 grind step |
-| 2 descriptors | Moderate | 1-2 steps |
-| 3+ descriptors | Strong | 2-3 steps |
+1. **Taste descriptors** (primary): Under-extraction signs vs over-extraction signs. Both present → channeling diagnosis.
+2. **Score dimensions** (fallback): Used when no taste descriptors selected. High acidity + low sweetness → under-extracted, etc.
+3. **Brew time** (informational): Very fast (<20s) or very slow (>35s) shots noted without grind advice.
+4. **Output deviation** (informational): Large deviations (>5g) from target noted without grind advice.
 
-## Output Weight Deviation
+## Severity Detection
 
-| Deviation from target | Cause | Action |
-|----------------------|-------|--------|
-| ±2g | Normal variation | No action |
-| +2 to +5g over | Slightly coarse | Grind finer 1 click |
-| +5 to +10g over | Channeling or coarse | WDT + finer 2 clicks |
-| +10g+ over | Severe | Major grind change |
-| -2 to -5g under | Slightly fine | Grind coarser 1 click |
-| -5 to -10g under | Fine + over-tamped | Coarser 2 clicks |
-| -10g+ under | Choked | Significantly coarser |
+| # of under/over descriptors | Combined with scores | Diagnosis |
+|----------------------------|---------------------|-----------|
+| 1 descriptor | — | Signs of under/over-extraction |
+| 2+ descriptors | Confirming score | Strongly under/over-extracted |
+| 3+ descriptors | — | Strongly under/over-extracted |
+| Both under AND over | — | Channeling — fix puck prep first |
 
-## Combined Taste + Weight
+## Score-Based Fallbacks
 
-| Taste | Output vs Target | Confidence | Diagnosis |
-|-------|-----------------|------------|-----------|
-| Sour + thin | Over target | HIGH | Coarse grind + fast flow |
-| Sour + thin | On target | MEDIUM | Low water temp or channeling |
-| Bitter + dry | Under target | HIGH | Fine grind + slow flow |
-| Bitter + dry | On target | MEDIUM | Long time or high temp |
-| Sour + bitter | Any | HIGH | Channeling (uneven extraction) |
+When no taste descriptors are selected:
 
-## Aroma Diagnostics
+| Pattern | Diagnosis |
+|---------|-----------|
+| Acidity ≥4, sweetness ≤2, body ≤2 | Likely under-extracted |
+| Acidity ≥4, sweetness ≤2 | Slightly under-extracted |
+| Acidity ≤2, sweetness ≤2 | Likely over-extracted |
+| Body ≤2, sweetness ≥3 | Thin body — consider dose increase |
 
-### Ground Coffee
-- Bright, fruity = normal for light roast (no adjustment needed)
-- Sharp, chemical = roast fault (change beans)
-- Stale, cardboard = old coffee
+## Informational Observations
 
-### Brewed Coffee
-- Burned + bitter taste = over-extraction → grind coarser
-- Burned but balanced taste = dark roast profile or equipment
-- Flat but ground smelled sweet = under-extraction → grind finer
+These are shown as context, not as grind adjustment advice:
+
+- **Fast shot** (<20s): Noted with target range (25-30s)
+- **Slow shot** (>35s): Noted with choke warning
+- **Output deviation** (>5g off target): Noted with actual vs target values
+
+## Positive Feedback
+
+- Balance ≥4 AND overall ≥4: "Great shot! Save this recipe as a reference."
+- Overall ≥4 with no issues: "Solid shot. Minor tweaks could make it even better."
+
+## Relationship to Grind Optimizer
+
+The diagnostics and grind optimizer serve different purposes:
+- **Diagnostics** (eval page): Immediate feedback on *this* shot — what went wrong
+- **Grind optimizer** (sample page): Statistical suggestion for *next* shot — where to set the grind
+
+The grind optimizer can be configured to optimize for taste score, ratio accuracy, or individual dimensions. The diagnostics remain taste-focused regardless of optimizer settings.
 
 ## Target Parameters
 - Extraction time: 25-30 seconds
