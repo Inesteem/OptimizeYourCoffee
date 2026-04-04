@@ -157,3 +157,5 @@ See `reference/` for domain knowledge:
 - `extraction-diagnostics.md` — taste→grind mapping rules
 - `grind-optimization.md` — quadratic regression approach
 - `tasting-note-labels.md` — emoji mappings, chip lists
+
+Variety and genetic data sourced from: [World Coffee Research Varieties Catalog](https://varieties.worldcoffeeresearch.org)

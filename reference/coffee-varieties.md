@@ -151,4 +151,10 @@ Premium varieties commanding high prices.
 |--------|---------|-----------------|
 | **Swiss Water** | Water-based, no chemicals | Best flavor preservation |
 | **CO2 Process** | Supercritical CO2 extraction | Good flavor retention; expensive |
-| **EA (Ethyl Acetate)** | Sugarcane-derived solvent | Can add slight sweetness |
+| EA (Ethyl Acetate) | Sugarcane-derived solvent | Can add slight sweetness |
+
+## Data Sources
+
+- **World Coffee Research (WCR) Varieties Catalog**: [https://varieties.worldcoffeeresearch.org](https://varieties.worldcoffeeresearch.org)
+  - Primary source for genetic lineage, agronomic data, and historical context for Arabica and Robusta varieties.
+
