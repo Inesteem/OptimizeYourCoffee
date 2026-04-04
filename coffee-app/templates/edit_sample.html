@@ -9,8 +9,9 @@
 </head>
 <body>
     <header>
-        <a href="{% if from_eval %}/evaluate/{{ sample.id }}{% else %}/sample/{{ coffee.id }}{% endif %}" class="back-btn">&larr;</a>
+        <a href="{% if from_eval %}/evaluate/{{ sample.id }}{% else %}/sample/{{ coffee.id }}{% endif %}" class="back-btn">&#9664;</a>
         <h1>Edit Sample</h1>
+        <span class="header-spacer" aria-hidden="true">&#9664;</span>
     </header>
 
     <main>
