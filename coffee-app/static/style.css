@@ -1173,17 +1173,17 @@ header h1 {
 /* Origin map preview in add-coffee form */
 .origin-group {
     display: flex;
-    gap: 12px;
-    align-items: flex-start;
+    gap: 14px;
+    align-items: stretch;
 }
 
 .origin-map-preview {
-    width: 72px;
+    width: 110px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 72px;
+    aspect-ratio: 1;
 }
 
 .origin-map-preview:empty {
@@ -1193,8 +1193,9 @@ header h1 {
 }
 
 .origin-map-preview img {
-    width: 72px;
-    height: auto;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
     opacity: 0.9;
 }
 
@@ -1223,6 +1224,11 @@ header h1 {
     padding: 5px 8px;
     color: var(--text);
     border-bottom: 1px solid #333;
+}
+
+.bean-size-panel {
+    text-align: left;
+    max-width: 460px;
 }
 
 .bean-size-hint {

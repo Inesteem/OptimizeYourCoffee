@@ -124,7 +124,7 @@
         var overlay = document.createElement('div');
         overlay.className = 'roast-guide-overlay';
         overlay.innerHTML =
-            '<div class="roast-guide-panel" style="max-width:420px">' +
+            '<div class="roast-guide-panel bean-size-panel">' +
                 '<div class="info-popup-title">Bean Size Guide</div>' +
                 '<table class="bean-size-table">' +
                     '<tr><th>Size</th><th>Screen</th><th>Diameter</th><th>Typical</th></tr>' +
