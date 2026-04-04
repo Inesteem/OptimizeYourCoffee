@@ -72,8 +72,8 @@ COFFEE_COLUMNS = {"roaster", "origin_country", "origin_city", "origin_producer",
                   "variety", "process", "tasting_notes", "label", "roast_date",
                   "best_after_days", "consume_within_days", "bag_weight_g", "bag_price",
                   "default_grams_in", "default_grams_out", "default_brew_time_sec",
-                  "bean_color", "bean_size", "opened_date",
-                  "archived", "created_at", "updated_at"}
+                  "bean_color", "bean_size", "altitude_min", "altitude_max",
+                  "opened_date", "archived", "created_at", "updated_at"}
 SAMPLE_COLUMNS = {"coffee_id", "grind_size", "grams_in", "grams_out", "brew_time_sec",
                   "brew_temp_c", "days_since_roast", "days_since_opened", "notes", "created_at"}
 EVALUATION_COLUMNS = {"sample_id", "aroma", "acidity", "sweetness", "body", "balance",
@@ -223,6 +223,8 @@ def init_db():
                 default_brew_time_sec INTEGER,
                 bean_color TEXT,
                 bean_size TEXT,
+                altitude_min INTEGER,
+                altitude_max INTEGER,
                 opened_date TEXT,
                 archived INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -243,6 +245,8 @@ def init_db():
             ("bean_color", "TEXT"),
             ("bean_size", "TEXT"),
             ("opened_date", "TEXT"),
+            ("altitude_min", "INTEGER"),
+            ("altitude_max", "INTEGER"),
             ("archived", "INTEGER DEFAULT 0"),
         ]:
             if col not in cols:
@@ -1256,6 +1260,17 @@ def index():
                 cd["cost_per_shot"] = (c["bag_price"] / c["bag_weight_g"]) * dose
             else:
                 cd["cost_per_shot"] = None
+            # Format altitude for display
+            alt_min = c["altitude_min"]
+            alt_max = c["altitude_max"]
+            if alt_min and alt_max and alt_min != alt_max:
+                cd["altitude_display"] = f"{alt_min}–{alt_max}m"
+            elif alt_min:
+                cd["altitude_display"] = f"{alt_min}m"
+            elif alt_max:
+                cd["altitude_display"] = f"{alt_max}m"
+            else:
+                cd["altitude_display"] = None
             coffee_data.append(cd)
 
     # Sort
@@ -1304,6 +1319,8 @@ def parse_coffee_form(data):
         "default_brew_time_sec": def_time,
         "bean_color": data.get("bean_color", "").strip() or None,
         "bean_size": data.get("bean_size", "").strip() or None,
+        "altitude_min": safe_int(data.get("altitude_min", "").strip()),
+        "altitude_max": safe_int(data.get("altitude_max", "").strip()),
         "opened_date": data.get("opened_date", "").strip() or None,
     }
 
