@@ -1,6 +1,7 @@
 (function() {
     let INFO = null;
     let activePopup = null;
+    let popupOpenedAt = 0;
 
     // Altitude label → meter range, per latitude band (from reference/altitude.md)
     var ALT_BANDS = {
@@ -89,6 +90,7 @@
         el.parentNode.style.position = 'relative';
         el.parentNode.appendChild(popup);
         activePopup = popup;
+        popupOpenedAt = Date.now();
         // Force layout for Wayland
         void popup.offsetHeight;
     }
@@ -199,6 +201,7 @@
         }, 100);
         document.body.appendChild(overlay);
         activePopup = overlay;
+        popupOpenedAt = Date.now();
         void overlay.offsetHeight;
     }
 
@@ -224,6 +227,7 @@
         }, 100);
         document.body.appendChild(overlay);
         activePopup = overlay;
+        popupOpenedAt = Date.now();
         void overlay.offsetHeight;
     }
 
@@ -276,8 +280,9 @@
     }
 
     // Close popup on outside tap (click, not pointerdown — so scrolling doesn't dismiss)
+    // Guard: ignore clicks within 300ms of opening (same tap that opened the popup)
     document.addEventListener('click', e => {
-        if (activePopup && !activePopup.contains(e.target) && !e.target.classList.contains('info-icon') && !e.target.classList.contains('info-link') && !e.target.classList.contains('info-popup-close')) {
+        if (activePopup && (Date.now() - popupOpenedAt) > 300 && !activePopup.contains(e.target) && !e.target.classList.contains('info-icon') && !e.target.classList.contains('info-link') && !e.target.classList.contains('info-popup-close')) {
             closePopup();
         }
     });
