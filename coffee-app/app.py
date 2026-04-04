@@ -1098,7 +1098,7 @@ def _suggest_grind_ratio(coffee_id, conn):
 
 # --- Step 1: Select or define coffee ---
 
-SORT_OPTIONS = {"newest", "rating", "freshest", "opened"}
+SORT_OPTIONS = {"rating", "roasted", "opened"}
 
 
 @app.route("/")
@@ -1116,12 +1116,12 @@ def index():
             sort_by = get_setting(conn, "coffee_sort", "newest")
             sort_dir = ""
         if sort_by not in SORT_OPTIONS:
-            sort_by = "newest"
+            sort_by = "roasted"
         if not sort_dir:
             sort_dir = get_setting(conn, "coffee_sort_dir", "")
         if sort_dir not in ("asc", "desc"):
             # Default direction per sort type
-            sort_dir = "asc" if sort_by in ("freshest", "opened") else "desc"
+            sort_dir = "desc" if sort_by == "rating" else "asc"
         if show_archived:
             coffees = conn.execute(
                 "SELECT * FROM coffees WHERE archived = 1 ORDER BY updated_at DESC"
@@ -1156,14 +1156,10 @@ def index():
     reverse = (sort_dir == "desc")
     if sort_by == "rating":
         coffee_data.sort(key=lambda c: c["rating"]["quality"] if c["rating"] else 0, reverse=reverse)
-    elif sort_by == "freshest":
+    elif sort_by == "roasted":
         coffee_data.sort(key=lambda c: c["freshness"]["days"] if c["freshness"] else 9999, reverse=reverse)
     elif sort_by == "opened":
         coffee_data.sort(key=lambda c: c["days_open"] if c["days_open"] is not None else 9999, reverse=reverse)
-    elif sort_by == "newest":
-        if sort_dir == "asc":
-            coffee_data.reverse()
-    # else: "newest" desc — already sorted by created_at DESC from SQL
 
     return render_template("step1_coffee.html", coffees=coffee_data,
                            show_archived=show_archived, sort_by=sort_by, sort_dir=sort_dir)

@@ -162,9 +162,9 @@
         <div class="sort-bar">
             {% set ap = "archived=1&" if show_archived else "" %}
             {% set flip = "asc" if sort_dir == "desc" else "desc" %}
-            {% for opt in [("newest", "Newest"), ("rating", "Rating"), ("freshest", "Freshest"), ("opened", "Opened")] %}
+            {% for opt in [("roasted", "Roasted"), ("rating", "Rating"), ("opened", "Opened")] %}
             {% if sort_by == opt[0] %}
-            <a href="?{{ ap }}sort={{ opt[0] }}&dir={{ flip }}" class="sort-btn active">{{ opt[1] }} {{ "&#9650;" if sort_dir == "asc" else "&#9660;" }}</a>
+            <a href="?{{ ap }}sort={{ opt[0] }}&dir={{ flip }}" class="sort-btn active">{{ opt[1] }} {{ "▲" if sort_dir == "asc" else "▼" }}</a>
             {% else %}
             <a href="?{{ ap }}sort={{ opt[0] }}" class="sort-btn">{{ opt[1] }}</a>
             {% endif %}
