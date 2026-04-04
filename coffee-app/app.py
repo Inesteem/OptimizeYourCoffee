@@ -1113,7 +1113,7 @@ def index():
             if sort_dir in ("asc", "desc"):
                 set_setting(conn, "coffee_sort_dir", sort_dir)
         else:
-            sort_by = get_setting(conn, "coffee_sort", "newest")
+            sort_by = get_setting(conn, "coffee_sort", "roasted")
             sort_dir = ""
         if sort_by not in SORT_OPTIONS:
             sort_by = "roasted"
@@ -1568,7 +1568,7 @@ def insights():
                 "balance": gavg(group, "avg_balance"),
                 "grind": gavg(group, "avg_grind"),
             })
-        return sorted(chart, key=lambda x: x["overall"], reverse=True)
+        return sorted(chart, key=lambda x: x["overall"] or 0, reverse=True)
 
     # --- Groupings ---
     by_process = group_by("process")
@@ -1639,11 +1639,12 @@ def insights():
 
     # Forgiveness — score consistency across grind variation
     for c in coffees:
-        grind_range = (c["max_grind"] or 0) - (c["min_grind"] or 0)
         variance = c["score_variance"] or 0
         stddev = variance ** 0.5 if variance > 0 else 0
-        # Need 4+ shots and at least 2 grind steps explored
-        if c["shot_count"] >= 4 and grind_range >= 2:
+        # Need 4+ shots with known grind range of at least 2 steps
+        has_grind = c["min_grind"] is not None and c["max_grind"] is not None
+        grind_range = (c["max_grind"] - c["min_grind"]) if has_grind else 0
+        if c["shot_count"] >= 4 and has_grind and grind_range >= 2:
             if stddev <= 0.5:
                 c["forgiveness"] = "Very Forgiving"
             elif stddev <= 1.0:
