@@ -65,7 +65,7 @@
             if (info) makeClickable(span, text, info);
         });
 
-        // Make form labels tappable for info popups (process, bean color)
+        // Make form labels tappable for info popups (process, bean color, bean size)
         document.querySelectorAll('.field-select').forEach(select => {
             var wrapper = select.closest('.field');
             if (!wrapper) return;
@@ -89,7 +89,18 @@
                     showRoastGuide();
                 });
             }
+            if (select.name === 'bean_size') {
+                label.classList.add('info-link');
+                label.addEventListener('pointerdown', e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showBeanSizeGuide();
+                });
+            }
         });
+
+        // Origin map preview — updates live as user types country
+        attachOriginMapPreview();
     }
 
     function showRoastGuide() {
@@ -106,6 +117,56 @@
         document.body.appendChild(overlay);
         activePopup = overlay;
         void overlay.offsetHeight;
+    }
+
+    function showBeanSizeGuide() {
+        closePopup();
+        var overlay = document.createElement('div');
+        overlay.className = 'roast-guide-overlay';
+        overlay.innerHTML =
+            '<div class="roast-guide-panel" style="max-width:420px">' +
+                '<div class="info-popup-title">Bean Size Guide</div>' +
+                '<table class="bean-size-table">' +
+                    '<tr><th>Size</th><th>Screen</th><th>Diameter</th><th>Typical</th></tr>' +
+                    '<tr><td><strong>Small</strong></td><td>14–15</td><td>&lt; 6 mm</td><td>Robusta, some Ethiopian</td></tr>' +
+                    '<tr><td><strong>Medium</strong></td><td>16–17</td><td>6–7 mm</td><td>Most Arabica (default)</td></tr>' +
+                    '<tr><td><strong>Large</strong></td><td>18–20</td><td>7–8 mm</td><td>Kenya AA, Colombia Supremo</td></tr>' +
+                    '<tr><td><strong>Peaberry</strong></td><td>varies</td><td>round</td><td>Single seed, any origin</td></tr>' +
+                '</table>' +
+                '<div class="bean-size-hint">Screen number = diameter in 1/64 inch. Most specialty bags list the screen size or grade (AA, Supremo, etc).</div>' +
+                '<div class="roast-guide-hint">Tap anywhere to close</div>' +
+            '</div>';
+        overlay.addEventListener('pointerdown', function() { closePopup(); });
+        document.body.appendChild(overlay);
+        activePopup = overlay;
+        void overlay.offsetHeight;
+    }
+
+    var mapIndex = null;
+    function attachOriginMapPreview() {
+        var input = document.getElementById('origin_country');
+        var preview = document.getElementById('originMapPreview');
+        if (!input || !preview) return;
+
+        // Load map index
+        fetch('/static/maps/origin-map-index.json')
+            .then(function(r) { return r.json(); })
+            .then(function(data) { mapIndex = data; updateMapPreview(); })
+            .catch(function() {});
+
+        input.addEventListener('input', updateMapPreview);
+        input.addEventListener('change', updateMapPreview);
+
+        function updateMapPreview() {
+            if (!mapIndex) return;
+            var val = (input.value || '').trim().toLowerCase();
+            var file = mapIndex[val];
+            if (file) {
+                preview.innerHTML = '<img src="/static/maps/' + file + '" alt="' + esc(input.value) + '">';
+            } else {
+                preview.innerHTML = '';
+            }
+        }
     }
 
     function makeClickable(span, name, info) {

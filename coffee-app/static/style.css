@@ -1170,6 +1170,68 @@ header h1 {
     opacity: 0.6;
 }
 
+/* Origin map preview in add-coffee form */
+.origin-group {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.origin-map-preview {
+    width: 72px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 72px;
+}
+
+.origin-map-preview:empty {
+    background: #2a2a2a;
+    border-radius: var(--radius);
+    border: 1px dashed #444;
+}
+
+.origin-map-preview img {
+    width: 72px;
+    height: auto;
+    opacity: 0.9;
+}
+
+.origin-fields {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Bean size guide table */
+.bean-size-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 8px;
+    font-size: 0.78rem;
+}
+
+.bean-size-table th {
+    text-align: left;
+    color: var(--accent);
+    padding: 4px 8px;
+    border-bottom: 1px solid #444;
+    font-size: 0.7rem;
+}
+
+.bean-size-table td {
+    padding: 5px 8px;
+    color: var(--text);
+    border-bottom: 1px solid #333;
+}
+
+.bean-size-hint {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+    line-height: 1.4;
+}
+
 /* Insights */
 .insights-filter-bar {
     display: flex;
