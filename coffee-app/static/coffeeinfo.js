@@ -42,13 +42,21 @@
         return resolved ? label + ' (' + resolved + ')' : label;
     }
 
-    fetch('/static/coffee-info.json')
-        .then(r => r.json())
-        .then(data => {
-            INFO = data;
-            attachInfoIcons();
-        })
-        .catch(() => {});
+    // Load both catalog (scraped) and manual variety data, merge manual on top
+    Promise.all([
+        fetch('/static/coffee-info.json').then(r => r.json()),
+        fetch('/static/coffee-info-manual.json').then(r => r.json()).catch(() => ({}))
+    ]).then(function(results) {
+        INFO = results[0];
+        var manual = results[1];
+        // Merge manual varieties on top of catalog (manual wins on conflict)
+        if (manual.varieties) {
+            for (var k in manual.varieties) {
+                INFO.varieties[k] = manual.varieties[k];
+            }
+        }
+        attachInfoIcons();
+    }).catch(() => {});
 
     function getInfo(type, name) {
         if (!INFO || !INFO[type]) return null;
