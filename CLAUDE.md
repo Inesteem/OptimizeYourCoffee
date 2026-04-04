@@ -143,6 +143,11 @@ Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in
 - Event delegation preferred over per-element listeners (performance + memory)
 - Chip rendering uses DOM methods (`createElement`, `textContent`) not `innerHTML`
 
+### Info popups
+- Form labels (e.g., "Bean Color", "Process") are the tappable element — styled with `info-link` (yellow, underlined). Do not use separate ⓘ icons next to labels.
+- Info popups on detail pages use `info-link` class on the data span itself (variety, process names)
+- Roast guide uses a fullscreen overlay (`roast-guide-overlay`) created/removed via DOM — Wayland-safe
+
 ### Chromium/Wayland workarounds
 - No `display: none` → `display: block` toggling on fixed/absolute elements — use `:empty` CSS collapse
 - Autocomplete chips are regular inline DOM, not floating overlays

@@ -576,6 +576,10 @@ def coffee_rating(coffee_id, conn):
     #   preference 5 → weight +1 (high scores boost quality)
     #   preference 3 → weight  0 (neutral, ignored)
     #   preference 1 → weight -1 (high scores hurt quality)
+    # The 2×overall anchoring keeps quality stable for realistic preferences
+    # (1-2 adjusted dimensions). Extreme edge cases (all 4 set to "dislike")
+    # can hit the clamp at 1.0, but in practice a user who dislikes a dimension
+    # will already rate such coffees low in their overall score.
     prefs = _taste_preferences(conn)
     num = avgs["balance"] + 2 * avg_overall
     den = 3.0  # base: balance(1) + overall(2)

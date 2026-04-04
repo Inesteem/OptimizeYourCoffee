@@ -65,36 +65,29 @@
             if (info) makeClickable(span, text, info);
         });
 
-        // Also check select dropdowns on form pages (process)
+        // Make form labels tappable for info popups (process, bean color)
         document.querySelectorAll('.field-select').forEach(select => {
+            var wrapper = select.closest('.field');
+            if (!wrapper) return;
+            var label = wrapper.querySelector('label');
+            if (!label) return;
             if (select.name === 'process') {
-                const wrapper = select.closest('.field');
-                if (!wrapper) return;
-                const icon = document.createElement('span');
-                icon.className = 'info-icon';
-                icon.textContent = 'ⓘ';
-                icon.addEventListener('pointerdown', e => {
+                label.classList.add('info-link');
+                label.addEventListener('pointerdown', e => {
                     e.preventDefault();
                     e.stopPropagation();
-                    const info = getInfo('processes', select.value);
-                    if (info) showPopup(icon, info, select.value);
+                    var info = getInfo('processes', select.value);
+                    if (info) showPopup(label, info, select.value);
+                    else closePopup();
                 });
-                wrapper.querySelector('label').appendChild(document.createTextNode(' '));
-                wrapper.querySelector('label').appendChild(icon);
             }
             if (select.name === 'bean_color') {
-                const wrapper = select.closest('.field');
-                if (!wrapper) return;
-                const icon = document.createElement('span');
-                icon.className = 'info-icon';
-                icon.textContent = 'ⓘ';
-                icon.addEventListener('pointerdown', e => {
+                label.classList.add('info-link');
+                label.addEventListener('pointerdown', e => {
                     e.preventDefault();
                     e.stopPropagation();
                     showRoastGuide();
                 });
-                wrapper.querySelector('label').appendChild(document.createTextNode(' '));
-                wrapper.querySelector('label').appendChild(icon);
             }
         });
     }
