@@ -188,11 +188,12 @@ class TestAddCoffee:
         row = conn.execute("SELECT * FROM coffees WHERE roaster='Onyx'").fetchone()
         assert row["label"] == "My Custom Label"
 
-    def test_add_coffee_default_best_after(self, client, tmp_db):
+    def test_add_coffee_default_best_after_null(self, client, tmp_db):
+        """Empty best_after_days stores NULL (roast-level default used at runtime)."""
         _add_coffee(client, best_after_days="")
         conn = _get_db(tmp_db)
         row = conn.execute("SELECT * FROM coffees ORDER BY id DESC LIMIT 1").fetchone()
-        assert row["best_after_days"] == 7
+        assert row["best_after_days"] is None
 
     def test_add_coffee_brew_time_combines_min_sec(self, client, tmp_db):
         _add_coffee(client, default_brew_min="1", default_brew_sec="30")
@@ -516,6 +517,7 @@ class TestFreshnessStatus:
         "roast_date": "2025-03-01",  # reference: we'll patch today relative to this
         "best_after_days": 7,
         "consume_within_days": 50,
+        "bean_color": "Medium",      # Medium: degas=3, peak_dur=11, good_dur=14
     }
 
     def _status(self, days_since_roast):
@@ -596,13 +598,14 @@ class TestFreshnessStatus:
         assert "1 more days" not in result["detail"]
 
     def test_uses_default_best_after_when_none(self):
+        """Without best_after_days, uses roast-level default (Medium-Dark: 5)."""
         coffee = _make_coffee_row(roast_date="2025-03-01", best_after_days=None, consume_within_days=50)
-        fake_today = date(2025, 3, 9)  # 8 days after roast, default best_after=7
+        fake_today = date(2025, 3, 7)  # 6 days after roast, default best_after=5 (Medium-Dark)
         with patch("app.date") as mock_date:
             mock_date.today.return_value = fake_today
             mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
             result = freshness_status(coffee)
-        # day 8 > rest_end(7), <= peak_end(7+11=18) → peak
+        # day 6 > rest_end(5), <= peak_end(5+9=14) → peak
         assert result["stage"] == "peak"
 
     def test_days_field_is_correct(self):
@@ -640,6 +643,114 @@ class TestFreshnessStatus:
             mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
             result = freshness_status(coffee)
         assert result["stage"] == "stale"
+
+
+class TestFreshnessRoastLevel:
+    """Roast-level-dependent freshness windows."""
+
+    def _status_for(self, bean_color, days_since_roast, **kwargs):
+        coffee = _make_coffee_row(
+            roast_date="2025-03-01", bean_color=bean_color, **kwargs
+        )
+        fake_today = date(2025, 3, 1) + timedelta(days=days_since_roast)
+        with patch("app.date") as mock_date:
+            mock_date.today.return_value = fake_today
+            mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
+            return freshness_status(coffee)
+
+    def test_light_roast_longer_rest(self):
+        """Light roast: best_after=12 by default, so day 10 is still resting."""
+        result = self._status_for("Light", 10, best_after_days=None, consume_within_days=None)
+        assert result["stage"] == "resting"
+
+    def test_light_roast_peak_at_day_13(self):
+        """Light roast: best_after=12, so day 13 is peak."""
+        result = self._status_for("Light", 13, best_after_days=None, consume_within_days=None)
+        assert result["stage"] == "peak"
+
+    def test_dark_roast_peak_earlier(self):
+        """Dark roast: best_after=4, so day 5 is already peak."""
+        result = self._status_for("Dark", 5, best_after_days=None, consume_within_days=None)
+        assert result["stage"] == "peak"
+
+    def test_dark_roast_stale_earlier(self):
+        """Dark roast: consume_within=35, so day 40 is stale."""
+        result = self._status_for("Dark", 40, best_after_days=None, consume_within_days=None)
+        assert result["stage"] == "stale"
+
+    def test_medium_roast_matches_old_defaults(self):
+        """Medium roast windows match the old hardcoded values."""
+        result8 = self._status_for("Medium", 8, best_after_days=None, consume_within_days=None)
+        result20 = self._status_for("Medium", 20, best_after_days=None, consume_within_days=None)
+        assert result8["stage"] == "peak"    # best_after=7, day 8 is peak
+        assert result20["stage"] == "good"   # peak_end=18, day 20 is good
+
+    def test_no_bean_color_uses_espresso_default(self):
+        """No bean_color → Medium-Dark (espresso roast assumption)."""
+        # Medium-Dark: best_after=5, peak_dur=9 → peak_end=14
+        result = self._status_for(None, 6, best_after_days=None, consume_within_days=None)
+        assert result["stage"] == "peak"
+
+    def test_user_override_takes_precedence(self):
+        """Explicit best_after_days overrides roast-level default."""
+        # Light default best_after=12, but user sets 3
+        result = self._status_for("Light", 4, best_after_days=3)
+        assert result["stage"] == "peak"
+
+
+class TestFreshnessOpenedDate:
+    """Opened-date acceleration for freshness."""
+
+    def _status_for(self, days_since_roast, days_open=None, bean_color="Medium"):
+        opened = None
+        if days_open is not None:
+            open_date = date(2025, 3, 1) + timedelta(days=days_since_roast - days_open)
+            opened = open_date.strftime("%Y-%m-%d")
+        coffee = _make_coffee_row(
+            roast_date="2025-03-01", bean_color=bean_color,
+            best_after_days=7, consume_within_days=50,
+            opened_date=opened,
+        )
+        fake_today = date(2025, 3, 1) + timedelta(days=days_since_roast)
+        with patch("app.date") as mock_date:
+            mock_date.today.return_value = fake_today
+            mock_date.side_effect = lambda *args, **kw: date(*args, **kw)
+            return freshness_status(coffee)
+
+    def test_no_opened_date_no_penalty(self):
+        """Without opened_date, no acceleration."""
+        result = self._status_for(10)  # day 10, peak (7+11=18)
+        assert result["stage"] == "peak"
+
+    def test_recently_opened_no_penalty(self):
+        """Opened 5 days ago (<=7) — no penalty."""
+        result = self._status_for(10, days_open=5)
+        assert result["stage"] == "peak"
+
+    def test_opened_8_days_adds_penalty(self):
+        """Opened 8 days (>7) — +5 day penalty, may shift stage."""
+        # day 15, effective=20, peak_end=18 → good
+        result = self._status_for(15, days_open=8)
+        assert result["stage"] == "good"
+        assert "open" in result["detail"]
+
+    def test_opened_15_days_larger_penalty(self):
+        """Opened 15 days (>14) — +12 day penalty."""
+        # day 20, effective=32, good_end=7+11+14=32 → good (boundary)
+        result = self._status_for(20, days_open=15)
+        assert result["stage"] == "good"
+
+    def test_opened_22_days_max_penalty(self):
+        """Opened 22 days (>21) — +20 day penalty."""
+        # day 15, effective=35, good_end=32 → fading
+        result = self._status_for(15, days_open=22)
+        assert result["stage"] == "fading"
+        assert "open" in result["detail"]
+
+    def test_days_field_still_real_days(self):
+        """The days field should reflect actual days since roast, not effective."""
+        result = self._status_for(15, days_open=22)
+        assert result["days"] == 15  # real days, not effective
 
 
 class TestDiagnose:

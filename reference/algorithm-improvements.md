@@ -16,8 +16,8 @@ Sources: External review by Gemini and Perplexity AI (2026-04-04), SCA research,
 | Grind optimizer: dedicated ratio-directed search algorithm | Done |
 | Grind optimizer: auto-save settings (no save button) | Done |
 | Grind optimizer: live preview via API with example scenarios | Done |
-| Freshness: roast-level-dependent windows | Not yet |
-| Freshness: opened-date acceleration | Not yet |
+| Freshness: roast-level-dependent windows | Done |
+| Freshness: opened-date acceleration | Done |
 | Rating: quality-weighted tiers (incorporate overall score) | Done |
 | Rating: separate quality from flavor profile dimensions | Done |
 | Rating: user taste preferences (bipolar 1-5 per dimension) | Done |

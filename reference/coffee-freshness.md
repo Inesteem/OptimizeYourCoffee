@@ -80,12 +80,31 @@ Sources: SCA (Specialty Coffee Association), WBC (World Barista Championship), s
 - Papery, cardboard, or musty off-notes
 - Rancid taste in severe cases
 
-## App Defaults
+## App Implementation
 
-- **best_after_days**: 7 (medium roast baseline)
-- **consume_within_days**: 50 (medium roast baseline)
+### Roast-Level-Dependent Windows (auto-selected by `bean_color`)
 
-### Suggested user presets:
-- Light roast: best_after=12, consume_within=60
-- Medium roast: best_after=7, consume_within=50
-- Dark roast: best_after=4, consume_within=35
+| bean_color | Degas | best_after | Peak dur | Good dur | consume_within |
+|------------|-------|------------|----------|----------|----------------|
+| Light | 4d | 12 | 14 | 14 | 60 |
+| Medium-Light | 3d | 10 | 13 | 14 | 55 |
+| Medium | 3d | 7 | 11 | 14 | 50 |
+| Medium-Dark | 2d | 5 | 9 | 12 | 42 |
+| Dark | 2d | 4 | 8 | 10 | 35 |
+
+**Default (no bean_color):** Medium-Dark (espresso roast assumption).
+
+User-set `best_after_days` / `consume_within_days` override the roast-level defaults. Empty form fields store NULL, triggering auto-selection.
+
+### Opened-Date Acceleration
+
+Once a bag is opened, oxygen exposure accelerates degradation. A penalty is added to the effective `days_since_roast`:
+
+| Days open | Penalty |
+|-----------|---------|
+| 0-7 | None |
+| 8-14 | +5 days |
+| 15-21 | +12 days |
+| 22+ | +20 days |
+
+The `days` field in the result always reflects actual days since roast; the penalty only affects stage selection. Detail text notes the acceleration (e.g., "open 10d — aging faster").

@@ -365,16 +365,33 @@ def make_label(data):
     return label or "Unnamed Coffee"
 
 
-def freshness_status(coffee):
-    """Compute freshness status from roast_date, best_after_days, consume_within_days.
+# Roast-level-dependent freshness windows.
+# Default (no bean_color) assumes espresso roast (Medium-Dark).
+# Keys: (degas_days, best_after, peak_duration, good_duration, consume_within)
+FRESHNESS_WINDOWS = {
+    "Light":       (4, 12, 14, 14, 60),
+    "Medium-Light": (3, 10, 13, 14, 55),
+    "Medium":      (3, 7, 11, 14, 50),
+    "Medium-Dark": (2, 5,  9, 12, 42),
+    "Dark":        (2, 4,  8, 10, 35),
+}
+FRESHNESS_DEFAULT = FRESHNESS_WINDOWS["Medium-Dark"]  # espresso roast assumption
 
-    Stages based on specialty coffee research (SCA, WBC consensus):
-    - Degassing (day 0-2): high CO2, shots unstable/sour
-    - Resting (day 3 to best_after): CO2 releasing, flavor developing
-    - Peak (best_after to best_after+11): origin character vibrant, crema rich
-    - Good (to best_after+25): some volatiles fading, still pleasant
-    - Fading (to consume_within): noticeably flat, papery notes emerging
-    - Stale (beyond consume_within): cardboard/musty, not recommended
+
+def freshness_status(coffee):
+    """Compute freshness status from roast_date, bean_color, best_after_days,
+    consume_within_days, and opened_date.
+
+    Roast-level-dependent windows (darker roasts degrade faster).
+    Opened-date acceleration (open bags degrade faster).
+
+    Stages:
+    - Degassing: high CO2, shots unstable/sour
+    - Resting: CO2 releasing, flavor developing
+    - Peak: origin character vibrant, crema rich
+    - Good: some volatiles fading, still pleasant
+    - Fading: noticeably flat, papery notes emerging
+    - Stale: cardboard/musty, not recommended
     """
     if not coffee["roast_date"]:
         return None
@@ -384,41 +401,69 @@ def freshness_status(coffee):
         return None
 
     days = (date.today() - roast).days
-    best_after = coffee["best_after_days"] or 7
-    consume_within = coffee["consume_within_days"] or 50
+
+    # Roast-level windows (user overrides take precedence)
+    window = FRESHNESS_WINDOWS.get(coffee.get("bean_color"), FRESHNESS_DEFAULT)
+    degas_days, default_best_after, peak_dur, good_dur, default_consume = window
+
+    best_after = coffee["best_after_days"] or default_best_after
+    consume_within = coffee["consume_within_days"] or default_consume
+
+    # Opened-date acceleration: open bags degrade faster
+    open_penalty = 0
+    days_open = None
+    opened = coffee.get("opened_date")
+    if opened:
+        try:
+            open_date = datetime.strptime(opened, "%Y-%m-%d").date()
+            days_open = (date.today() - open_date).days
+            if days_open > 21:
+                open_penalty = 20
+            elif days_open > 14:
+                open_penalty = 12
+            elif days_open > 7:
+                open_penalty = 5
+        except (ValueError, TypeError):
+            pass
+
+    effective_days = days + open_penalty
 
     # Stage boundaries
-    degas_end = min(3, best_after)        # first 3 days: heavy CO2
-    rest_end = best_after                 # resting until best_after
-    peak_end = min(best_after + 11, consume_within)   # ~11 days of peak after rest
-    good_end = min(best_after + 25, consume_within)   # ~3.5 weeks still good
+    degas_end = min(degas_days, best_after)
+    rest_end = best_after
+    peak_end = min(best_after + peak_dur, consume_within)
+    good_end = min(best_after + peak_dur + good_dur, consume_within)
     fading_end = consume_within
+
+    open_note = ""
+    if open_penalty > 0 and days_open is not None:
+        open_note = f" (open {days_open}d — aging faster)"
 
     if days < 0:
         return {"stage": "not roasted yet", "css": "fresh-future", "days": days,
                 "detail": f"Roast date is {-days} days from now"}
-    elif days < degas_end:
+    elif effective_days < degas_end:
         return {"stage": "degassing", "css": "fresh-degas", "days": days,
                 "detail": f"High CO2 — shots will be sour and unstable (day {days})"}
-    elif days < rest_end:
-        remaining = rest_end - days
+    elif effective_days < rest_end:
+        remaining = rest_end - effective_days
         return {"stage": "resting", "css": "fresh-rest", "days": days,
-                "detail": f"Almost ready — {remaining} more day{'s' if remaining != 1 else ''} to go"}
-    elif days <= peak_end:
+                "detail": f"Almost ready — {remaining} more day{'s' if remaining != 1 else ''} to go{open_note}"}
+    elif effective_days <= peak_end:
         return {"stage": "peak", "css": "fresh-peak", "days": days,
-                "detail": f"Peak flavor window (day {days})"}
-    elif days <= good_end:
-        remaining = good_end - days
+                "detail": f"Peak flavor window (day {days}){open_note}"}
+    elif effective_days <= good_end:
+        remaining = good_end - effective_days
         return {"stage": "good", "css": "fresh-good", "days": days,
-                "detail": f"Still great — {remaining} days of prime left"}
-    elif days <= fading_end:
-        remaining = fading_end - days
+                "detail": f"Still great — {remaining} days of prime left{open_note}"}
+    elif effective_days <= fading_end:
+        remaining = fading_end - effective_days
         return {"stage": "fading", "css": "fresh-fading", "days": days,
-                "detail": f"Fading — use within {remaining} days"}
+                "detail": f"Fading — use within {remaining} days{open_note}"}
     else:
-        over = days - fading_end
+        over = effective_days - fading_end
         return {"stage": "stale", "css": "fresh-stale", "days": days,
-                "detail": f"Past prime by {over} day{'s' if over != 1 else ''}"}
+                "detail": f"Past prime by {over} day{'s' if over != 1 else ''}{open_note}"}
 
 
 def diagnose(ev, taste_desc=None, actual_out=None, target_out=None, brew_time=None):
@@ -1188,8 +1233,8 @@ def parse_coffee_form(data):
         "tasting_notes": data.get("tasting_notes", "").strip() or None,
         "label": label,
         "roast_date": data.get("roast_date", "").strip() or None,
-        "best_after_days": safe_int(best_after, 7),
-        "consume_within_days": safe_int(consume_within, 50),
+        "best_after_days": safe_int(best_after) if best_after else None,
+        "consume_within_days": safe_int(consume_within) if consume_within else None,
         "bag_weight_g": safe_float(bag_weight),
         "bag_price": safe_float(bag_price),
         "default_grams_in": safe_float(data.get("default_grams_in", "").strip()),
