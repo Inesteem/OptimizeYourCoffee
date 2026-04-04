@@ -127,7 +127,7 @@ TASTE_DESCRIPTORS = [
 
 
 def backup_db():
-    """Create a timestamped backup of coffee.db if it changed since last backup. Prune old backups."""
+    """Create a timestamped backup of coffee.db (+ WAL/SHM) if changed. Prune old backups."""
     BACKUP_DIR.mkdir(exist_ok=True)
     if DB_PATH.exists() and DB_PATH.stat().st_size > 0:
         # Skip backup if DB hasn't been modified since the latest backup
@@ -139,17 +139,29 @@ def backup_db():
         if not skip:
             timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
             backup_file = BACKUP_DIR / f"coffee-{timestamp}.db"
-            shutil.copy2(DB_PATH, backup_file)
+            try:
+                shutil.copy2(DB_PATH, backup_file)
+                # WAL mode: also copy journal files for a consistent backup
+                for suffix in ("-wal", "-shm"):
+                    src = DB_PATH.parent / (DB_PATH.name + suffix)
+                    if src.exists():
+                        shutil.copy2(src, BACKUP_DIR / (backup_file.name + suffix))
+            except OSError:
+                pass  # don't crash Flask startup if backup fails
     # Prune old backups (always runs)
     cutoff = datetime.now() - timedelta(days=BACKUP_MAX_DAYS)
     for f in BACKUP_DIR.glob("coffee-*.db"):
         try:
-            # Parse both formats: YYYY-MM-DD and YYYY-MM-DD_HHMMSS
             name = f.stem.replace("coffee-", "")
             fdate = datetime.strptime(name[:10], "%Y-%m-%d")
             if fdate < cutoff:
                 f.unlink()
-        except ValueError:
+                # Also remove paired WAL/SHM files
+                for suffix in ("-wal", "-shm"):
+                    paired = f.parent / (f.name + suffix)
+                    if paired.exists():
+                        paired.unlink()
+        except (ValueError, OSError):
             pass
 
 
