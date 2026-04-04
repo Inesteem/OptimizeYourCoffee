@@ -403,6 +403,25 @@
             }
         });
     })();
+    // Update freshness placeholders when bean color changes
+    (function() {
+        var windows = {
+            "Light": [12, 60], "Medium-Light": [10, 55], "Medium": [7, 50],
+            "Medium-Dark": [5, 42], "Dark": [4, 35]
+        };
+        var defaultW = [5, 42]; // espresso roast assumption
+        var sel = document.getElementById('bean_color');
+        var ba = document.getElementById('best_after_days');
+        var cw = document.getElementById('consume_within_days');
+        if (!sel || !ba || !cw) return;
+        function update() {
+            var w = windows[sel.value] || defaultW;
+            ba.placeholder = sel.value ? 'Auto: ' + w[0] + ' days' : 'Auto by roast';
+            cw.placeholder = sel.value ? 'Auto: ' + w[1] + ' days' : 'Auto by roast';
+        }
+        sel.addEventListener('change', update);
+        update();
+    })();
     </script>
 </body>
 </html>
