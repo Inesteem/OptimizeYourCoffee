@@ -2065,7 +2065,7 @@ def settings_design():
 def save_design_settings():
     data = request.get_json(silent=True) or {}
     design = data.get("card_design", "modern")
-    if design not in ("modern", "legacy"):
+    if design not in ("modern", "showcase", "legacy"):
         design = "modern"
     with get_db() as conn:
         set_setting(conn, "card_design", design)

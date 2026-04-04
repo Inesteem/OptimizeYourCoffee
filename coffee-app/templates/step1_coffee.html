@@ -217,7 +217,7 @@
                     <a href="/coffee/{{ c.id }}/edit" class="card-action-btn" title="Edit">&#9998;</a>
                 </div>
             </div>
-            {% else %}
+            {% elif card_design == 'modern' %}
             <div class="coffee-card-wrap">
                 <a href="/sample/{{ c.id }}" class="coffee-card card-modern">
                     <!-- Zone 1: Identity -->
@@ -262,6 +262,72 @@
                     </div>
                     {% endif %}
                     <!-- Zone 3: Status -->
+                    <div class="card-zone-status">
+                        {% if c.grams_left is not none and c.bag_weight_g %}
+                        <div class="card-bag-bar">
+                            <div class="card-bag-fill" style="width:{{ (c.grams_left / c.bag_weight_g * 100)|int }}%"></div>
+                        </div>
+                        {% endif %}
+                        <div class="card-status-row">
+                            {% if c.freshness %}<span>{{ c.freshness.detail }}</span>{% endif %}
+                            {% if c.grams_left is not none %}<span>{{ "%.0f"|format(c.grams_left) }}g left</span>{% endif %}
+                            {% if c.days_open is not none %}<span>Open {{ c.days_open }}d</span>{% endif %}
+                            {% if c.cost_per_shot %}<span>{{ "%.2f"|format(c.cost_per_shot) }}&euro;/shot</span>{% endif %}
+                        </div>
+                    </div>
+                </a>
+                <div class="card-actions">
+                    <a href="/stats/{{ c.id }}" class="card-action-btn" title="Stats">&#9776;</a>
+                    <a href="/coffee/{{ c.id }}/edit" class="card-action-btn" title="Edit">&#9998;</a>
+                </div>
+            </div>
+            {% else %}
+            {# Showcase: map spans full height of identity+flavor zone #}
+            <div class="coffee-card-wrap">
+                <a href="/sample/{{ c.id }}" class="coffee-card card-showcase">
+                    <div class="card-showcase-top">
+                        {% if c.origin_map %}
+                        <img src="{{ url_for('static', filename='maps/' + c.origin_map) }}" class="card-showcase-map" alt="{{ c.origin_country }}">
+                        {% endif %}
+                        <div class="card-showcase-content">
+                            <div class="card-showcase-header">
+                                <div class="card-identity-text">
+                                    {% if c.roaster %}
+                                    <div class="card-roaster">{{ c.roaster }}</div>
+                                    {% endif %}
+                                    <div class="card-name">{{ c.label }}</div>
+                                    <div class="card-origin-line">
+                                        {% if c.origin_country %}<span>{{ c.origin_country }}</span>{% endif %}
+                                        {% if c.process %}<span>{{ c.process }}</span>{% endif %}
+                                        {% if c.bean_color %}<span>{{ c.bean_color }}</span>{% endif %}
+                                    </div>
+                                </div>
+                                <div class="card-scores">
+                                    {% if c.freshness %}
+                                    <div class="card-freshness-badge {{ c.freshness.css }}">
+                                        <span class="card-badge-label">{{ c.freshness.stage }}</span>
+                                    </div>
+                                    {% endif %}
+                                    {% if c.rating %}
+                                    <div class="card-rating-badge {{ c.rating.css }}">
+                                        <span class="card-badge-value">{{ c.rating.quality }}</span>
+                                        <span class="card-badge-label">{{ c.rating.tier }}</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if c.tasting_chips or c.rating %}
+                            <div class="card-showcase-flavor">
+                                {% if c.tasting_chips %}
+                                <div class="card-chips">{% for t in c.tasting_chips %}<span class="card-chip">{{ t }}</span>{% endfor %}</div>
+                                {% endif %}
+                                {% if c.rating %}
+                                <div class="card-profile">{{ c.rating.profile }} · {{ c.rating.n }} shot{{ "s" if c.rating.n != 1 }}</div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
                     <div class="card-zone-status">
                         {% if c.grams_left is not none and c.bag_weight_g %}
                         <div class="card-bag-bar">

@@ -27,7 +27,11 @@
         <div id="design-options">
             <div class="design-option {% if card_design == 'modern' %}active{% endif %}" data-value="modern">
                 <div class="design-option-title">Modern</div>
-                <div class="design-option-desc">Redesigned cards with larger origin maps, visual hierarchy, and bag progress bar.</div>
+                <div class="design-option-desc">Redesigned cards with origin maps, visual hierarchy, and bag progress bar.</div>
+            </div>
+            <div class="design-option {% if card_design == 'showcase' %}active{% endif %}" data-value="showcase">
+                <div class="design-option-title">Showcase</div>
+                <div class="design-option-desc">Large origin map spanning the full card height. Best for visually browsing your collection.</div>
             </div>
             <div class="design-option {% if card_design == 'legacy' %}active{% endif %}" data-value="legacy">
                 <div class="design-option-title">Legacy</div>
