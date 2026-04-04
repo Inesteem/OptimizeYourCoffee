@@ -175,55 +175,44 @@ def geometry_to_svg_path(geom, transform):
     return " ".join(paths)
 
 
-def render_svg(region_countries, highlight_name):
+def render_svg(region_countries, highlight_name, region_name):
     """Render an SVG of the region with one country highlighted.
 
-    The viewBox zooms toward the highlighted country so small countries
-    (Costa Rica, Rwanda) are clearly visible instead of being tiny dots
-    on a wide continent map. Large countries use the full region bounds.
+    Central America: zooms toward the highlighted country so small countries
+    (Costa Rica, El Salvador) are clearly visible. Other regions show full
+    continent bounds — Africa, South America, and Asia look better unzoomed.
     """
-    # Region bounds and highlighted country bounds
-    total_bounds = region_countries.total_bounds  # [minx, miny, maxx, maxy]
-    highlight_row = region_countries[region_countries["NAME"] == highlight_name]
+    total_bounds = region_countries.total_bounds
+    minx, miny, maxx, maxy = total_bounds
 
-    if not highlight_row.empty:
-        hb = highlight_row.total_bounds  # highlighted country bounds
-        rb = total_bounds               # full region bounds
+    # Only zoom for Central America — other continents look better at full scale
+    if region_name == "Central America":
+        highlight_row = region_countries[region_countries["NAME"] == highlight_name]
+        if not highlight_row.empty:
+            hb = highlight_row.total_bounds
+            h_area = max((hb[2] - hb[0]) * (hb[3] - hb[1]), 0.01)
+            r_area = max((maxx - minx) * (maxy - miny), 0.01)
+            ratio = h_area / r_area
 
-        # How much of the region does the country span? (area ratio of bounding boxes)
-        h_area = max((hb[2] - hb[0]) * (hb[3] - hb[1]), 0.01)
-        r_area = max((rb[2] - rb[0]) * (rb[3] - rb[1]), 0.01)
-        ratio = h_area / r_area
+            if ratio < 0.02:
+                context = 6.0
+            elif ratio < 0.08:
+                context = 4.0
+            elif ratio < 0.25:
+                context = 2.5
+            else:
+                context = 0
 
-        # Small countries: zoom in with generous context padding
-        # Large countries: show full region
-        if ratio < 0.02:
-            # Very small (Costa Rica, Rwanda, El Salvador) — tight zoom
-            context = 6.0  # country width × 6 on each side
-        elif ratio < 0.08:
-            # Small-medium (Guatemala, Kenya) — moderate zoom
-            context = 4.0
-        elif ratio < 0.25:
-            # Medium (Colombia, Ethiopia) — slight zoom
-            context = 2.5
-        else:
-            # Large (Brazil, Indonesia) — full region
-            context = 0
-
-        if context > 0:
-            hw = hb[2] - hb[0]  # highlighted country width
-            hh = hb[3] - hb[1]  # highlighted country height
-            cx = (hb[0] + hb[2]) / 2  # center x
-            cy = (hb[1] + hb[3]) / 2  # center y
-            span = max(hw, hh) * context
-            minx = cx - span / 2
-            maxx = cx + span / 2
-            miny = cy - span / 2
-            maxy = cy + span / 2
-        else:
-            minx, miny, maxx, maxy = total_bounds
-    else:
-        minx, miny, maxx, maxy = total_bounds
+            if context > 0:
+                hw = hb[2] - hb[0]
+                hh = hb[3] - hb[1]
+                cx = (hb[0] + hb[2]) / 2
+                cy = (hb[1] + hb[3]) / 2
+                span = max(hw, hh) * context
+                minx = cx - span / 2
+                maxx = cx + span / 2
+                miny = cy - span / 2
+                maxy = cy + span / 2
 
     pad_x = (maxx - minx) * 0.05
     pad_y = (maxy - miny) * 0.05
@@ -301,7 +290,7 @@ def main():
             continue
 
         region_countries = region_cache[region]
-        svg_content = render_svg(region_countries, country)
+        svg_content = render_svg(region_countries, country, region)
 
         slug = slugify(country)
         filename = f"{slug}.svg"
