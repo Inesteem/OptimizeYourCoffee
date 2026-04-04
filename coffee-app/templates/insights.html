@@ -156,7 +156,7 @@
     function buildBarChart(canvasId, wrapId, data, metric, btnClass) {
         const canvas = document.getElementById(canvasId);
         if (!canvas || !data.length) return null;
-        const sorted = [...data].sort((a, b) => b[metric] - a[metric]);
+        const sorted = [...data].sort((a, b) => (b[metric] || 0) - (a[metric] || 0));
         const isGrind = metric === 'grind';
         const wrap = document.getElementById(wrapId);
         wrap.style.height = Math.max(120, sorted.length * 40) + 'px';
