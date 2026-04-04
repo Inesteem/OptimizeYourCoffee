@@ -403,7 +403,11 @@ def freshness_status(coffee):
     days = (date.today() - roast).days
 
     # Roast-level windows (user overrides take precedence)
-    window = FRESHNESS_WINDOWS.get(coffee.get("bean_color"), FRESHNESS_DEFAULT)
+    try:
+        bean_color = coffee["bean_color"]
+    except (KeyError, IndexError):
+        bean_color = None
+    window = FRESHNESS_WINDOWS.get(bean_color, FRESHNESS_DEFAULT)
     degas_days, default_best_after, peak_dur, good_dur, default_consume = window
 
     best_after = coffee["best_after_days"] or default_best_after
@@ -412,7 +416,10 @@ def freshness_status(coffee):
     # Opened-date acceleration: open bags degrade faster
     open_penalty = 0
     days_open = None
-    opened = coffee.get("opened_date")
+    try:
+        opened = coffee["opened_date"]
+    except (KeyError, IndexError):
+        opened = None
     if opened:
         try:
             open_date = datetime.strptime(opened, "%Y-%m-%d").date()
