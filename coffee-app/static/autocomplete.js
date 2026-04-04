@@ -68,6 +68,7 @@
             if (window.coffeeKbd) window.coffeeKbd.suppressDismiss();
             input.value = el.textContent;
             if (window.coffeeKbd) window.coffeeKbd.setInput(el.textContent);
+            input.dispatchEvent(new Event('input', {bubbles: true}));
             box.innerHTML = '';
             if (box._field) box._field.classList.remove('ac-active');
         });

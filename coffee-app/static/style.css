@@ -1174,16 +1174,19 @@ header h1 {
 .origin-group {
     display: flex;
     gap: 14px;
-    align-items: stretch;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #333;
 }
 
 .origin-map-preview {
     width: 110px;
+    height: 110px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    aspect-ratio: 1;
 }
 
 .origin-map-preview:empty {
@@ -1193,8 +1196,8 @@ header h1 {
 }
 
 .origin-map-preview img {
-    width: 100%;
-    height: 100%;
+    width: 110px;
+    height: 110px;
     object-fit: contain;
     opacity: 0.9;
 }

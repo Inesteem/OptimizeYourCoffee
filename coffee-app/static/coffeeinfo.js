@@ -154,12 +154,20 @@
             .then(function(data) { mapIndex = data; updateMapPreview(); })
             .catch(function() {});
 
+        var lastVal = '';
         input.addEventListener('input', updateMapPreview);
         input.addEventListener('change', updateMapPreview);
+        input.addEventListener('blur', updateMapPreview);
+        // Keyboard/autocomplete may set value without events — poll lightly
+        setInterval(function() {
+            var cur = (input.value || '').trim().toLowerCase();
+            if (cur !== lastVal) updateMapPreview();
+        }, 500);
 
         function updateMapPreview() {
             if (!mapIndex) return;
             var val = (input.value || '').trim().toLowerCase();
+            lastVal = val;
             var file = mapIndex[val];
             if (file) {
                 preview.innerHTML = '<img src="/static/maps/' + file + '" alt="' + esc(input.value) + '">';
