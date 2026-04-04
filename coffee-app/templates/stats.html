@@ -8,8 +8,9 @@
 </head>
 <body>
     <header>
-        <a href="/" class="back-btn">&larr;</a>
+        <a href="/" class="back-btn">&#9664;</a>
         <h1>{{ coffee.label }}</h1>
+        <span class="header-spacer" aria-hidden="true">&#9664;</span>
     </header>
 
     <main>
@@ -19,7 +20,7 @@
             {% if coffee.variety %}<span>{{ coffee.variety }}</span>{% endif %}
             {% if days_open is not none %}<span>Open {{ days_open }}d</span>{% endif %}
             {% if freshness %}<span class="freshness-badge {{ freshness.css }}">{{ freshness.stage }}</span>{% endif %}
-            {% if rating %}<span class="rating-badge {{ rating.css }}">{{ rating.tier }} {{ rating.avg_taste }}/5</span>{% endif %}
+            {% if rating %}<span class="rating-badge {{ rating.css }}">{{ rating.tier }} {{ rating.quality }}/5</span>{% endif %}
         </div>
 
         <!-- Key stats -->

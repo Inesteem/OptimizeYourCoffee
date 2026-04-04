@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import shutil
 import sqlite3
@@ -290,6 +291,26 @@ def init_db():
                 emoji TEXT DEFAULT ''
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
+
+
+def get_setting(conn, key, default=None):
+    """Read a setting from app_settings, returning default if missing."""
+    row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+def set_setting(conn, key, value):
+    """Upsert a setting in app_settings."""
+    conn.execute(
+        "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?",
+        (key, value, value),
+    )
 
 
 # IMPORTANT: This dict must stay in sync with the NOTES object in
@@ -401,7 +422,12 @@ def freshness_status(coffee):
 
 
 def diagnose(ev, taste_desc=None, actual_out=None, target_out=None, brew_time=None):
-    """Return diagnostic tips based on scores, taste descriptors, output deviation, and brew time."""
+    """Return diagnostic tips based on scores and taste descriptors.
+
+    Focuses on identifying extraction problems and puck prep issues.
+    Grind size adjustment suggestions are handled by the grind optimizer
+    (Settings → Grind Optimizer).
+    """
     tips = []
     acidity = ev.get("acidity") or 3
     sweetness = ev.get("sweetness") or 3
@@ -413,53 +439,40 @@ def diagnose(ev, taste_desc=None, actual_out=None, target_out=None, brew_time=No
     over_signs = taste_tags & {"bitter", "burned", "ashy", "dry", "astringent", "harsh"}
 
     if under_signs and over_signs:
-        tips.append("Sour AND bitter — likely channeling. Fix puck prep first: use WDT, distribute evenly, tamp consistently. Don't adjust grind until prep is consistent.")
+        tips.append("Sour AND bitter — likely channeling. Fix puck prep first: use WDT, distribute evenly, tamp consistently.")
     elif len(under_signs) >= 3 or (len(under_signs) >= 2 and acidity >= 4):
-        tips.append(f"Strongly under-extracted ({', '.join(under_signs)}). Grind significantly finer (2-3 steps).")
+        tips.append(f"Strongly under-extracted ({', '.join(under_signs)}).")
     elif under_signs:
-        tips.append(f"Under-extracted ({', '.join(under_signs)}). Grind a little finer (1 step).")
+        tips.append(f"Signs of under-extraction ({', '.join(under_signs)}).")
     elif len(over_signs) >= 3 or (len(over_signs) >= 2 and sweetness <= 2):
-        tips.append(f"Strongly over-extracted ({', '.join(over_signs)}). Grind significantly coarser (2-3 steps).")
+        tips.append(f"Strongly over-extracted ({', '.join(over_signs)}).")
     elif over_signs:
-        tips.append(f"Over-extracted ({', '.join(over_signs)}). Grind a little coarser (1 step).")
+        tips.append(f"Signs of over-extraction ({', '.join(over_signs)}).")
 
     # Score-based diagnostics (fallback when no taste descriptors selected)
     if not tips:
         if acidity >= 4 and sweetness <= 2 and body <= 2:
-            tips.append("Likely under-extracted. Try grinding somewhat finer (1-2 steps).")
+            tips.append("Likely under-extracted — high acidity, low sweetness, thin body.")
         elif acidity >= 4 and sweetness <= 2:
-            tips.append("High acidity, low sweetness — try grinding a little finer (1 step).")
+            tips.append("High acidity with low sweetness — likely slightly under-extracted.")
         elif acidity <= 2 and sweetness <= 2:
-            tips.append("Likely over-extracted. Try grinding a little coarser (1 step).")
+            tips.append("Low acidity and low sweetness — likely over-extracted.")
         elif body <= 2 and sweetness >= 3:
-            tips.append("Thin body — try increasing dose or grinding slightly finer.")
+            tips.append("Thin body despite decent sweetness — consider increasing dose.")
 
-    # Brew time diagnostic
+    # Brew time observation (informational, no grind advice)
     if brew_time:
         if brew_time < 20:
-            tips.append(f"Very fast shot ({brew_time}s). Target is 25-30s — grind much finer.")
-        elif brew_time < 25 and under_signs:
-            tips.append(f"Fast shot ({brew_time}s) confirms under-extraction — grind finer.")
+            tips.append(f"Very fast shot ({brew_time}s) — target is 25-30s.")
         elif brew_time > 35:
-            tips.append(f"Very slow shot ({brew_time}s). Target is 25-30s — grind coarser or check for choke.")
-        elif brew_time > 30 and over_signs:
-            tips.append(f"Slow shot ({brew_time}s) confirms over-extraction — grind coarser.")
+            tips.append(f"Very slow shot ({brew_time}s) — target is 25-30s. Check for choke.")
 
-    # Output deviation diagnostic (granular thresholds from research)
+    # Output deviation observation (informational, no grind advice)
     if actual_out and target_out and target_out > 0:
         dev_g = actual_out - target_out
-        if dev_g > 10:
-            tips.append(f"Output +{dev_g:.0f}g over target — severe. Check for channeling, grind much finer.")
-        elif dev_g > 5:
-            tips.append(f"Output +{dev_g:.0f}g over target — grind finer (2 steps) and check distribution.")
-        elif dev_g > 2:
-            tips.append(f"Output +{dev_g:.0f}g over target — grind a little finer (1 step).")
-        elif dev_g < -10:
-            tips.append(f"Output {dev_g:.0f}g under target — severely choked. Grind much coarser.")
-        elif dev_g < -5:
-            tips.append(f"Output {dev_g:.0f}g under target — grind coarser (2 steps), check tamp pressure.")
-        elif dev_g < -2:
-            tips.append(f"Output {dev_g:.0f}g under target — grind a little coarser (1 step).")
+        if abs(dev_g) > 5:
+            direction = "over" if dev_g > 0 else "under"
+            tips.append(f"Output {abs(dev_g):.0f}g {direction} target ({actual_out:.0f}g vs {target_out:.0f}g).")
 
     # Positive feedback
     if (ev.get("balance") or 3) >= 4 and (ev.get("overall") or 3) >= 4:
@@ -469,6 +482,17 @@ def diagnose(ev, taste_desc=None, actual_out=None, target_out=None, brew_time=No
             tips.append("Solid shot. Minor tweaks could make it even better.")
 
     return tips
+
+
+TASTE_PREF_DEFAULTS = {"sweetness": 3, "acidity": 3, "body": 3, "aroma": 3}
+TASTE_PREF_DIMS = ["sweetness", "acidity", "body", "aroma"]
+
+
+def _taste_preferences(conn):
+    """Load user taste preferences (1-5 per dimension, 3 = neutral)."""
+    raw = get_setting(conn, "taste_preferences", None)
+    prefs = json.loads(raw) if raw else {}
+    return {d: max(1, min(5, int(prefs.get(d, TASTE_PREF_DEFAULTS[d])))) for d in TASTE_PREF_DIMS}
 
 
 def coffee_rating(coffee_id, conn):
@@ -489,41 +513,51 @@ def coffee_rating(coffee_id, conn):
     overall_sum = 0
     for r in rows:
         for d in dims:
-            totals[d] += r[d] or 0
-        overall_sum += r["overall"] or 0
+            totals[d] += r[d] or 3
+        overall_sum += r["overall"] or 3
     n = len(rows)
     avgs = {d: totals[d] / n for d in dims}
     avg_overall = overall_sum / n
-    avg_taste = sum(avgs.values()) / len(dims)
 
-    # Flavor profile descriptor
+    # Quality score: balance + overall (2x) are always included.
+    # Other dimensions contribute based on user taste preferences:
+    #   preference 5 → weight +1 (high scores boost quality)
+    #   preference 3 → weight  0 (neutral, ignored)
+    #   preference 1 → weight -1 (high scores hurt quality)
+    prefs = _taste_preferences(conn)
+    num = avgs["balance"] + 2 * avg_overall
+    den = 3.0  # base: balance(1) + overall(2)
+    for d in TASTE_PREF_DIMS:
+        w = (prefs[d] - 3) / 2.0  # -1 to +1
+        if abs(w) > 0.01:
+            num += w * avgs[d]
+            den += abs(w)
+    quality = max(1.0, min(5.0, num / den)) if den > 0 else avg_overall
+
+    # Flavor profile descriptor — acidity, body, aroma describe the character
     descriptors = []
     if avgs["acidity"] >= 3.5:
         descriptors.append("Bright")
     elif avgs["acidity"] <= 2:
         descriptors.append("Mellow")
-    if avgs["sweetness"] >= 3.5:
-        descriptors.append("Sweet")
     if avgs["body"] >= 3.5:
         descriptors.append("Full-bodied")
     elif avgs["body"] <= 2:
         descriptors.append("Light")
-    if avgs["balance"] >= 4:
-        descriptors.append("Well-balanced")
     if avgs["aroma"] >= 4:
         descriptors.append("Aromatic")
 
-    # Rating tier based on average taste score (1-5)
-    if avg_taste >= 4.5:
+    # Rating tier based on quality score
+    if quality >= 4.5:
         tier = "Outstanding"
         css = "tier-outstanding"
-    elif avg_taste >= 3.8:
+    elif quality >= 3.8:
         tier = "Excellent"
         css = "tier-excellent"
-    elif avg_taste >= 3.0:
+    elif quality >= 3.0:
         tier = "Very Good"
         css = "tier-verygood"
-    elif avg_taste >= 2.2:
+    elif quality >= 2.2:
         tier = "Good"
         css = "tier-good"
     else:
@@ -535,7 +569,7 @@ def coffee_rating(coffee_id, conn):
     return {
         "tier": tier,
         "css": css,
-        "avg_taste": round(avg_taste, 1),
+        "quality": round(quality, 1),
         "avg_overall": round(avg_overall, 1),
         "profile": profile,
         "avgs": {d: round(avgs[d], 1) for d in dims},
@@ -543,85 +577,551 @@ def coffee_rating(coffee_id, conn):
     }
 
 
+SCORE_SOURCES = {
+    "overall": "Overall score",
+    "taste_avg": "Taste average (5 dimensions)",
+    "ratio_accuracy": "Ratio accuracy (hit target output)",
+    "sweetness": "Sweetness",
+    "acidity": "Acidity",
+    "body": "Body",
+    "balance": "Balance",
+    "aroma": "Aroma",
+}
+
+GRIND_FILTER_DEFAULTS = {
+    "score_source": "overall",
+    "match_recipe": False,
+    "temp_tolerance": 2.0,
+    "dose_tolerance": 1.0,
+    "finer_is_lower": True,
+}
+
+
 def suggest_grind(coffee_id, conn):
-    """Suggest optimal grind size using quadratic regression on past evaluated shots."""
-    rows = conn.execute(
-        """SELECT s.grind_size, e.overall
+    """Dispatch to the selected grind suggestion algorithm."""
+    filt = _grind_filter_params(conn)
+    if filt["score_source"] == "ratio_accuracy":
+        return _suggest_grind_ratio(coffee_id, conn)
+    algo = get_setting(conn, "grind_algorithm", "weighted_centroid")
+    if algo == "quadratic":
+        return _suggest_grind_quadratic(coffee_id, conn)
+    elif algo == "bayesian_quadratic":
+        return _suggest_grind_bayesian(coffee_id, conn)
+    else:
+        return _suggest_grind_centroid(coffee_id, conn)
+
+
+def _grind_filter_params(conn):
+    """Load grind filter settings."""
+    raw = get_setting(conn, "grind_filter_params", None)
+    params = json.loads(raw) if raw else {}
+    return {k: params.get(k, v) for k, v in GRIND_FILTER_DEFAULTS.items()}
+
+
+def _apply_recipe_filter(rows, filt):
+    """Filter rows to those matching the latest shot's temp/dose within tolerance."""
+    if not filt["match_recipe"] or len(rows) <= 1:
+        return rows
+    latest = rows[-1]
+    ref_temp = latest["brew_temp_c"]
+    ref_dose = latest["grams_in"]
+    temp_tol = float(filt["temp_tolerance"])
+    dose_tol = float(filt["dose_tolerance"])
+    filtered = []
+    for r in rows:
+        if ref_temp is not None and r["brew_temp_c"] is not None:
+            if abs(r["brew_temp_c"] - ref_temp) > temp_tol:
+                continue
+        if ref_dose is not None and r["grams_in"] is not None:
+            if abs(r["grams_in"] - ref_dose) > dose_tol:
+                continue
+        filtered.append(r)
+    return filtered if filtered else rows
+
+
+def _extract_score(row, score_source, target_out=None):
+    """Extract the score value from a row based on the configured source."""
+    if score_source == "taste_avg":
+        dims = [row["aroma"], row["acidity"], row["sweetness"], row["body"], row["balance"]]
+        valid = [d for d in dims if d is not None]
+        return round(sum(valid) / len(valid), 1) if valid else None
+    elif score_source == "ratio_accuracy":
+        try:
+            actual = row["grams_out"]
+        except (KeyError, IndexError):
+            actual = None
+        if actual is None or target_out is None or target_out <= 0:
+            return None
+        dev = abs(actual - target_out)
+        if dev <= 1:
+            return 5.0
+        elif dev <= 2:
+            return 4.0
+        elif dev <= 4:
+            return 3.0
+        elif dev <= 7:
+            return 2.0
+        else:
+            return 1.0
+    elif score_source in ("sweetness", "acidity", "body", "balance", "aroma"):
+        return row[score_source]
+    else:
+        return row["overall"]
+
+
+def _grind_rows(coffee_id, conn):
+    """Fetch evaluated shots with brew params for grind algorithms.
+
+    Applies recipe-matching filter (temp/dose tolerance) and extracts
+    the configured score source.
+    """
+    filt = _grind_filter_params(conn)
+    score_source = filt["score_source"]
+
+    # For ratio_accuracy, we need the coffee's target output
+    target_out = None
+    if score_source == "ratio_accuracy":
+        coffee = conn.execute(
+            "SELECT default_grams_out FROM coffees WHERE id = ?", (coffee_id,)
+        ).fetchone()
+        target_out = coffee["default_grams_out"] if coffee else None
+
+    all_rows = conn.execute(
+        """SELECT s.grind_size, s.grams_in, s.grams_out, s.brew_time_sec,
+                  s.brew_temp_c, s.created_at,
+                  e.overall, e.aroma, e.acidity, e.sweetness, e.body, e.balance
            FROM samples s JOIN evaluations e ON e.sample_id = s.id
            WHERE s.coffee_id = ? AND e.overall IS NOT NULL
            ORDER BY s.created_at""",
         (coffee_id,),
     ).fetchall()
 
-    if len(rows) < 3:
-        # Not enough data for regression — return best shot's grind if any
-        if rows:
-            best = max(rows, key=lambda r: r["overall"])
-            return {
-                "grind": best["grind_size"],
-                "confidence": "low",
-                "detail": f"Best so far: grind {best['grind_size']} scored {best['overall']}/5 ({len(rows)} shot{'s' if len(rows) != 1 else ''} evaluated)",
-            }
+    if not all_rows:
+        return []
+
+    all_rows = _apply_recipe_filter(all_rows, filt)
+
+    # Build result rows with extracted score
+    result = []
+    for r in all_rows:
+        score = _extract_score(r, score_source, target_out=target_out)
+        if score is not None and r["grind_size"] is not None:
+            result.append({
+                "grind_size": r["grind_size"],
+                "score": score,
+                "overall": r["overall"],
+                "grams_in": r["grams_in"],
+                "grams_out": r["grams_out"],
+                "brew_time_sec": r["brew_time_sec"],
+                "brew_temp_c": r["brew_temp_c"],
+                "created_at": r["created_at"],
+            })
+    return result
+
+
+def _time_weights(rows, decay_rate):
+    """Compute exponential time-decay weights for rows. Recent shots weigh more."""
+    now = datetime.now()
+    weights = []
+    for r in rows:
+        try:
+            created = datetime.strptime(r["created_at"][:19], "%Y-%m-%d %H:%M:%S")
+            days_ago = max((now - created).total_seconds() / 86400, 0)
+        except (ValueError, TypeError):
+            days_ago = 365  # unknown timestamp gets minimal weight
+        weights.append(math.exp(-decay_rate * days_ago))
+    return weights
+
+
+def _cross_coffee_prior(coffee_id, conn):
+    """Compute a grind starting point from similar coffees on the same grinder.
+
+    Fallback chain:
+    1. Same process + same bean color (roast level)
+    2. Same process only
+    3. Same bean color only
+    4. All coffees with evaluated shots
+
+    Returns dict with grind, match description, and count, or None.
+    """
+    coffee = conn.execute(
+        "SELECT process, bean_color FROM coffees WHERE id = ?", (coffee_id,)
+    ).fetchone()
+    if not coffee:
         return None
 
+    process = coffee["process"]
+    bean_color = coffee["bean_color"]
+
+    # Try each level of the fallback chain
+    levels = []
+    if process and bean_color:
+        levels.append((
+            "AND c.process = ? AND c.bean_color = ?",
+            [process, bean_color],
+            f"{process} {bean_color} coffees",
+        ))
+    if process:
+        levels.append((
+            "AND c.process = ?",
+            [process],
+            f"{process} coffees",
+        ))
+    if bean_color:
+        levels.append((
+            "AND c.bean_color = ?",
+            [bean_color],
+            f"{bean_color} coffees",
+        ))
+    levels.append(("", [], "all your coffees"))
+
+    for where_extra, params, match_desc in levels:
+        rows = conn.execute(f"""
+            SELECT AVG(s.grind_size) as avg_grind, COUNT(DISTINCT c.id) as n_coffees,
+                   COUNT(*) as n_shots
+            FROM samples s
+            JOIN evaluations e ON e.sample_id = s.id
+            JOIN coffees c ON s.coffee_id = c.id
+            WHERE s.coffee_id != ? AND e.overall IS NOT NULL {where_extra}
+        """, [coffee_id] + params).fetchone()
+
+        if rows and rows["n_shots"] >= 3 and rows["n_coffees"] >= 1:
+            return {
+                "grind": round(rows["avg_grind"], 1),
+                "match": match_desc,
+                "n_coffees": rows["n_coffees"],
+                "n_shots": rows["n_shots"],
+            }
+
+    return None
+
+
+def _low_data_fallback(rows, coffee_id=None, conn=None):
+    """Fallback for sparse data: use cross-coffee prior or best shot."""
+    # Try cross-coffee prior when we have a DB connection
+    prior = _cross_coffee_prior(coffee_id, conn) if coffee_id and conn else None
+
+    if rows:
+        best = max(rows, key=lambda r: r["score"])
+        detail = f"Best so far: grind {best['grind_size']} scored {best['score']}/5 ({len(rows)} shot{'s' if len(rows) != 1 else ''} evaluated)"
+        if prior:
+            detail += f". Your {prior['match']} average grind {prior['grind']} ({prior['n_coffees']} coffee{'s' if prior['n_coffees'] != 1 else ''}, {prior['n_shots']} shots)"
+        return {
+            "grind": best["grind_size"],
+            "confidence": "low",
+            "detail": detail,
+        }
+
+    # No shots at all for this coffee — use prior as the suggestion
+    if prior:
+        return {
+            "grind": prior["grind"],
+            "confidence": "low",
+            "detail": f"No shots yet. Your {prior['match']} average grind {prior['grind']} ({prior['n_coffees']} coffee{'s' if prior['n_coffees'] != 1 else ''}, {prior['n_shots']} shots) — try starting there",
+        }
+    return None
+
+
+# --- Algorithm 1: Quadratic Regression (original) ---
+
+def _suggest_grind_quadratic(coffee_id, conn):
+    """Quadratic regression on (grind, score) via numpy.polyfit."""
+    rows = _grind_rows(coffee_id, conn)
+
+    if len(rows) < 3:
+        return _low_data_fallback(rows, coffee_id, conn)
+
     if np is None:
-        best = max(rows, key=lambda r: r["overall"])
+        best = max(rows, key=lambda r: r["score"])
         return {"grind": best["grind_size"], "confidence": "low",
-                "detail": f"Best so far: grind {best['grind_size']} ({best['overall']}/5) — numpy not available"}
+                "detail": f"Best so far: grind {best['grind_size']} ({best['score']}/5) — curve fit unavailable, install numpy for this algorithm"}
 
     grinds = np.array([r["grind_size"] for r in rows], dtype=float)
-    scores = np.array([r["overall"] for r in rows], dtype=float)
+    scores = np.array([r["score"] for r in rows], dtype=float)
 
     try:
         coeffs = np.polyfit(grinds, scores, 2)
     except (np.linalg.LinAlgError, ValueError):
-        best = max(rows, key=lambda r: r["overall"])
-        return {
-            "grind": best["grind_size"],
-            "confidence": "low",
-            "detail": f"Best so far: grind {best['grind_size']} scored {best['overall']}/5",
-        }
+        best = max(rows, key=lambda r: r["score"])
+        return {"grind": best["grind_size"], "confidence": "low",
+                "detail": f"Best so far: grind {best['grind_size']} scored {best['score']}/5"}
 
     a, b, c = coeffs
-
-    # Quadratic must open downward (a < 0) for a maximum
     if a >= 0:
-        best = max(rows, key=lambda r: r["overall"])
-        return {
-            "grind": best["grind_size"],
-            "confidence": "low",
-            "detail": f"No clear peak yet — best: grind {best['grind_size']} ({best['overall']}/5)",
-        }
+        best = max(rows, key=lambda r: r["score"])
+        return {"grind": best["grind_size"], "confidence": "low",
+                "detail": f"No clear pattern yet — best shot at grind {best['grind_size']} ({best['score']}/5)"}
 
     optimal = -b / (2 * a)
-    predicted = a * optimal**2 + b * optimal + c
     gmin, gmax = float(grinds.min()), float(grinds.max())
 
     if optimal < gmin - 5 or optimal > gmax + 5:
         direction = "finer" if optimal < gmin else "coarser"
-        return {
-            "grind": round(optimal, 1),
-            "confidence": "low",
-            "detail": f"Model suggests going {direction} (grind ~{optimal:.1f}) — try extending your range",
-        }
+        return {"grind": round(optimal, 1), "confidence": "low",
+                "detail": f"Peak is outside your range — try going {direction} (grind ~{optimal:.1f})."}
 
     n = len(rows)
     conf = "medium" if n < 6 else "high"
-    best_actual = max(rows, key=lambda r: r["overall"])
+    best_actual = max(rows, key=lambda r: r["score"])
+    return {
+        "grind": round(optimal, 1), "confidence": conf,
+        "detail": f"Curve fit from {n} shots. Your best shot scored {best_actual['score']}/5 at grind {best_actual['grind_size']}.",
+    }
+
+
+# --- Algorithm 2: Weighted Centroid (Gemini) ---
+
+CENTROID_DEFAULTS = {"decay_rate": 0.05, "top_n": 3, "score_weight_power": 2.0}
+
+def _suggest_grind_centroid(coffee_id, conn):
+    """Weighted centroid of top-scoring shots with time-decay.
+
+    Selects top_n shots by overall score, weights each by
+    score^power * exp(-decay_rate * days_ago), then computes
+    the weighted average grind setting.
+    """
+    rows = _grind_rows(coffee_id, conn)
+    if len(rows) < 2:
+        return _low_data_fallback(rows, coffee_id, conn)
+
+    # Load tunable params
+    params_json = get_setting(conn, "grind_centroid_params", None)
+    params = json.loads(params_json) if params_json else {}
+    decay_rate = float(params.get("decay_rate", CENTROID_DEFAULTS["decay_rate"]))
+    top_n = int(params.get("top_n", CENTROID_DEFAULTS["top_n"]))
+    score_power = float(params.get("score_weight_power", CENTROID_DEFAULTS["score_weight_power"]))
+
+    time_w = _time_weights(rows, decay_rate)
+
+    # Combine score and time into a ranking weight
+    ranked = []
+    for i, r in enumerate(rows):
+        score = r["score"]
+        w = (score ** score_power) * time_w[i]
+        ranked.append((r["grind_size"], score, w))
+
+    # Sort by combined weight descending, take top_n
+    ranked.sort(key=lambda x: x[2], reverse=True)
+    top = ranked[:max(top_n, 1)]
+
+    total_w = sum(t[2] for t in top)
+    if total_w == 0:
+        return _low_data_fallback(rows, coffee_id, conn)
+
+    weighted_grind = sum(t[0] * t[2] for t in top) / total_w
+
+    n = len(rows)
+    conf = "low" if n < 3 else ("medium" if n < 6 else "high")
+    best_actual = max(rows, key=lambda r: r["score"])
 
     return {
-        "grind": round(optimal, 1),
+        "grind": round(weighted_grind, 1),
         "confidence": conf,
-        "detail": f"Suggested grind: {optimal:.1f} (predicted {predicted:.1f}/5 from {n} shots, best actual: {best_actual['grind_size']} → {best_actual['overall']}/5)",
+        "detail": f"Based on your top {len(top)} of {n} shots. Your best shot scored {best_actual['score']}/5 at grind {best_actual['grind_size']}.",
+    }
+
+
+# --- Algorithm 3: Bayesian Quadratic (Perplexity) ---
+
+BAYESIAN_DEFAULTS = {"prior_strength": 1.0, "decay_rate": 0.05, "use_recency": True}
+
+def _suggest_grind_bayesian(coffee_id, conn):
+    """Quadratic regression with L2 regularization (ridge) and optional time-decay.
+
+    Adds a prior that shrinks quadratic coefficients toward zero,
+    preventing wild extrapolation with sparse data. Optionally
+    applies recency weighting so recent shots count more.
+    """
+    rows = _grind_rows(coffee_id, conn)
+    if len(rows) < 3:
+        return _low_data_fallback(rows, coffee_id, conn)
+
+    # Load tunable params
+    params_json = get_setting(conn, "grind_bayesian_params", None)
+    params = json.loads(params_json) if params_json else {}
+    prior_strength = float(params.get("prior_strength", BAYESIAN_DEFAULTS["prior_strength"]))
+    decay_rate = float(params.get("decay_rate", BAYESIAN_DEFAULTS["decay_rate"]))
+    use_recency = params.get("use_recency", BAYESIAN_DEFAULTS["use_recency"])
+
+    grinds = [r["grind_size"] for r in rows]
+    scores = [r["score"] for r in rows]
+    weights = _time_weights(rows, decay_rate) if use_recency else [1.0] * len(rows)
+
+    # Weighted ridge regression: minimize sum(w_i * (y_i - f(x_i))^2) + λ * (a^2 + b^2)
+    # Normal equations: (X^T W X + λI) β = X^T W y
+    n = len(grinds)
+    # Build design matrix [x^2, x, 1]
+    X = [[g**2, g, 1.0] for g in grinds]
+
+    # X^T W X  (3x3)
+    lam = prior_strength
+    XtWX = [[0.0]*3 for _ in range(3)]
+    XtWy = [0.0]*3
+    for i in range(n):
+        w = weights[i]
+        for j in range(3):
+            for k in range(3):
+                XtWX[j][k] += w * X[i][j] * X[i][k]
+            XtWy[j] += w * X[i][j] * scores[i]
+
+    # Add L2 penalty to quadratic and linear terms (not intercept)
+    XtWX[0][0] += lam
+    XtWX[1][1] += lam
+
+    # Solve 3x3 system via Cramer's rule
+    def det3(m):
+        return (m[0][0]*(m[1][1]*m[2][2]-m[1][2]*m[2][1])
+               -m[0][1]*(m[1][0]*m[2][2]-m[1][2]*m[2][0])
+               +m[0][2]*(m[1][0]*m[2][1]-m[1][1]*m[2][0]))
+
+    D = det3(XtWX)
+    if abs(D) < 1e-12:
+        best = max(rows, key=lambda r: r["score"])
+        return {"grind": best["grind_size"], "confidence": "low",
+                "detail": f"Best so far: grind {best['grind_size']} scored {best['score']}/5"}
+
+    def replace_col(mat, col, vec):
+        m = [row[:] for row in mat]
+        for i in range(3):
+            m[i][col] = vec[i]
+        return m
+
+    a = det3(replace_col(XtWX, 0, XtWy)) / D
+    b = det3(replace_col(XtWX, 1, XtWy)) / D
+    c = det3(replace_col(XtWX, 2, XtWy)) / D
+
+    if a >= 0:
+        best = max(rows, key=lambda r: r["score"])
+        return {"grind": best["grind_size"], "confidence": "low",
+                "detail": f"No clear pattern yet — best shot at grind {best['grind_size']} ({best['score']}/5)"}
+
+    optimal = -b / (2 * a)
+    gmin, gmax = min(grinds), max(grinds)
+
+    if optimal < gmin - 5 or optimal > gmax + 5:
+        direction = "finer" if optimal < gmin else "coarser"
+        return {"grind": round(optimal, 1), "confidence": "low",
+                "detail": f"Peak is outside your range — try going {direction} (grind ~{optimal:.1f})."}
+
+    conf = "medium" if n < 6 else "high"
+    best_actual = max(rows, key=lambda r: r["score"])
+    recency_tag = ", recency-weighted" if use_recency else ""
+    return {
+        "grind": round(optimal, 1), "confidence": conf,
+        "detail": f"Cautious curve fit from {n} shots{recency_tag}. Your best shot scored {best_actual['score']}/5 at grind {best_actual['grind_size']}.",
+    }
+
+
+# --- Algorithm 4: Ratio-Directed Search ---
+
+DEFAULT_GRIND_SENSITIVITY = 2.0  # grams output change per grind step (fallback)
+
+def _suggest_grind_ratio(coffee_id, conn):
+    """Directed grind search for ratio accuracy optimization.
+
+    Uses the monotonic relationship: finer grind → less output, coarser → more.
+    Estimates grind sensitivity (g output per grind step) from history, then
+    computes how many steps to adjust based on the latest shot's deviation.
+    """
+    coffee = conn.execute(
+        "SELECT default_grams_out FROM coffees WHERE id = ?", (coffee_id,)
+    ).fetchone()
+    target_out = coffee["default_grams_out"] if coffee else None
+    if not target_out or target_out <= 0:
+        return {"grind": None, "confidence": "low",
+                "detail": "Set a target output weight (default grams out) on this coffee to use ratio optimization."}
+
+    filt = _grind_filter_params(conn)
+    rows = conn.execute(
+        """SELECT s.grind_size, s.grams_out, s.grams_in, s.brew_temp_c,
+                  s.brew_time_sec, s.created_at
+           FROM samples s JOIN evaluations e ON e.sample_id = s.id
+           WHERE s.coffee_id = ? AND s.grams_out IS NOT NULL AND s.grind_size IS NOT NULL
+           ORDER BY s.created_at""",
+        (coffee_id,),
+    ).fetchall()
+
+    if not rows:
+        prior = _cross_coffee_prior(coffee_id, conn)
+        if prior:
+            return {"grind": prior["grind"], "confidence": "low",
+                    "detail": f"No shots yet. Your {prior['match']} average grind {prior['grind']} — try starting there. Target output: {target_out:.0f}g."}
+        return None
+
+    rows = _apply_recipe_filter(rows, filt)
+
+    latest = rows[-1]
+    latest_grind = latest["grind_size"]
+    latest_out = latest["grams_out"]
+    dev = latest_out - target_out
+
+    # Estimate grind sensitivity from history (grams output change per grind step)
+    sensitivity = DEFAULT_GRIND_SENSITIVITY
+    if len(rows) >= 2:
+        # Linear regression on (grind, output) — slope gives g per step
+        grinds = [r["grind_size"] for r in rows]
+        outputs = [r["grams_out"] for r in rows]
+        n = len(rows)
+        g_mean = sum(grinds) / n
+        o_mean = sum(outputs) / n
+        num = sum((g - g_mean) * (o - o_mean) for g, o in zip(grinds, outputs))
+        den = sum((g - g_mean) ** 2 for g in grinds)
+        if abs(den) > 1e-9:
+            slope = num / den  # expected: negative (finer = less output)
+            if abs(slope) > 0.1:
+                sensitivity = abs(slope)
+
+    # Compute adjustment: positive dev (too much output) → grind finer (decrease grind)
+    # Finer grind = lower grind number → less output
+    if abs(dev) <= 1:
+        return {"grind": round(latest_grind, 1), "confidence": "high",
+                "detail": f"On target! Output {latest_out:.0f}g vs {target_out:.0f}g target. Keep grind at {latest_grind}."}
+
+    # Grinder direction: finer_is_lower means lower number = finer grind (default)
+    # For reversed grinders, the sign flips
+    finer_is_lower = filt.get("finer_is_lower", True)
+    sign = 1 if finer_is_lower else -1
+    steps = dev / sensitivity  # positive dev = too much output = need finer
+    suggested = latest_grind - sign * steps
+    suggested = round(suggested, 1)
+
+    direction = "finer" if dev > 0 else "coarser"
+    n = len(rows)
+    conf = "medium" if n < 4 else "high"
+
+    return {
+        "grind": suggested,
+        "confidence": conf,
+        "detail": f"Output was {latest_out:.0f}g vs {target_out:.0f}g target ({dev:+.0f}g). Go {direction} by ~{abs(steps):.1f} steps. Based on {n} shot{'s' if n != 1 else ''}.",
     }
 
 
 # --- Step 1: Select or define coffee ---
 
+SORT_OPTIONS = {"newest", "rating", "freshest", "opened"}
+
+
 @app.route("/")
 def index():
     show_archived = request.args.get("archived") == "1"
+    sort_by = request.args.get("sort", "")
+    sort_dir = request.args.get("dir", "")
+    # Persist sort choice: save if provided, load if not
     with get_db() as conn:
+        if sort_by and sort_by in SORT_OPTIONS:
+            set_setting(conn, "coffee_sort", sort_by)
+            if sort_dir in ("asc", "desc"):
+                set_setting(conn, "coffee_sort_dir", sort_dir)
+        else:
+            sort_by = get_setting(conn, "coffee_sort", "newest")
+            sort_dir = ""
+        if sort_by not in SORT_OPTIONS:
+            sort_by = "newest"
+        if not sort_dir:
+            sort_dir = get_setting(conn, "coffee_sort_dir", "")
+        if sort_dir not in ("asc", "desc"):
+            # Default direction per sort type
+            sort_dir = "asc" if sort_by in ("freshest", "opened") else "desc"
         if show_archived:
             coffees = conn.execute(
                 "SELECT * FROM coffees WHERE archived = 1 ORDER BY updated_at DESC"
@@ -651,7 +1151,22 @@ def index():
             else:
                 cd["grams_left"] = None
             coffee_data.append(cd)
-    return render_template("step1_coffee.html", coffees=coffee_data, show_archived=show_archived)
+
+    # Sort
+    reverse = (sort_dir == "desc")
+    if sort_by == "rating":
+        coffee_data.sort(key=lambda c: c["rating"]["quality"] if c["rating"] else 0, reverse=reverse)
+    elif sort_by == "freshest":
+        coffee_data.sort(key=lambda c: c["freshness"]["days"] if c["freshness"] else 9999, reverse=reverse)
+    elif sort_by == "opened":
+        coffee_data.sort(key=lambda c: c["days_open"] if c["days_open"] is not None else 9999, reverse=reverse)
+    elif sort_by == "newest":
+        if sort_dir == "asc":
+            coffee_data.reverse()
+    # else: "newest" desc — already sorted by created_at DESC from SQL
+
+    return render_template("step1_coffee.html", coffees=coffee_data,
+                           show_archived=show_archived, sort_by=sort_by, sort_dir=sort_dir)
 
 
 def parse_coffee_form(data):
@@ -993,8 +1508,10 @@ def insights():
                    AVG(s.grind_size) as avg_grind, AVG(s.brew_time_sec) as avg_time,
                    AVG(s.brew_temp_c) as avg_temp,
                    MIN(s.grind_size) as min_grind, MAX(s.grind_size) as max_grind,
+                   AVG(e.overall * e.overall) - AVG(e.overall) * AVG(e.overall) as score_variance,
                    COUNT(DISTINCT s.id) as shot_count,
-                   AVG(s.days_since_roast) as avg_days_roast
+                   AVG(s.days_since_roast) as avg_days_roast,
+                   AVG(s.grams_in) as avg_dose
             FROM coffees c
             JOIN samples s ON s.coffee_id = c.id
             JOIN evaluations e ON e.sample_id = s.id
@@ -1010,6 +1527,19 @@ def insights():
 
     coffees = [dict(r) for r in rows]
 
+    # Compute preference-weighted quality per coffee (same formula as coffee_rating)
+    with get_db() as conn_prefs:
+        prefs = _taste_preferences(conn_prefs)
+    for c in coffees:
+        num = (c["avg_balance"] or 3) + 2 * (c["avg_overall"] or 3)
+        den = 3.0
+        for d in TASTE_PREF_DIMS:
+            w = (prefs[d] - 3) / 2.0
+            if abs(w) > 0.01:
+                num += w * (c[f"avg_{d}"] or 3)
+                den += abs(w)
+        c["quality"] = round(max(1.0, min(5.0, num / den)), 1) if den > 0 else c["avg_overall"]
+
     # --- Helpers ---
     def group_by(key):
         groups = {}
@@ -1019,9 +1549,14 @@ def insights():
         return groups
 
     def gavg(group, metric):
-        """Average of a metric across coffees in a group."""
-        vals = [c[metric] for c in group if c[metric] is not None]
-        return round(sum(vals) / len(vals), 1) if vals else None
+        """Shot-weighted average of a metric across coffees in a group."""
+        pairs = [(c[metric], c["shot_count"]) for c in group if c[metric] is not None]
+        if not pairs:
+            return None
+        total_w = sum(w for _, w in pairs)
+        if total_w == 0:
+            return None
+        return round(sum(v * w for v, w in pairs) / total_w, 1)
 
     def build_chart(grouping):
         """Build sorted chart data for a grouping dict."""
@@ -1053,13 +1588,13 @@ def insights():
     total_shots = sum(c["shot_count"] for c in coffees)
     total_coffees = len(coffees)
 
-    # Top rated
-    best = max(coffees, key=lambda c: c["avg_overall"] or 0)
-    findings.append({"cat": "Top", "text": f"Top rated: {best['label']} ({best['avg_overall']:.1f}/5, {best['shot_count']} shot{'s' if best['shot_count'] != 1 else ''})"})
+    # Top rated (by preference-weighted quality)
+    best = max(coffees, key=lambda c: c["quality"] or 0)
+    findings.append({"cat": "Top", "text": f"Top rated: {best['label']} ({best['quality']}/5, {best['shot_count']} shot{'s' if best['shot_count'] != 1 else ''})"})
 
     # Process insights: avg rating + grind range
-    for proc, group in sorted(by_process.items(), key=lambda x: gavg(x[1], "avg_overall") or 0, reverse=True):
-        avg_ov = gavg(group, "avg_overall")
+    for proc, group in sorted(by_process.items(), key=lambda x: gavg(x[1], "quality") or 0, reverse=True):
+        avg_ov = gavg(group, "quality")
         with_grind = [c for c in group if c["avg_grind"]]
         if with_grind:
             grinds = [c["avg_grind"] for c in with_grind]
@@ -1080,12 +1615,12 @@ def insights():
 
     # Cross-cutting insights (process + origin combinations)
     for c in coffees:
-        if (c["avg_overall"] or 0) >= 4.0:
+        if (c["quality"] or 0) >= 4.0:
             proc = c["process"] or "Unknown"
             origin = c["origin_country"] or "Unknown"
             variety = c["variety"] or "Unknown"
             findings.append({"cat": "Cross", "text":
-                f"{proc} {origin} {variety}: {c['avg_overall']:.1f}/5 overall ({c['shot_count']} shot{'s' if c['shot_count'] != 1 else ''})"})
+                f"{proc} {origin} {variety}: {c['quality']}/5 quality ({c['shot_count']} shot{'s' if c['shot_count'] != 1 else ''})"})
 
     # Roast insights
     if len(by_roast) > 1:
@@ -1095,12 +1630,45 @@ def insights():
                 findings.append({"cat": "Roast", "text":
                     f"{roast} roasts: acidity {gavg(group, 'avg_acidity') or '?'}, body {gavg(group, 'avg_body') or '?'}, grind {gavg(group, 'avg_grind') or 0:.1f} ({shots} shot{'s' if shots != 1 else ''})"})
 
-    # Value
-    priced = [c for c in coffees if c["bag_price"] and (c["avg_overall"] or 0) > 0]
+    # Value — price per shot normalized by quality
+    priced = [c for c in coffees if c["bag_price"] and c["bag_weight_g"] and (c["quality"] or 0) > 0]
+    for c in priced:
+        dose = c["avg_dose"] or 18
+        c["cost_per_shot"] = (c["bag_price"] / c["bag_weight_g"]) * dose
+        c["value_score"] = c["cost_per_shot"] / c["quality"]
     if len(priced) >= 2:
-        best_val = min(priced, key=lambda c: c["bag_price"] / c["avg_overall"])
+        best_val = min(priced, key=lambda c: c["value_score"])
         findings.append({"cat": "Value", "text":
-            f"Best value: {best_val['label']} ({best_val['bag_price']:.0f}€, {best_val['avg_overall']:.1f}/5, {best_val['shot_count']} shot{'s' if best_val['shot_count'] != 1 else ''})"})
+            f"Best value: {best_val['label']} ({best_val['cost_per_shot']:.2f}€/shot, {best_val['quality']}/5, {best_val['shot_count']} shot{'s' if best_val['shot_count'] != 1 else ''})"})
+
+    # Forgiveness — score consistency across grind variation
+    for c in coffees:
+        grind_range = (c["max_grind"] or 0) - (c["min_grind"] or 0)
+        variance = c["score_variance"] or 0
+        stddev = variance ** 0.5 if variance > 0 else 0
+        # Need 4+ shots and at least 2 grind steps explored
+        if c["shot_count"] >= 4 and grind_range >= 2:
+            if stddev <= 0.5:
+                c["forgiveness"] = "Very Forgiving"
+            elif stddev <= 1.0:
+                c["forgiveness"] = "Forgiving"
+            elif stddev <= 1.5:
+                c["forgiveness"] = "Moderate"
+            else:
+                c["forgiveness"] = "Demanding"
+        else:
+            c["forgiveness"] = None
+
+    forgiving = [c for c in coffees if c.get("forgiveness") in ("Very Forgiving", "Forgiving")]
+    demanding = [c for c in coffees if c.get("forgiveness") == "Demanding"]
+    if forgiving:
+        best_f = max(forgiving, key=lambda c: c["quality"] or 0)
+        findings.append({"cat": "Dial-in", "text":
+            f"Easy to dial in: {best_f['label']} — tastes good even when grind is off (scored {best_f['quality']}/5 across grind {best_f['min_grind']:.1f}–{best_f['max_grind']:.1f})"})
+    if demanding:
+        worst_d = max(demanding, key=lambda c: c["quality"] or 0)
+        findings.append({"cat": "Dial-in", "text":
+            f"Hard to dial in: {worst_d['label']} — scores swing a lot with small grind changes, nail it at ~{worst_d['avg_grind']:.1f}"})
 
     totals = {"coffees": total_coffees, "shots": total_shots}
 
@@ -1399,6 +1967,159 @@ def api_custom_tasting_notes():
     with get_db() as conn:
         notes = conn.execute("SELECT name, emoji FROM custom_tasting_notes ORDER BY name").fetchall()
     return jsonify([dict(n) for n in notes])
+
+
+@app.route("/settings/taste")
+def settings_taste():
+    with get_db() as conn:
+        prefs = _taste_preferences(conn)
+    dims = [
+        {"key": "sweetness", "label": "Sweetness", "low": "Dislike", "high": "Love",
+         "hint": "How much do you enjoy sweet, honey-like espresso?"},
+        {"key": "acidity", "label": "Acidity", "low": "Dislike", "high": "Love",
+         "hint": "Bright, fruity, citrusy notes. Some love it, some prefer mellow."},
+        {"key": "body", "label": "Body", "low": "Dislike", "high": "Love",
+         "hint": "Thick, creamy, syrupy mouthfeel vs thin, tea-like."},
+        {"key": "aroma", "label": "Aroma", "low": "Don't care", "high": "Important",
+         "hint": "How much does the smell of the coffee matter to your enjoyment?"},
+    ]
+    return render_template("settings_taste.html", prefs=prefs, dims=dims)
+
+
+@app.route("/settings/taste/save", methods=["POST"])
+def save_taste_settings():
+    data = request.get_json(silent=True) or {}
+    prefs = {}
+    for d in TASTE_PREF_DIMS:
+        val = safe_int(data.get(d), TASTE_PREF_DEFAULTS[d])
+        prefs[d] = max(1, min(5, val))
+    with get_db() as conn:
+        set_setting(conn, "taste_preferences", json.dumps(prefs))
+    return jsonify({"ok": True})
+
+
+@app.route("/settings/grind")
+def settings_grind():
+    with get_db() as conn:
+        algo = get_setting(conn, "grind_algorithm", "weighted_centroid")
+        centroid_json = get_setting(conn, "grind_centroid_params", None)
+        bayesian_json = get_setting(conn, "grind_bayesian_params", None)
+        filter_json = get_setting(conn, "grind_filter_params", None)
+    centroid_params = json.loads(centroid_json) if centroid_json else {}
+    bayesian_params = json.loads(bayesian_json) if bayesian_json else {}
+    filter_params = json.loads(filter_json) if filter_json else {}
+    return render_template("settings_grind.html",
+                           algo=algo,
+                           centroid_params=centroid_params,
+                           centroid_defaults=CENTROID_DEFAULTS,
+                           bayesian_params=bayesian_params,
+                           bayesian_defaults=BAYESIAN_DEFAULTS,
+                           filter_params=filter_params,
+                           filter_defaults=GRIND_FILTER_DEFAULTS,
+                           score_sources=SCORE_SOURCES)
+
+
+@app.route("/settings/grind/save", methods=["POST"])
+def save_grind_settings():
+    algo = request.form.get("algorithm", "weighted_centroid")
+    if algo not in ("quadratic", "weighted_centroid", "bayesian_quadratic"):
+        algo = "weighted_centroid"
+
+    centroid_params = {
+        "decay_rate": max(0, safe_float(request.form.get("centroid_decay_rate"), CENTROID_DEFAULTS["decay_rate"])),
+        "top_n": max(1, safe_int(request.form.get("centroid_top_n"), CENTROID_DEFAULTS["top_n"])),
+        "score_weight_power": max(0.5, safe_float(request.form.get("centroid_score_power"), CENTROID_DEFAULTS["score_weight_power"])),
+    }
+    bayesian_params = {
+        "prior_strength": max(0, safe_float(request.form.get("bayesian_prior_strength"), BAYESIAN_DEFAULTS["prior_strength"])),
+        "decay_rate": max(0, safe_float(request.form.get("bayesian_decay_rate"), BAYESIAN_DEFAULTS["decay_rate"])),
+        "use_recency": request.form.get("bayesian_use_recency") == "1",
+    }
+    filter_params = {
+        "score_source": request.form.get("score_source", GRIND_FILTER_DEFAULTS["score_source"]),
+        "match_recipe": request.form.get("match_recipe") == "1",
+        "temp_tolerance": max(0.5, safe_float(request.form.get("temp_tolerance"), GRIND_FILTER_DEFAULTS["temp_tolerance"])),
+        "dose_tolerance": max(0.5, safe_float(request.form.get("dose_tolerance"), GRIND_FILTER_DEFAULTS["dose_tolerance"])),
+        "finer_is_lower": request.form.get("finer_is_lower") != "0",
+    }
+    if filter_params["score_source"] not in SCORE_SOURCES:
+        filter_params["score_source"] = "overall"
+
+    with get_db() as conn:
+        set_setting(conn, "grind_algorithm", algo)
+        set_setting(conn, "grind_centroid_params", json.dumps(centroid_params))
+        set_setting(conn, "grind_bayesian_params", json.dumps(bayesian_params))
+        set_setting(conn, "grind_filter_params", json.dumps(filter_params))
+
+    if request.headers.get("X-Auto-Save"):
+        return jsonify({"ok": True})
+    return redirect(url_for("settings_grind", saved="1"))
+
+
+@app.route("/api/grind-preview", methods=["POST"])
+def api_grind_preview():
+    """Run grind suggestion on example scenario data (for settings preview).
+
+    Accepts JSON with scenario shots and current settings, creates a
+    temporary in-memory coffee + samples + evaluations, runs the real
+    algorithm, and returns the result.
+    """
+    data = request.get_json(silent=True) or {}
+    shots = data.get("shots", [])
+    algo = data.get("algorithm", "weighted_centroid")
+    centroid_p = data.get("centroid_params", {})
+    bayesian_p = data.get("bayesian_params", {})
+    filter_p = data.get("filter_params", {})
+
+    if not shots:
+        return jsonify({"error": "No shots provided"})
+
+    # Build a temporary in-memory database with the scenario data
+    mem = sqlite3.connect(":memory:")
+    mem.row_factory = sqlite3.Row
+    mem.execute("CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT)")
+    mem.execute("CREATE TABLE coffees (id INTEGER PRIMARY KEY, label TEXT, default_grams_out REAL, process TEXT, bean_color TEXT)")
+    mem.execute("""CREATE TABLE samples (
+        id INTEGER PRIMARY KEY, coffee_id INTEGER, grind_size REAL,
+        grams_in REAL, grams_out REAL, brew_time_sec INTEGER,
+        brew_temp_c REAL, created_at TIMESTAMP)""")
+    mem.execute("""CREATE TABLE evaluations (
+        id INTEGER PRIMARY KEY, sample_id INTEGER UNIQUE,
+        aroma INTEGER, acidity INTEGER, sweetness INTEGER,
+        body INTEGER, balance INTEGER, overall INTEGER,
+        created_at TIMESTAMP)""")
+
+    target_out = data.get("target_output", 36)
+    mem.execute("INSERT INTO coffees (id, label, default_grams_out) VALUES (1, 'Preview', ?)", (target_out,))
+
+    for i, s in enumerate(shots):
+        days_ago = s.get("daysAgo", 0)
+        ts = (datetime.now() - timedelta(days=days_ago)).strftime("%Y-%m-%d %H:%M:%S")
+        mem.execute(
+            "INSERT INTO samples (id, coffee_id, grind_size, grams_in, grams_out, brew_time_sec, brew_temp_c, created_at) VALUES (?,1,?,?,?,?,?,?)",
+            (i + 1, s.get("grind", 18), s.get("dose", 18), s.get("output", 36),
+             s.get("time", 28), s.get("temp", 91), ts),
+        )
+        score = s.get("score", 3)
+        mem.execute(
+            "INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall, created_at) VALUES (?,?,?,?,?,?,?,?)",
+            (i + 1, score, score, score, score, score, score, ts),
+        )
+
+    # Write settings into the in-memory DB
+    set_setting(mem, "grind_algorithm", algo)
+    set_setting(mem, "grind_centroid_params", json.dumps(centroid_p))
+    set_setting(mem, "grind_bayesian_params", json.dumps(bayesian_p))
+    set_setting(mem, "grind_filter_params", json.dumps(filter_p))
+
+    try:
+        result = suggest_grind(1, mem)
+    finally:
+        mem.close()
+
+    if result is None:
+        return jsonify({"grind": None, "confidence": "low", "detail": "Not enough data"})
+    return jsonify(result)
 
 
 # --- API ---

@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Grind Optimizer Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ v }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='simple-keyboard.css') }}">
+</head>
+<body>
+    <header>
+        <a href="/" class="back-btn">&#9664;</a>
+        <h1>Settings</h1>
+        <span class="header-spacer" aria-hidden="true">&#9664;</span>
+    </header>
+
+    <main>
+        <nav class="settings-tabs">
+            <a href="/settings/tasting-notes" class="settings-tab">Tasting Notes</a>
+            <a href="/settings/grind" class="settings-tab active">Grind Optimizer</a>
+            <a href="/settings/taste" class="settings-tab">Taste Profile</a>
+        </nav>
+
+
+        <div class="algo-assumption">These algorithms optimize grind size as a single variable. They assume you keep dose and either brew time or output grams roughly fixed between shots. Use "Same recipe only" below to filter out shots from different setups. When a coffee has few or no shots, the suggestion falls back to the average grind from similar coffees on your grinder (matched by process and roast level).</div>
+
+        <!-- ── Example Shots ── -->
+        <section class="example-section" style="margin-bottom:16px">
+            <h2 class="settings-section-heading">Example Shots</h2>
+            <p class="settings-intro">Pick a scenario to see how each algorithm handles it. Tap an algorithm card below to see its suggestion.</p>
+
+            <div class="example-tabs">
+                <button class="example-tab active" data-scenario="fresh">Fresh Bag (3)</button>
+                <button class="example-tab" data-scenario="dialing">Dialing In (6)</button>
+                <button class="example-tab" data-scenario="explored">Well-Explored (10)</button>
+            </div>
+
+            <div class="example-body">
+                <table class="example-table">
+                    <thead>
+                        <tr><th>#</th><th>Grind</th><th>Dose</th><th>Out</th><th>Time</th><th>Temp</th><th>Score</th><th>Age</th></tr>
+                    </thead>
+                    <tbody id="example-shots"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <form action="/settings/grind/save" method="POST" id="grind-form">
+
+            <!-- ── Data Filters ── -->
+            <h2 class="settings-section-heading">What data to use</h2>
+            <p class="settings-intro">Controls which score the algorithms optimize and whether to filter shots by brew parameters.</p>
+
+            <div class="filter-card">
+                <div class="param-row">
+                    <div class="param-field" style="flex:2">
+                        <label for="score_source">Optimize for</label>
+                        <select id="score_source" name="score_source">
+                            {% for key, label in score_sources.items() %}
+                            <option value="{{ key }}" {% if filter_params.get('score_source', filter_defaults.score_source) == key %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="param-hint">"Overall" = your holistic rating. "Taste average" = mean of 5 dimensions. "Ratio accuracy" = find the grind that hits your target output weight (set per coffee). Or pick a single dimension like sweetness.</span>
+                    </div>
+                </div>
+                <div class="param-row" style="margin-top:10px">
+                    <div class="param-field param-checkbox">
+                        <label>
+                            <input type="checkbox" name="match_recipe" value="1"
+                                   {% if filter_params.get('match_recipe', filter_defaults.match_recipe) %}checked{% endif %}>
+                            Same recipe only
+                        </label>
+                        <span class="param-hint">Only use shots with similar temp and dose to your most recent shot. Turn on when you change brew parameters between experiments — old shots at different settings won't pollute the suggestion.</span>
+                    </div>
+                </div>
+                <div class="param-row recipe-tolerances" style="margin-top:8px">
+                    <div class="param-field">
+                        <label for="temp_tolerance">Temp tolerance</label>
+                        <input type="number" id="temp_tolerance" name="temp_tolerance"
+                               value="{{ filter_params.get('temp_tolerance', filter_defaults.temp_tolerance) }}"
+                               step="0.5" min="0.5" max="10">
+                        <span class="param-hint">&plusmn;&deg;C from latest shot. 1-2&deg;C is tight (lab-style), 3-5&deg;C is loose (casual). Default {{ filter_defaults.temp_tolerance }}&deg;C.</span>
+                    </div>
+                    <div class="param-field">
+                        <label for="dose_tolerance">Dose tolerance</label>
+                        <input type="number" id="dose_tolerance" name="dose_tolerance"
+                               value="{{ filter_params.get('dose_tolerance', filter_defaults.dose_tolerance) }}"
+                               step="0.5" min="0.5" max="5">
+                        <span class="param-hint">&plusmn;g from latest shot. 0.5g = very precise, 1-2g = normal variation. Default {{ filter_defaults.dose_tolerance }}g.</span>
+                    </div>
+                </div>
+                <div class="param-row" style="margin-top:10px">
+                    <div class="param-field param-checkbox">
+                        <label>
+                            <input type="hidden" name="finer_is_lower" value="0">
+                            <input type="checkbox" name="finer_is_lower" value="1"
+                                   {% if filter_params.get('finer_is_lower', filter_defaults.finer_is_lower) %}checked{% endif %}>
+                            Lower grind number = finer
+                        </label>
+                        <span class="param-hint">Most grinders work this way (e.g., Niche Zero, Eureka, Baratza). Uncheck if your grinder counts up for finer settings. Affects the direction of grind suggestions.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Algorithm Selection ── -->
+            <div id="algo-section-taste">
+            <h2 class="settings-section-heading" style="margin-top:18px">Algorithm</h2>
+            <p class="settings-intro">All algorithms use grind size as input and the score above as the target. Tap a card to select it and see its preview result for the current scenario.</p>
+
+            <!-- Algorithm 1: Best Shots -->
+            <label class="algo-card {% if algo == 'weighted_centroid' %}algo-active{% endif %}">
+                <input type="radio" name="algorithm" value="weighted_centroid"
+                       {% if algo == 'weighted_centroid' %}checked{% endif %}>
+                <div class="algo-card-inner">
+                    <div class="algo-header">
+                        <span class="algo-name">Best Shots</span>
+                    </div>
+                    <p class="algo-desc">Looks at your highest-scoring shots and averages their grind settings, giving more weight to recent shots (since beans age and grind needs shift). Can only suggest grinds you've already tried.</p>
+                    <p class="algo-best-for">Best for: once you've found at least one good shot and want to stay near it. Adapts naturally as beans age.</p>
+                    <p class="algo-data-use">Uses: grind size, selected score, shot age (for recency weighting).</p>
+                    <div class="algo-preview" data-algo="weighted_centroid"></div>
+                    <div class="algo-params">
+                        <div class="param-row">
+                            <div class="param-field">
+                                <label for="centroid_decay_rate">Recency bias</label>
+                                <input type="number" id="centroid_decay_rate" name="centroid_decay_rate"
+                                       value="{{ centroid_params.get('decay_rate', centroid_defaults.decay_rate) }}"
+                                       step="0.01" min="0" max="0.5">
+                                <span class="param-hint">How fast old shots lose influence. 0 = all shots equal, 0.05 = yesterday is ~3x a 2-week-old shot, 0.2 = only last few days matter. Default {{ centroid_defaults.decay_rate }}.</span>
+                            </div>
+                            <div class="param-field">
+                                <label for="centroid_top_n">Top N shots</label>
+                                <input type="number" id="centroid_top_n" name="centroid_top_n"
+                                       value="{{ centroid_params.get('top_n', centroid_defaults.top_n) }}"
+                                       step="1" min="1" max="20">
+                                <span class="param-hint">How many of your best shots to average. 1 = just use the single best, 3 = blend top 3, 5+ = more stable but diluted. Default {{ centroid_defaults.top_n }}.</span>
+                            </div>
+                            <div class="param-field">
+                                <label for="centroid_score_power">Score emphasis</label>
+                                <input type="number" id="centroid_score_power" name="centroid_score_power"
+                                       value="{{ centroid_params.get('score_weight_power', centroid_defaults.score_weight_power) }}"
+                                       step="0.5" min="1" max="5">
+                                <span class="param-hint">How much a 5/5 shot outweighs a 3/5 shot. At 1 = proportional (5 vs 3), at 2 = squared (25 vs 9), at 3+ = top score dominates. Default {{ centroid_defaults.score_weight_power }}.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </label>
+
+            <!-- Algorithm 2: Smart Curve -->
+            <label class="algo-card {% if algo == 'bayesian_quadratic' %}algo-active{% endif %}">
+                <input type="radio" name="algorithm" value="bayesian_quadratic"
+                       {% if algo == 'bayesian_quadratic' %}checked{% endif %}>
+                <div class="algo-card-inner">
+                    <div class="algo-header">
+                        <span class="algo-name">Smart Curve</span>
+                    </div>
+                    <p class="algo-desc">Fits a curve through your scores like Classic Curve below, but adds a safety net ("Caution level") that prevents wild suggestions when you only have a few shots. Can predict where the sweet spot is even when all your shots so far are mediocre. With caution at 0, behaves identically to Classic. Can also factor in recency.</p>
+                    <p class="algo-best-for">Best for: still dialing in with no great shots yet, or 4-8 shots across different grind sizes.</p>
+                    <p class="algo-data-use">Uses: grind size, selected score, shot age (optional recency weighting).</p>
+                    <div class="algo-preview" data-algo="bayesian_quadratic"></div>
+                    <div class="algo-params">
+                        <div class="param-row">
+                            <div class="param-field">
+                                <label for="bayesian_prior_strength">Caution level</label>
+                                <input type="number" id="bayesian_prior_strength" name="bayesian_prior_strength"
+                                       value="{{ bayesian_params.get('prior_strength', bayesian_defaults.prior_strength) }}"
+                                       step="0.1" min="0" max="10">
+                                <span class="param-hint">Prevents wild suggestions with few shots. 0 = no safety net (same as Classic), 1 = moderate caution, 5+ = very conservative (sticks close to your data). Default {{ bayesian_defaults.prior_strength }}.</span>
+                            </div>
+                            <div class="param-field">
+                                <label for="bayesian_decay_rate">Recency bias</label>
+                                <input type="number" id="bayesian_decay_rate" name="bayesian_decay_rate"
+                                       value="{{ bayesian_params.get('decay_rate', bayesian_defaults.decay_rate) }}"
+                                       step="0.01" min="0" max="0.5">
+                                <span class="param-hint">Same as Best Shots: 0 = equal, 0.05 = gentle recency, 0.2 = aggressive. Only active when recency is on. Default {{ bayesian_defaults.decay_rate }}.</span>
+                            </div>
+                            <div class="param-field param-checkbox">
+                                <label>
+                                    <input type="checkbox" name="bayesian_use_recency" value="1"
+                                           {% if bayesian_params.get('use_recency', bayesian_defaults.use_recency) %}checked{% endif %}>
+                                    Use recency weighting
+                                </label>
+                                <span class="param-hint">When off, all shots count equally (like Classic but with caution). When on, recent shots shape the curve more.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </label>
+
+            <!-- Algorithm 3: Classic Curve Fit -->
+            <label class="algo-card {% if algo == 'quadratic' %}algo-active{% endif %}">
+                <input type="radio" name="algorithm" value="quadratic"
+                       {% if algo == 'quadratic' %}checked{% endif %}>
+                <div class="algo-card-inner">
+                    <div class="algo-header">
+                        <span class="algo-name">Classic Curve Fit</span>
+                    </div>
+                    <p class="algo-desc">Fits a curve through all your scores with no safety net — the raw mathematical fit. Can suggest a grind you haven't tried yet, but may make wild predictions with few data points. No recency — all shots count equally. Same as Smart Curve with caution at 0 and recency off.</p>
+                    <p class="algo-best-for">Best for: 8+ shots spread across a wide grind range in a short time.</p>
+                    <p class="algo-data-use">Uses: grind size, selected score. No recency — all shots count equally.</p>
+                    <div class="algo-preview" data-algo="quadratic"></div>
+                    <div class="algo-params">
+                        <p class="algo-param-note">No tunable parameters.</p>
+                    </div>
+                </div>
+            </label>
+            </div>
+
+            <!-- ── Ratio Accuracy Algorithm (shown when ratio_accuracy selected) ── -->
+            <div id="algo-section-ratio" style="display:none">
+            <h2 class="settings-section-heading" style="margin-top:18px">Algorithm</h2>
+            <div class="algo-card algo-active" style="border-color:var(--accent)">
+                <div class="algo-card-inner">
+                    <div class="algo-header">
+                        <span class="algo-name">Directed Search</span>
+                    </div>
+                    <p class="algo-desc">Uses the simple rule: output too high → grind finer, output too low → grind coarser. Learns how sensitive your grinder is (grams per step) from your shot history and calculates exactly how many steps to adjust.</p>
+                    <p class="algo-best-for">Automatically used when optimizing for ratio accuracy. Works from your very first shot.</p>
+                    <p class="algo-data-use">Uses: grind size, actual output, target output (set per coffee), shot history for sensitivity estimation.</p>
+                    <div class="algo-preview" data-algo="ratio"></div>
+                </div>
+            </div>
+            </div>
+
+        </form>
+    </main>
+
+    <div id="keyboard" class="kbd hidden">
+        <div class="simple-keyboard"></div>
+    </div>
+    <script src="{{ url_for('static', filename='simple-keyboard.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='keyboard.js') }}?v={{ v }}"></script>
+
+    <script>
+    var SCENARIOS = {
+        fresh: {
+            shots: [
+                {grind: 14.0, score: 2, daysAgo: 2, dose: 18, output: 42, time: 22, temp: 91},
+                {grind: 16.0, score: 4, daysAgo: 1, dose: 18, output: 37, time: 26, temp: 91},
+                {grind: 18.0, score: 3, daysAgo: 0, dose: 18, output: 32, time: 30, temp: 91},
+            ]
+        },
+        dialing: {
+            shots: [
+                {grind: 13.0, score: 2, daysAgo: 8, dose: 18, output: 45, time: 20, temp: 91},
+                {grind: 15.0, score: 3, daysAgo: 6, dose: 18, output: 40, time: 24, temp: 91},
+                {grind: 17.0, score: 4, daysAgo: 5, dose: 18, output: 36, time: 27, temp: 91},
+                {grind: 18.0, score: 5, daysAgo: 3, dose: 18, output: 35, time: 28, temp: 92},
+                {grind: 19.0, score: 4, daysAgo: 1, dose: 18, output: 33, time: 30, temp: 92},
+                {grind: 17.5, score: 5, daysAgo: 0, dose: 18, output: 36, time: 28, temp: 92},
+            ]
+        },
+        explored: {
+            shots: [
+                {grind: 13.0, score: 1, daysAgo: 18, dose: 18, output: 48, time: 18, temp: 90},
+                {grind: 14.0, score: 2, daysAgo: 16, dose: 18, output: 44, time: 21, temp: 90},
+                {grind: 15.0, score: 3, daysAgo: 14, dose: 18, output: 40, time: 24, temp: 91},
+                {grind: 16.0, score: 3, daysAgo: 12, dose: 18, output: 38, time: 25, temp: 91},
+                {grind: 17.0, score: 4, daysAgo: 10, dose: 18, output: 36, time: 27, temp: 91},
+                {grind: 18.0, score: 5, daysAgo: 8,  dose: 18, output: 35, time: 28, temp: 92},
+                {grind: 19.0, score: 5, daysAgo: 6,  dose: 18, output: 34, time: 29, temp: 92},
+                {grind: 20.0, score: 4, daysAgo: 4,  dose: 18, output: 32, time: 31, temp: 92},
+                {grind: 18.5, score: 5, daysAgo: 2,  dose: 18, output: 35, time: 28, temp: 92},
+                {grind: 21.0, score: 3, daysAgo: 0,  dose: 18, output: 30, time: 33, temp: 92},
+            ]
+        }
+    };
+
+    var activeScenario = 'fresh';
+    var previewTimers = {};
+
+    function getFormSettings() {
+        return {
+            centroid_params: {
+                decay_rate: parseFloat(document.getElementById('centroid_decay_rate').value) || 0.05,
+                top_n: parseInt(document.getElementById('centroid_top_n').value) || 3,
+                score_weight_power: parseFloat(document.getElementById('centroid_score_power').value) || 2
+            },
+            bayesian_params: {
+                prior_strength: parseFloat(document.getElementById('bayesian_prior_strength').value) || 1,
+                decay_rate: parseFloat(document.getElementById('bayesian_decay_rate').value) || 0.05,
+                use_recency: document.querySelector('input[name="bayesian_use_recency"]').checked
+            },
+            filter_params: {
+                score_source: document.getElementById('score_source').value,
+                match_recipe: document.querySelector('input[name="match_recipe"]').checked,
+                temp_tolerance: parseFloat(document.getElementById('temp_tolerance').value) || 2,
+                dose_tolerance: parseFloat(document.getElementById('dose_tolerance').value) || 1
+            }
+        };
+    }
+
+    function fetchAlgoPreview(algoName) {
+        var el = document.querySelector('.algo-preview[data-algo="' + algoName + '"]');
+        if (!el) return;
+        el.innerHTML = '<div class="algo-preview-loading">Computing...</div>';
+
+        var settings = getFormSettings();
+        var shots = SCENARIOS[activeScenario].shots;
+
+        fetch('/api/grind-preview', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                shots: shots,
+                algorithm: algoName,
+                target_output: 36,
+                centroid_params: settings.centroid_params,
+                bayesian_params: settings.bayesian_params,
+                filter_params: settings.filter_params
+            })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            var confColors = {low: '#9a9089', medium: '#c0873a', high: '#5a5'};
+            var confLabels = {low: 'Low', medium: 'Medium', high: 'High'};
+            var confDescs = {
+                low: 'Fewer than 3 shots, or the algorithm couldn\u2019t find a clear pattern. May be using cross-coffee average as a starting point.',
+                medium: '3\u20135 shots. Reasonable suggestion but may shift as you pull more shots.',
+                high: '6+ shots with a clear pattern. Stable suggestion you can trust.'
+            };
+            var grind = result.grind != null ? result.grind : '\u2014';
+            var conf = result.confidence || 'low';
+            el.innerHTML =
+                '<div class="algo-preview-result">' +
+                    '<span class="algo-preview-grind">' + grind + '</span>' +
+                    '<span class="algo-preview-label">suggested</span>' +
+                    '<span class="algo-preview-conf-wrap" style="position:relative">' +
+                        '<span class="algo-preview-conf" style="color:' + (confColors[conf] || '#999') + '">' + (confLabels[conf] || '') + '</span>' +
+                    '</span>' +
+                '</div>' +
+                '<div class="algo-preview-detail">' + (result.detail || 'No suggestion') + '</div>';
+            // Make confidence label clickable → popup
+            var confEl = el.querySelector('.algo-preview-conf-wrap');
+            confEl.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var existing = confEl.querySelector('.info-popup');
+                if (existing) { existing.remove(); return; }
+                // Close any other open popups
+                document.querySelectorAll('.info-popup').forEach(function(p) { p.remove(); });
+                var popup = document.createElement('div');
+                popup.className = 'info-popup';
+                popup.innerHTML =
+                    '<div class="info-popup-title">' + (confLabels[conf] || '') + ' confidence</div>' +
+                    '<div class="info-popup-desc">' + (confDescs[conf] || '') + '</div>';
+                confEl.appendChild(popup);
+            });
+        })
+        .catch(function() {
+            el.innerHTML = '<div class="algo-preview-detail" style="color:#e06060">Preview failed</div>';
+        });
+    }
+
+    function fetchAllPreviews() {
+        var isRatio = document.getElementById('score_source').value === 'ratio_accuracy';
+        if (isRatio) {
+            fetchAlgoPreview('ratio');
+        } else {
+            ['weighted_centroid', 'bayesian_quadratic', 'quadratic'].forEach(fetchAlgoPreview);
+        }
+    }
+
+    function schedulePreview(algoName) {
+        var key = algoName || 'all';
+        clearTimeout(previewTimers[key]);
+        previewTimers[key] = setTimeout(function() {
+            if (algoName) fetchAlgoPreview(algoName);
+            else fetchAllPreviews();
+        }, 300);
+    }
+
+    function renderScenario() {
+        var scenario = SCENARIOS[activeScenario];
+        var tbody = document.getElementById('example-shots');
+        tbody.innerHTML = '';
+        scenario.shots.forEach(function(s, i) {
+            var stars = '';
+            for (var j = 0; j < 5; j++) stars += j < s.score ? '\u2605' : '\u2606';
+            var age = s.daysAgo === 0 ? 'today' : s.daysAgo + 'd';
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td>' + (i + 1) + '</td>' +
+                '<td>' + s.grind.toFixed(1) + '</td>' +
+                '<td>' + s.dose + 'g</td>' +
+                '<td>' + s.output + 'g</td>' +
+                '<td>' + s.time + 's</td>' +
+                '<td>' + s.temp + '&deg;</td>' +
+                '<td class="example-stars">' + stars + '</td>' +
+                '<td>' + age + '</td>';
+            tbody.appendChild(tr);
+        });
+        fetchAllPreviews();
+    }
+
+    // Scenario tabs
+    document.querySelectorAll('.example-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.example-tab').forEach(function(t) { t.classList.remove('active'); });
+            this.classList.add('active');
+            activeScenario = this.dataset.scenario;
+            renderScenario();
+        });
+    });
+
+    // Algorithm card toggle
+    document.querySelectorAll('input[name="algorithm"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            document.querySelectorAll('.algo-card').forEach(function(card) {
+                card.classList.remove('algo-active');
+            });
+            this.closest('.algo-card').classList.add('algo-active');
+        });
+    });
+
+    // Centroid param changes → re-fetch centroid preview
+    ['centroid_decay_rate', 'centroid_top_n', 'centroid_score_power'].forEach(function(id) {
+        var el = document.getElementById(id);
+        el.addEventListener('input', function() { schedulePreview('weighted_centroid'); });
+        el.addEventListener('change', function() { schedulePreview('weighted_centroid'); });
+    });
+
+    // Bayesian param changes → re-fetch bayesian preview
+    ['bayesian_prior_strength', 'bayesian_decay_rate'].forEach(function(id) {
+        var el = document.getElementById(id);
+        el.addEventListener('input', function() { schedulePreview('bayesian_quadratic'); });
+        el.addEventListener('change', function() { schedulePreview('bayesian_quadratic'); });
+    });
+    document.querySelector('input[name="bayesian_use_recency"]').addEventListener('change', function() {
+        schedulePreview('bayesian_quadratic');
+    });
+
+    // Toggle algorithm sections based on score source
+    var tasteSection = document.getElementById('algo-section-taste');
+    var ratioSection = document.getElementById('algo-section-ratio');
+    var scoreSourceEl = document.getElementById('score_source');
+    function toggleAlgoSections() {
+        var isRatio = scoreSourceEl.value === 'ratio_accuracy';
+        tasteSection.style.display = isRatio ? 'none' : '';
+        ratioSection.style.display = isRatio ? '' : 'none';
+    }
+    toggleAlgoSections();
+
+    // Filter changes → re-fetch all previews
+    ['score_source', 'temp_tolerance', 'dose_tolerance'].forEach(function(id) {
+        var el = document.getElementById(id);
+        el.addEventListener('input', function() { schedulePreview(); });
+        el.addEventListener('change', function() {
+            if (id === 'score_source') toggleAlgoSections();
+            schedulePreview();
+        });
+    });
+    var matchRecipe = document.querySelector('input[name="match_recipe"]');
+    var tolerances = document.querySelector('.recipe-tolerances');
+    function toggleTolerances() {
+        tolerances.style.opacity = matchRecipe.checked ? '1' : '0.35';
+        tolerances.style.pointerEvents = matchRecipe.checked ? 'auto' : 'none';
+    }
+    toggleTolerances();
+    matchRecipe.addEventListener('change', function() {
+        toggleTolerances();
+        schedulePreview();
+    });
+
+    // Dismiss popups on outside tap
+    document.addEventListener('pointerdown', function(e) {
+        if (!e.target.closest('.algo-preview-conf-wrap')) {
+            document.querySelectorAll('.info-popup').forEach(function(p) { p.remove(); });
+        }
+    });
+
+    // --- Auto-save on any change ---
+    var saveTimer = null;
+    function autoSave() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(function() {
+            var form = document.getElementById('grind-form');
+            fetch('/settings/grind/save', {
+                method: 'POST',
+                headers: {'X-Auto-Save': '1'},
+                body: new FormData(form)
+            }).catch(function() {
+                console.warn('Auto-save failed');
+            });
+        }, 500);
+    }
+    document.getElementById('grind-form').querySelectorAll('input, select').forEach(function(el) {
+        el.addEventListener('change', autoSave);
+    });
+
+    // Initial render
+    renderScenario();
+    </script>
+</body>
+</html>

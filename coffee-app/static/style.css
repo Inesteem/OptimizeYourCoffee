@@ -444,6 +444,36 @@ body.kbd-open main {
     margin-bottom: 10px;
 }
 
+.sort-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.sort-btn {
+    flex: 1;
+    text-align: center;
+    padding: 6px 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-decoration: none;
+    background: var(--surface);
+    border: 1px solid #333;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.sort-btn.active {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: #2e2518;
+}
+
+.sort-btn:active {
+    opacity: 0.8;
+}
+
 /* Step 1: Coffee list */
 .coffee-list {
     margin-bottom: 12px;
@@ -674,10 +704,20 @@ header {
 .back-btn {
     color: var(--text);
     text-decoration: none;
-    font-size: 1.3rem;
+    font-size: 1.6rem;
+    font-weight: 700;
     line-height: 1;
-    padding: 4px 8px;
+    padding: 8px 12px;
     flex-shrink: 0;
+}
+
+.header-spacer {
+    padding: 8px 12px;
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+    visibility: hidden;
 }
 
 header h1 {
@@ -1191,16 +1231,12 @@ header h1 {
 }
 
 /* Settings */
-.header-spacer {
-    width: 36px;
-    flex-shrink: 0;
-}
-
 .settings-btn {
     color: var(--text-muted);
     text-decoration: none;
-    font-size: 1.3rem;
-    padding: 4px 8px;
+    font-size: 1.6rem;
+    line-height: 1;
+    padding: 8px 12px;
     flex-shrink: 0;
 }
 
@@ -1447,4 +1483,497 @@ header h1 {
     height: 250px;
     max-width: 300px;
     margin: 0 auto;
+}
+
+/* --- Settings tabs & grind optimizer --- */
+
+.settings-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 14px;
+    border-bottom: 2px solid #333;
+    padding-bottom: 0;
+}
+
+.settings-tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 8px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.settings-tab:active {
+    opacity: 0.8;
+}
+
+.settings-tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+}
+
+.settings-intro {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    margin-bottom: 14px;
+}
+
+/* Algorithm cards */
+
+.algo-card {
+    display: block;
+    background: var(--surface);
+    border: 2px solid #333;
+    border-radius: var(--radius);
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.algo-card:active {
+    background: #333;
+}
+
+.algo-card input[type="radio"] {
+    display: none;
+}
+
+.algo-card.algo-active {
+    border-color: var(--accent);
+    background: #2e2518;
+}
+
+.algo-card-inner {
+    padding: 12px 14px;
+}
+
+.algo-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.algo-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.algo-tag {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #444;
+    color: var(--text-muted);
+}
+
+.algo-tag-rec {
+    background: #2a4a2a;
+    color: #6c6;
+}
+
+.algo-desc {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+    margin-bottom: 4px;
+}
+
+.algo-best-for {
+    font-size: 0.73rem;
+    color: var(--accent);
+    line-height: 1.4;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.algo-data-use {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.3;
+    margin-bottom: 6px;
+    font-style: italic;
+}
+
+/* Per-algorithm inline preview */
+
+.algo-preview:empty {
+    display: none;
+}
+
+.algo-preview {
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 6px 0;
+}
+
+.algo-preview-loading {
+    font-size: 0.73rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.algo-preview-result {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 2px;
+}
+
+.algo-preview-grind {
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--text);
+}
+
+.algo-preview-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.algo-preview-conf-wrap {
+    margin-left: auto;
+    position: relative;
+}
+
+.algo-preview-conf-wrap .info-popup {
+    right: 0;
+    left: auto;
+    min-width: 260px;
+    width: max-content;
+    max-width: 90vw;
+}
+
+.algo-preview-conf {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.algo-preview-detail {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.3;
+}
+
+/* Parameters section */
+
+.algo-params {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.25s ease, opacity 0.2s ease, margin 0.2s ease;
+    margin-top: 0;
+}
+
+.algo-active .algo-params {
+    max-height: 400px;
+    opacity: 1;
+    margin-top: 8px;
+}
+
+.algo-param-note {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.param-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.param-field {
+    flex: 1 1 120px;
+    min-width: 0;
+}
+
+.param-field label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+
+.param-field input[type="number"] {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 0.9rem;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid #444;
+    border-radius: 6px;
+    -moz-appearance: textfield;
+}
+
+.param-field input[type="number"]:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+.param-checkbox {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.param-checkbox label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.param-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+}
+
+.param-hint {
+    display: block;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    margin-top: 3px;
+    line-height: 1.3;
+}
+
+.algo-assumption {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+    background: var(--surface);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+}
+
+.settings-section-heading {
+    font-size: 0.9rem;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.filter-card {
+    background: var(--surface);
+    border: 1px solid #333;
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 14px;
+}
+
+.filter-card select {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 0.85rem;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid #444;
+    border-radius: 6px;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.filter-card select:focus {
+    border-color: var(--accent);
+    outline: none;
+}
+
+.btn-save-settings {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    margin-top: 14px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.btn-save-settings:active {
+    background: var(--accent-hover);
+}
+
+/* --- Live preview examples --- */
+
+.example-section {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #333;
+}
+
+.example-heading {
+    font-size: 1rem;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.example-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 12px 0 10px;
+}
+
+.example-tab {
+    flex: 1;
+    padding: 8px 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-align: center;
+    background: var(--surface);
+    color: var(--text-muted);
+    border: 1px solid #333;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.example-tab:active {
+    opacity: 0.8;
+}
+
+.example-tab.active {
+    background: #2e2518;
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.example-body {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 12px;
+}
+
+.example-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    margin-bottom: 12px;
+}
+
+.example-table th {
+    text-align: left;
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 4px 8px 6px;
+    border-bottom: 1px solid #444;
+}
+
+.example-table td {
+    padding: 5px 8px;
+    color: var(--text);
+    border-bottom: 1px solid #2a2a2a;
+}
+
+.example-stars {
+    color: var(--accent);
+    letter-spacing: 1px;
+}
+
+.example-note {
+    font-size: 0.73rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* --- Taste preference cards --- */
+
+.taste-pref-card {
+    background: var(--surface);
+    border: 1px solid #333;
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+}
+
+.taste-pref-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.taste-pref-name {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.taste-pref-value {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 1.5em;
+    text-align: center;
+}
+
+.taste-pref-scale {
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.taste-pref-radio {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px 0;
+    cursor: pointer;
+}
+
+.taste-pref-radio input {
+    display: none;
+}
+
+.taste-pref-dot {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid #555;
+    background: var(--bg);
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.taste-pref-radio:active .taste-pref-dot {
+    transform: scale(0.9);
+}
+
+.taste-pref-radio.active .taste-pref-dot {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.taste-pref-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
 }

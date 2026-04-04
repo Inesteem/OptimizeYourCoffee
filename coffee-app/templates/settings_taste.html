@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Taste Profile Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ v }}">
+</head>
+<body>
+    <header>
+        <a href="/" class="back-btn">&#9664;</a>
+        <h1>Settings</h1>
+        <span class="header-spacer" aria-hidden="true">&#9664;</span>
+    </header>
+
+    <main>
+        <nav class="settings-tabs">
+            <a href="/settings/tasting-notes" class="settings-tab">Tasting Notes</a>
+            <a href="/settings/grind" class="settings-tab">Grind Optimizer</a>
+            <a href="/settings/taste" class="settings-tab active">Taste Profile</a>
+        </nav>
+
+        <div class="algo-assumption">Your taste preferences affect how coffees are rated. A coffee that matches your preferences gets a higher quality tier. Balance and your overall score always count — the settings below control how much the other dimensions matter.</div>
+
+        <form id="taste-form">
+            {% for dim in dims %}
+            <div class="taste-pref-card">
+                <div class="taste-pref-header">
+                    <span class="taste-pref-name">{{ dim.label }}</span>
+                    <span class="taste-pref-value" id="val_{{ dim.key }}">{{ prefs[dim.key] }}</span>
+                </div>
+                <div class="taste-pref-scale">
+                    {% for i in range(1, 6) %}
+                    <label class="taste-pref-radio {% if prefs[dim.key] == i %}active{% endif %}">
+                        <input type="radio" name="{{ dim.key }}" value="{{ i }}"
+                               {% if prefs[dim.key] == i %}checked{% endif %}>
+                        <span class="taste-pref-dot"></span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <div class="taste-pref-labels">
+                    <span>{{ dim.low }}</span>
+                    <span>Neutral</span>
+                    <span>{{ dim.high }}</span>
+                </div>
+                <p class="param-hint">{{ dim.hint }}</p>
+            </div>
+            {% endfor %}
+        </form>
+
+        <section style="margin-top:18px">
+            <h2 class="settings-section-heading">How it works</h2>
+            <div class="filter-card" style="font-size:0.78rem;color:var(--text-muted);line-height:1.5">
+                <p><strong style="color:var(--text)">Balance</strong> and <strong style="color:var(--text)">Overall score</strong> always count toward the quality tier.</p>
+                <p style="margin-top:6px">For each dimension above:</p>
+                <p style="margin-top:4px"><strong style="color:var(--text)">5</strong> = I love this — high scores boost the rating</p>
+                <p><strong style="color:var(--text)">3</strong> = Neutral — this dimension is ignored</p>
+                <p><strong style="color:var(--text)">1</strong> = I dislike this — high scores lower the rating</p>
+                <p style="margin-top:6px">Example: if you set Acidity to 1 and a coffee scores 5/5 acidity, that <em>hurts</em> its quality tier. If you set Sweetness to 5, high sweetness <em>boosts</em> it.</p>
+            </div>
+        </section>
+
+        <section style="margin-top:14px">
+            <h2 class="settings-section-heading">Formula details</h2>
+            <div class="filter-card" style="font-size:0.73rem;color:var(--text-muted);line-height:1.5">
+                <p>Each preference (1-5) maps to a weight from <strong style="color:var(--text)">-1</strong> to <strong style="color:var(--text)">+1</strong>:</p>
+                <p style="margin:4px 0;font-family:monospace;font-size:0.7rem;color:var(--text)">weight = (preference - 3) / 2</p>
+                <p style="margin-top:6px">The quality score combines balance + overall (always counted) with weighted dimensions:</p>
+                <p style="margin:4px 0;font-family:monospace;font-size:0.7rem;color:var(--text)">quality = (balance + 2&times;overall + w&times;sweetness + w&times;acidity + ...) / (3 + |w| + |w| + ...)</p>
+                <p style="margin-top:6px">Dimensions set to 3 (neutral) have weight 0 and are excluded entirely. The denominator adjusts so the quality score always stays on the 1-5 scale.</p>
+                <p style="margin-top:6px">This quality score determines the tier (Outstanding, Excellent, etc.) shown on your coffee cards, stats page, and insights rankings.</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+    // Auto-save + visual feedback on radio change
+    document.querySelectorAll('.taste-pref-radio input').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            // Update active dot
+            var card = this.closest('.taste-pref-card');
+            card.querySelectorAll('.taste-pref-radio').forEach(function(r) { r.classList.remove('active'); });
+            this.closest('.taste-pref-radio').classList.add('active');
+            // Update value display
+            var valEl = card.querySelector('.taste-pref-value');
+            if (valEl) valEl.textContent = this.value;
+            // Auto-save
+            fetch('/settings/taste/save', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(Object.fromEntries(new FormData(document.getElementById('taste-form'))))
+            }).catch(function() { console.warn('Auto-save failed'); });
+        });
+    });
+    </script>
+</body>
+</html>

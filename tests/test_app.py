@@ -6,6 +6,7 @@ Run with:
     pytest tests/                      (if pytest resolves to python3.11's pytest)
 """
 
+import json
 import os
 import sqlite3
 import sys
@@ -31,7 +32,18 @@ from app import (  # noqa: E402
     coffee_rating,
     render_tasting_notes,
     init_db,
+    get_setting,
+    set_setting,
     TASTING_EMOJIS,
+    CENTROID_DEFAULTS,
+    BAYESIAN_DEFAULTS,
+    _suggest_grind_quadratic,
+    _suggest_grind_centroid,
+    _suggest_grind_bayesian,
+    _suggest_grind_ratio,
+    _extract_score,
+    _grind_rows,
+    _cross_coffee_prior,
 )
 
 
@@ -637,7 +649,7 @@ class TestDiagnose:
 
     def test_high_acidity_low_sweetness(self):
         tips = diagnose({"acidity": 4, "sweetness": 2, "body": 3, "balance": 3, "overall": 3})
-        assert any("finer" in t for t in tips)
+        assert any("under-extracted" in t.lower() for t in tips)
 
     def test_over_extracted_pattern(self):
         tips = diagnose({"acidity": 1, "sweetness": 2, "body": 3, "balance": 3, "overall": 3})
@@ -645,7 +657,7 @@ class TestDiagnose:
 
     def test_thin_body_sweet(self):
         tips = diagnose({"acidity": 3, "sweetness": 4, "body": 1, "balance": 3, "overall": 3})
-        assert any("Thin body" in t for t in tips)
+        assert any("body" in t.lower() for t in tips)
 
     def test_great_shot(self):
         tips = diagnose({"acidity": 3, "sweetness": 3, "body": 3, "balance": 4, "overall": 4})
@@ -683,7 +695,9 @@ class TestDiagnose:
         assert isinstance(tips, list)
 
 
-class TestSuggestGrind:
+class _GrindTestBase:
+    """Shared helpers for grind algorithm test classes."""
+
     def _make_conn(self, tmp_db):
         conn = sqlite3.connect(tmp_db)
         conn.row_factory = sqlite3.Row
@@ -708,14 +722,23 @@ class TestSuggestGrind:
         conn.commit()
         return sample_id
 
+
+class TestSuggestGrind(_GrindTestBase):
+    """Tests for the quadratic regression algorithm (original)."""
+
+    def _set_quadratic(self, conn):
+        set_setting(conn, "grind_algorithm", "quadratic")
+
     def test_no_data_returns_none(self, tmp_db):
         conn = self._make_conn(tmp_db)
+        self._set_quadratic(conn)
         coffee_id = self._seed_coffee(conn)
         result = suggest_grind(coffee_id, conn)
         assert result is None
 
     def test_one_shot_returns_low_confidence(self, tmp_db):
         conn = self._make_conn(tmp_db)
+        self._set_quadratic(conn)
         coffee_id = self._seed_coffee(conn)
         self._seed_shot(conn, coffee_id, 18.0, 4)
         result = suggest_grind(coffee_id, conn)
@@ -725,6 +748,7 @@ class TestSuggestGrind:
 
     def test_two_shots_returns_best_grind_low_confidence(self, tmp_db):
         conn = self._make_conn(tmp_db)
+        self._set_quadratic(conn)
         coffee_id = self._seed_coffee(conn)
         self._seed_shot(conn, coffee_id, 17.0, 3)
         self._seed_shot(conn, coffee_id, 19.0, 5)
@@ -734,8 +758,8 @@ class TestSuggestGrind:
 
     def test_three_plus_shots_returns_result(self, tmp_db):
         conn = self._make_conn(tmp_db)
+        self._set_quadratic(conn)
         coffee_id = self._seed_coffee(conn)
-        # Parabola peak near grind 20: scores go 3, 5, 3 at 18, 20, 22
         self._seed_shot(conn, coffee_id, 18.0, 3)
         self._seed_shot(conn, coffee_id, 20.0, 5)
         self._seed_shot(conn, coffee_id, 22.0, 3)
@@ -746,6 +770,7 @@ class TestSuggestGrind:
 
     def test_six_plus_shots_medium_or_high_confidence(self, tmp_db):
         conn = self._make_conn(tmp_db)
+        self._set_quadratic(conn)
         coffee_id = self._seed_coffee(conn)
         grinds = [16.0, 17.0, 18.0, 19.0, 20.0, 21.0, 22.0]
         scores = [2,     3,    4,    5,    4,    3,    2]
@@ -757,6 +782,7 @@ class TestSuggestGrind:
 
     def test_detail_contains_shot_count(self, tmp_db):
         conn = self._make_conn(tmp_db)
+        self._set_quadratic(conn)
         coffee_id = self._seed_coffee(conn)
         self._seed_shot(conn, coffee_id, 18.0, 3)
         result = suggest_grind(coffee_id, conn)
@@ -764,11 +790,689 @@ class TestSuggestGrind:
 
     def test_detail_plural_shots(self, tmp_db):
         conn = self._make_conn(tmp_db)
+        self._set_quadratic(conn)
         coffee_id = self._seed_coffee(conn)
         self._seed_shot(conn, coffee_id, 17.0, 3)
         self._seed_shot(conn, coffee_id, 19.0, 4)
         result = suggest_grind(coffee_id, conn)
         assert "2 shots" in result["detail"]
+
+
+class TestSuggestGrindCentroid(_GrindTestBase):
+    """Tests for the weighted centroid algorithm (Gemini)."""
+
+    def test_no_data_returns_none(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee(conn)
+        result = _suggest_grind_centroid(coffee_id, conn)
+        assert result is None
+
+    def test_one_shot_returns_low_fallback(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee(conn)
+        self._seed_shot(conn, coffee_id, 15.0, 4)
+        result = _suggest_grind_centroid(coffee_id, conn)
+        assert result is not None
+        assert result["confidence"] == "low"
+        assert result["grind"] == 15.0
+
+    def test_two_shots_weighted_toward_better(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee(conn)
+        self._seed_shot(conn, coffee_id, 14.0, 2)
+        self._seed_shot(conn, coffee_id, 20.0, 5)
+        result = _suggest_grind_centroid(coffee_id, conn)
+        # With score^2 weighting, the 5-score shot should dominate
+        assert result["grind"] > 17.0
+
+    def test_many_shots_high_confidence(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee(conn)
+        for g, s in [(16, 3), (17, 4), (18, 5), (19, 4), (20, 3), (21, 2)]:
+            self._seed_shot(conn, coffee_id, float(g), s)
+        result = _suggest_grind_centroid(coffee_id, conn)
+        assert result["confidence"] == "high"
+        # Should be near 18 (the best-scoring grind)
+        assert 16.5 < result["grind"] < 19.5
+
+    def test_custom_params_applied(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        import json
+        set_setting(conn, "grind_centroid_params", json.dumps({"top_n": 1, "decay_rate": 0, "score_weight_power": 1}))
+        coffee_id = self._seed_coffee(conn)
+        self._seed_shot(conn, coffee_id, 10.0, 3)
+        self._seed_shot(conn, coffee_id, 20.0, 5)
+        result = _suggest_grind_centroid(coffee_id, conn)
+        # top_n=1 with no decay → picks the single best shot's grind
+        assert result["grind"] == 20.0
+
+    def test_default_is_centroid(self, tmp_db):
+        """Default algorithm should be weighted_centroid."""
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee(conn)
+        self._seed_shot(conn, coffee_id, 18.0, 4)
+        self._seed_shot(conn, coffee_id, 20.0, 5)
+        # No setting written → defaults to centroid
+        result = suggest_grind(coffee_id, conn)
+        assert result is not None
+
+
+class TestSuggestGrindBayesian(_GrindTestBase):
+    """Tests for the Bayesian quadratic algorithm (Perplexity)."""
+
+    def test_no_data_returns_none(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee(conn)
+        result = _suggest_grind_bayesian(coffee_id, conn)
+        assert result is None
+
+    def test_two_shots_low_fallback(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee(conn)
+        self._seed_shot(conn, coffee_id, 15.0, 3)
+        self._seed_shot(conn, coffee_id, 20.0, 5)
+        result = _suggest_grind_bayesian(coffee_id, conn)
+        assert result["confidence"] == "low"
+
+    def test_parabola_finds_peak(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee(conn)
+        # Clear parabola: peak at 19
+        for g, s in [(16, 2), (17, 3), (18, 4), (19, 5), (20, 4), (21, 3), (22, 2)]:
+            self._seed_shot(conn, coffee_id, float(g), s)
+        result = _suggest_grind_bayesian(coffee_id, conn)
+        assert result is not None
+        assert result["confidence"] == "high"
+        # Regularization may shift slightly from 19, but should be close
+        assert 17.5 < result["grind"] < 20.5
+
+    def test_regularization_prevents_wild_extrapolation(self, tmp_db):
+        """With high prior_strength, the model should be conservative."""
+        conn = self._make_conn(tmp_db)
+        import json
+        set_setting(conn, "grind_bayesian_params", json.dumps({"prior_strength": 10.0, "decay_rate": 0, "use_recency": False}))
+        coffee_id = self._seed_coffee(conn)
+        # Noisy data with slight trend
+        self._seed_shot(conn, coffee_id, 10.0, 3)
+        self._seed_shot(conn, coffee_id, 20.0, 4)
+        self._seed_shot(conn, coffee_id, 30.0, 3)
+        result = _suggest_grind_bayesian(coffee_id, conn)
+        assert result is not None
+        # Strong regularization → grind should be within observed range
+        assert 10.0 <= result["grind"] <= 30.0
+
+    def test_dispatch_bayesian(self, tmp_db):
+        """Algorithm dispatch to bayesian works."""
+        conn = self._make_conn(tmp_db)
+        set_setting(conn, "grind_algorithm", "bayesian_quadratic")
+        coffee_id = self._seed_coffee(conn)
+        for g, s in [(18, 3), (20, 5), (22, 3)]:
+            self._seed_shot(conn, coffee_id, float(g), s)
+        result = suggest_grind(coffee_id, conn)
+        assert result is not None
+        assert "Cautious curve" in result["detail"]
+
+
+class TestAppSettings:
+    """Tests for the app_settings table and helpers."""
+
+    def _make_conn(self, tmp_db):
+        conn = sqlite3.connect(tmp_db)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys=ON")
+        return conn
+
+    def test_get_setting_default(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        assert get_setting(conn, "nonexistent", "fallback") == "fallback"
+
+    def test_get_setting_none_default(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        assert get_setting(conn, "nonexistent") is None
+
+    def test_set_and_get(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        set_setting(conn, "test_key", "test_val")
+        assert get_setting(conn, "test_key") == "test_val"
+
+    def test_upsert(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        set_setting(conn, "k", "v1")
+        set_setting(conn, "k", "v2")
+        assert get_setting(conn, "k") == "v2"
+
+
+class TestSettingsGrindRoutes:
+    """Tests for the /settings/grind routes."""
+
+    def test_get_settings_grind(self, client):
+        resp = client.get("/settings/grind")
+        assert resp.status_code == 200
+        assert b"Grind Optimizer" in resp.data
+
+    def test_save_settings_grind(self, client, tmp_db):
+        resp = client.post("/settings/grind/save", data={
+            "algorithm": "bayesian_quadratic",
+            "centroid_decay_rate": "0.1",
+            "centroid_top_n": "5",
+            "centroid_score_power": "3",
+            "bayesian_prior_strength": "2.0",
+            "bayesian_decay_rate": "0.08",
+            "bayesian_use_recency": "1",
+        })
+        assert resp.status_code == 302  # redirect
+
+        conn = sqlite3.connect(tmp_db)
+        conn.row_factory = sqlite3.Row
+        assert get_setting(conn, "grind_algorithm") == "bayesian_quadratic"
+
+    def test_save_invalid_algo_defaults_centroid(self, client, tmp_db):
+        resp = client.post("/settings/grind/save", data={"algorithm": "invalid"})
+        assert resp.status_code == 302
+        conn = sqlite3.connect(tmp_db)
+        conn.row_factory = sqlite3.Row
+        assert get_setting(conn, "grind_algorithm") == "weighted_centroid"
+
+    def test_auto_save_returns_json(self, client):
+        resp = client.post("/settings/grind/save",
+                           data={"algorithm": "quadratic"},
+                           headers={"X-Auto-Save": "1"})
+        assert resp.status_code == 200
+        assert resp.get_json()["ok"] is True
+
+
+# ===========================================================================
+# NEW TESTS — appended after TestSettingsGrindRoutes
+# ===========================================================================
+
+
+class TestExtractScore:
+    """Tests for _extract_score — the per-row score extraction helper."""
+
+    def _row(self, **kwargs):
+        """Return a dict that quacks like a sqlite3.Row for _extract_score."""
+        defaults = {
+            "overall": None,
+            "aroma": None,
+            "acidity": None,
+            "sweetness": None,
+            "body": None,
+            "balance": None,
+            "grams_out": None,
+        }
+        defaults.update(kwargs)
+        return defaults
+
+    def test_overall_default(self):
+        row = self._row(overall=4)
+        assert _extract_score(row, "overall") == 4
+
+    def test_taste_avg(self):
+        row = self._row(aroma=3, acidity=5, sweetness=4, body=2, balance=4)
+        result = _extract_score(row, "taste_avg")
+        assert result == 3.6
+
+    def test_taste_avg_with_none_dims(self):
+        # Only aroma=3 and acidity=5 are valid; others are None
+        row = self._row(aroma=3, acidity=5, sweetness=None, body=None, balance=None)
+        result = _extract_score(row, "taste_avg")
+        assert result == 4.0
+
+    def test_ratio_accuracy_within_1g(self):
+        row = self._row(grams_out=36)
+        assert _extract_score(row, "ratio_accuracy", target_out=36) == 5.0
+
+    def test_ratio_accuracy_within_2g(self):
+        row = self._row(grams_out=38)
+        assert _extract_score(row, "ratio_accuracy", target_out=36) == 4.0
+
+    def test_ratio_accuracy_within_4g(self):
+        row = self._row(grams_out=40)
+        assert _extract_score(row, "ratio_accuracy", target_out=36) == 3.0
+
+    def test_ratio_accuracy_within_7g(self):
+        row = self._row(grams_out=43)
+        assert _extract_score(row, "ratio_accuracy", target_out=36) == 2.0
+
+    def test_ratio_accuracy_beyond_7g(self):
+        row = self._row(grams_out=50)
+        assert _extract_score(row, "ratio_accuracy", target_out=36) == 1.0
+
+    def test_ratio_accuracy_no_target(self):
+        row = self._row(grams_out=36)
+        assert _extract_score(row, "ratio_accuracy", target_out=None) is None
+
+    def test_single_dimension_sweetness(self):
+        row = self._row(sweetness=5)
+        assert _extract_score(row, "sweetness") == 5
+
+    def test_single_dimension_acidity(self):
+        row = self._row(acidity=2)
+        assert _extract_score(row, "acidity") == 2
+
+    def test_single_dimension_body(self):
+        row = self._row(body=3)
+        assert _extract_score(row, "body") == 3
+
+    def test_single_dimension_balance(self):
+        row = self._row(balance=4)
+        assert _extract_score(row, "balance") == 4
+
+    def test_single_dimension_aroma(self):
+        row = self._row(aroma=1)
+        assert _extract_score(row, "aroma") == 1
+
+    def test_taste_avg_all_none_returns_none(self):
+        row = self._row()
+        assert _extract_score(row, "taste_avg") is None
+
+    def test_ratio_accuracy_exact_boundary_1g(self):
+        # dev == 1 is still within_1 → 5.0
+        row = self._row(grams_out=37)
+        assert _extract_score(row, "ratio_accuracy", target_out=36) == 5.0
+
+    def test_ratio_accuracy_exact_boundary_2g(self):
+        # dev == 2 → 4.0
+        row = self._row(grams_out=34)
+        assert _extract_score(row, "ratio_accuracy", target_out=36) == 4.0
+
+
+class TestGrindRowsFiltering(_GrindTestBase):
+    """Tests for _grind_rows recipe-matching filter logic."""
+
+    def _seed_shot_with_params(self, conn, coffee_id, grind, overall, temp=None, dose=18.0):
+        """Insert a sample+evaluation with custom temp/dose."""
+        cur = conn.execute(
+            "INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec, brew_temp_c) VALUES (?,?,?,?,?,?)",
+            (coffee_id, grind, dose, 36, 28, temp),
+        )
+        sample_id = cur.lastrowid
+        conn.execute(
+            "INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall) VALUES (?,?,?,?,?,?,?)",
+            (sample_id, 3, 3, 3, 3, 3, overall),
+        )
+        conn.commit()
+        return sample_id
+
+    def _set_match_recipe(self, conn, temp_tolerance=2.0, dose_tolerance=1.0):
+        import json
+        set_setting(conn, "grind_filter_params", json.dumps({
+            "score_source": "overall",
+            "match_recipe": True,
+            "temp_tolerance": temp_tolerance,
+            "dose_tolerance": dose_tolerance,
+        }))
+
+    def test_match_recipe_filters_by_temp(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee(conn)
+        # Two shots at 91°C, one at 95°C (outside tolerance=2 from latest at 91°C)
+        self._seed_shot_with_params(conn, coffee_id, grind=18.0, overall=3, temp=95.0)
+        self._seed_shot_with_params(conn, coffee_id, grind=19.0, overall=4, temp=91.0)
+        self._seed_shot_with_params(conn, coffee_id, grind=20.0, overall=5, temp=91.0)  # latest
+        self._set_match_recipe(conn, temp_tolerance=2.0)
+        rows = _grind_rows(coffee_id, conn)
+        # Only the two 91°C shots should survive
+        assert len(rows) == 2
+        temps = {r.get("brew_temp_c") for r in rows}
+        assert temps == {91.0}
+
+    def test_match_recipe_filters_by_dose(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee(conn)
+        # Two shots at 18g dose, one at 22g (outside tolerance=1 from latest at 18g)
+        self._seed_shot_with_params(conn, coffee_id, grind=18.0, overall=3, dose=22.0)
+        self._seed_shot_with_params(conn, coffee_id, grind=19.0, overall=4, dose=18.0)
+        self._seed_shot_with_params(conn, coffee_id, grind=20.0, overall=5, dose=18.0)  # latest
+        self._set_match_recipe(conn, dose_tolerance=1.0)
+        rows = _grind_rows(coffee_id, conn)
+        # Only the two 18g shots should survive
+        assert len(rows) == 2
+        doses = {r["grams_in"] for r in rows}
+        assert doses == {18.0}
+
+    def test_match_recipe_off_includes_all(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        import json
+        set_setting(conn, "grind_filter_params", json.dumps({
+            "score_source": "overall",
+            "match_recipe": False,
+            "temp_tolerance": 2.0,
+            "dose_tolerance": 1.0,
+        }))
+        coffee_id = self._seed_coffee(conn)
+        self._seed_shot_with_params(conn, coffee_id, grind=18.0, overall=3, temp=88.0)
+        self._seed_shot_with_params(conn, coffee_id, grind=19.0, overall=4, temp=91.0)
+        self._seed_shot_with_params(conn, coffee_id, grind=20.0, overall=5, temp=95.0)
+        rows = _grind_rows(coffee_id, conn)
+        assert len(rows) == 3
+
+    def test_no_shots_returns_empty(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee(conn)
+        rows = _grind_rows(coffee_id, conn)
+        assert rows == []
+
+
+class TestCrossCoffeePrior(_GrindTestBase):
+    """Tests for _cross_coffee_prior — grind starting-point from other coffees."""
+
+    def _seed_coffee_full(self, conn, label, process=None, bean_color=None):
+        """Insert a coffee with process and bean_color set."""
+        cur = conn.execute(
+            "INSERT INTO coffees (label, process, bean_color) VALUES (?,?,?)",
+            (label, process, bean_color),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+    def _seed_three_shots(self, conn, coffee_id, grind=18.0):
+        """Seed 3 shots to meet the prior's minimum shot count."""
+        for i in range(3):
+            self._seed_shot(conn, coffee_id, grind + i * 0.5, 4)
+
+    def test_no_other_coffees_returns_none(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee_full(conn, "Solo Coffee", process="Washed", bean_color="Medium")
+        # Give this coffee shots (prior excludes the target coffee itself)
+        self._seed_three_shots(conn, coffee_id)
+        result = _cross_coffee_prior(coffee_id, conn)
+        assert result is None
+
+    def test_same_process_and_color(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        # Target coffee — no shots yet
+        target_id = self._seed_coffee_full(conn, "Target", process="Natural", bean_color="Medium")
+        # Other coffee — same process + bean_color, 3 shots at grind ~20
+        other_id = self._seed_coffee_full(conn, "Other", process="Natural", bean_color="Medium")
+        self._seed_three_shots(conn, other_id, grind=20.0)
+        result = _cross_coffee_prior(target_id, conn)
+        assert result is not None
+        assert "Natural" in result["match"]
+        assert "Medium" in result["match"]
+        assert abs(result["grind"] - 20.25) < 0.5
+
+    def test_fallback_to_process_only(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        target_id = self._seed_coffee_full(conn, "Target", process="Washed", bean_color="Dark")
+        # Other coffee — same process, different bean_color
+        other_id = self._seed_coffee_full(conn, "Other", process="Washed", bean_color="Light")
+        self._seed_three_shots(conn, other_id, grind=17.0)
+        result = _cross_coffee_prior(target_id, conn)
+        assert result is not None
+        assert "Washed" in result["match"]
+
+    def test_fallback_to_all(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        target_id = self._seed_coffee_full(conn, "Target", process="Natural", bean_color="Dark")
+        # Other coffee — different process and bean_color
+        other_id = self._seed_coffee_full(conn, "Other", process="Washed", bean_color="Light")
+        self._seed_three_shots(conn, other_id, grind=19.0)
+        result = _cross_coffee_prior(target_id, conn)
+        assert result is not None
+        assert result["match"] == "all your coffees"
+
+    def test_missing_process_and_color_fallback_to_all(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        target_id = self._seed_coffee_full(conn, "Target", process=None, bean_color=None)
+        other_id = self._seed_coffee_full(conn, "Other", process="Washed", bean_color="Medium")
+        self._seed_three_shots(conn, other_id, grind=18.0)
+        result = _cross_coffee_prior(target_id, conn)
+        assert result is not None
+        assert result["match"] == "all your coffees"
+
+    def test_other_coffee_below_min_shots_skipped(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        target_id = self._seed_coffee_full(conn, "Target", process="Natural", bean_color="Medium")
+        # Other coffee with same attrs but only 2 shots (below threshold of 3)
+        other_id = self._seed_coffee_full(conn, "Other", process="Natural", bean_color="Medium")
+        self._seed_shot(conn, other_id, 18.0, 4)
+        self._seed_shot(conn, other_id, 19.0, 5)
+        result = _cross_coffee_prior(target_id, conn)
+        assert result is None
+
+
+class TestPreviewAPI:
+    """Tests for the /api/grind-preview endpoint."""
+
+    def _make_shots(self, n=6):
+        """Generate n sample shots with a clear parabolic peak at grind 20."""
+        grind_values = [16, 17, 18, 19, 20, 21, 22]
+        score_values = [2, 3, 4, 5, 4, 3, 2]
+        shots = []
+        for i in range(n):
+            idx = i % len(grind_values)
+            shots.append({
+                "grind": grind_values[idx],
+                "score": score_values[idx],
+                "dose": 18,
+                "output": 36,
+                "time": 28,
+                "temp": 91,
+                "daysAgo": i,
+            })
+        return shots
+
+    def test_basic_preview(self, client):
+        payload = {
+            "shots": self._make_shots(6),
+            "algorithm": "weighted_centroid",
+        }
+        resp = client.post("/api/grind-preview", json=payload)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "grind" in data
+        assert "confidence" in data
+        assert "detail" in data
+
+    def test_preview_low_data(self, client):
+        payload = {
+            "shots": [{"grind": 18, "score": 4, "dose": 18, "output": 36, "time": 28, "temp": 91, "daysAgo": 0}],
+            "algorithm": "weighted_centroid",
+        }
+        resp = client.post("/api/grind-preview", json=payload)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        # Even low-data should return a result (grind key present, confidence low or None handled)
+        assert "grind" in data
+
+    def test_preview_empty_shots(self, client):
+        payload = {"shots": [], "algorithm": "weighted_centroid"}
+        resp = client.post("/api/grind-preview", json=payload)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "error" in data
+
+    def test_preview_ratio_accuracy(self, client):
+        shots = self._make_shots(6)
+        payload = {
+            "shots": shots,
+            "algorithm": "weighted_centroid",
+            "filter_params": {"score_source": "ratio_accuracy"},
+            "target_output": 36,
+        }
+        resp = client.post("/api/grind-preview", json=payload)
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "grind" in data
+
+    def test_preview_all_algorithms(self, client):
+        shots = self._make_shots(7)
+        for algo in ("weighted_centroid", "quadratic", "bayesian_quadratic"):
+            payload = {"shots": shots, "algorithm": algo}
+            resp = client.post("/api/grind-preview", json=payload)
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert "grind" in data, f"algorithm {algo!r} did not return grind key"
+
+    def test_preview_no_body_returns_error(self, client):
+        # Posting no JSON body — shots defaults to [] → error
+        resp = client.post("/api/grind-preview", data="", content_type="application/json")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "error" in data
+
+
+class TestSameGrindDegenerate(_GrindTestBase):
+    """Edge cases: all shots at identical grind settings (singular / degenerate input)."""
+
+    def test_all_same_grind_quadratic(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        set_setting(conn, "grind_algorithm", "quadratic")
+        coffee_id = self._seed_coffee(conn)
+        for score in [2, 3, 4, 5, 3]:
+            self._seed_shot(conn, coffee_id, 18.0, score)
+        # Must not raise; singular matrix handled gracefully
+        result = suggest_grind(coffee_id, conn)
+        assert result is not None
+        assert "grind" in result
+
+    def test_all_same_grind_bayesian(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        set_setting(conn, "grind_algorithm", "bayesian_quadratic")
+        coffee_id = self._seed_coffee(conn)
+        for score in [2, 3, 4, 5, 3]:
+            self._seed_shot(conn, coffee_id, 18.0, score)
+        result = suggest_grind(coffee_id, conn)
+        assert result is not None
+        assert "grind" in result
+
+    def test_all_same_grind_centroid(self, tmp_db):
+        conn = self._make_conn(tmp_db)
+        set_setting(conn, "grind_algorithm", "weighted_centroid")
+        coffee_id = self._seed_coffee(conn)
+        for score in [3, 4, 5, 4, 3]:
+            self._seed_shot(conn, coffee_id, 20.0, score)
+        result = suggest_grind(coffee_id, conn)
+        assert result is not None
+        assert result["grind"] == 20.0
+
+
+class TestSuggestGrindRatio(_GrindTestBase):
+    """Tests for the ratio-accuracy directed grind search algorithm."""
+
+    import json as _json
+
+    def _seed_coffee_with_target(self, conn, target_out):
+        cur = conn.execute(
+            "INSERT INTO coffees (label, default_grams_out) VALUES (?, ?)",
+            ("Ratio Test", target_out),
+        )
+        conn.commit()
+        return cur.lastrowid
+
+    def _seed_ratio_shot(self, conn, coffee_id, grind, grams_out, grams_in=18):
+        cur = conn.execute(
+            "INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec) VALUES (?,?,?,?,?)",
+            (coffee_id, grind, grams_in, grams_out, 28),
+        )
+        sample_id = cur.lastrowid
+        conn.execute(
+            "INSERT INTO evaluations (sample_id, overall) VALUES (?,?)",
+            (sample_id, 3),
+        )
+        conn.commit()
+        return sample_id
+
+    def test_no_target_output(self, tmp_db):
+        """Coffee with no default_grams_out → returns detail about setting target."""
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee(conn)  # no target set
+        result = _suggest_grind_ratio(coffee_id, conn)
+        assert result is not None
+        assert result["grind"] is None
+        assert "target" in result["detail"].lower()
+
+    def test_no_shots(self, tmp_db):
+        """Coffee with target but no shots with grams_out → returns None (no cross-coffee data)."""
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee_with_target(conn, 36)
+        result = _suggest_grind_ratio(coffee_id, conn)
+        assert result is None
+
+    def test_on_target(self, tmp_db):
+        """Latest shot output within 1g of target → On target! message."""
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee_with_target(conn, 36)
+        self._seed_ratio_shot(conn, coffee_id, 18.0, 36)
+        result = _suggest_grind_ratio(coffee_id, conn)
+        assert result is not None
+        assert "On target" in result["detail"]
+        assert result["confidence"] == "high"
+
+    def test_output_too_high_suggests_finer(self, tmp_db):
+        """Output 42g vs target 36g → suggested grind is lower than latest (finer)."""
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee_with_target(conn, 36)
+        self._seed_ratio_shot(conn, coffee_id, 18.0, 42)
+        result = _suggest_grind_ratio(coffee_id, conn)
+        assert result is not None
+        assert result["grind"] < 18.0  # finer = lower grind number
+
+    def test_output_too_low_suggests_coarser(self, tmp_db):
+        """Output 30g vs target 36g → suggested grind is higher than latest (coarser)."""
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee_with_target(conn, 36)
+        self._seed_ratio_shot(conn, coffee_id, 18.0, 30)
+        result = _suggest_grind_ratio(coffee_id, conn)
+        assert result is not None
+        assert result["grind"] > 18.0  # coarser = higher grind number
+
+    def test_sensitivity_from_history(self, tmp_db):
+        """3 shots at different grinds with clear output trend → uses learned sensitivity."""
+        import json
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee_with_target(conn, 36)
+        # Clear trend: each grind step changes output by 4g (steeper than default 2.0)
+        self._seed_ratio_shot(conn, coffee_id, 16.0, 28)
+        self._seed_ratio_shot(conn, coffee_id, 18.0, 36)
+        self._seed_ratio_shot(conn, coffee_id, 20.0, 44)
+        # Latest shot: grind=20, output=44 → 8g over target → need ~2 steps finer
+        result = _suggest_grind_ratio(coffee_id, conn)
+        assert result is not None
+        # With learned sensitivity ~4 g/step, adjustment = 8/4 = 2 steps → suggested ~18
+        # With default sensitivity 2.0, adjustment = 8/2 = 4 steps → suggested ~16
+        # Learned sensitivity should give a suggestion closer to 18 than 16
+        assert result["grind"] > 16.0
+
+    def test_single_shot_uses_default_sensitivity(self, tmp_db):
+        """1 shot → uses DEFAULT_GRIND_SENSITIVITY (2.0)."""
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee_with_target(conn, 36)
+        self._seed_ratio_shot(conn, coffee_id, 18.0, 40)  # 4g over target
+        result = _suggest_grind_ratio(coffee_id, conn)
+        assert result is not None
+        # With default sensitivity 2.0: steps = 4/2 = 2, suggested = 18 - 2 = 16
+        assert result["grind"] == 16.0
+
+    def test_reversed_grinder(self, tmp_db):
+        """finer_is_lower=False → output too high means suggest higher grind number."""
+        import json
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee_with_target(conn, 36)
+        self._seed_ratio_shot(conn, coffee_id, 18.0, 42)  # 6g over target
+        set_setting(conn, "grind_filter_params", json.dumps({
+            "score_source": "ratio_accuracy",
+            "finer_is_lower": False,
+            "match_recipe": False,
+            "temp_tolerance": 2.0,
+            "dose_tolerance": 1.0,
+        }))
+        result = _suggest_grind_ratio(coffee_id, conn)
+        assert result is not None
+        # Reversed: output too high → grind number should increase (not decrease)
+        assert result["grind"] > 18.0
+
+    def test_same_grind_all_shots(self, tmp_db):
+        """All shots at same grind → sensitivity fallback to default, no crash."""
+        conn = self._make_conn(tmp_db)
+        coffee_id = self._seed_coffee_with_target(conn, 36)
+        for out in [34, 35, 37, 38]:
+            self._seed_ratio_shot(conn, coffee_id, 18.0, out)
+        result = _suggest_grind_ratio(coffee_id, conn)
+        assert result is not None
+        assert "grind" in result
+        assert result["grind"] is not None
 
 
 class TestCoffeeRating:
@@ -806,7 +1510,7 @@ class TestCoffeeRating:
         coffee_id = self._seed(conn)
         result = coffee_rating(coffee_id, conn)
         assert result is not None
-        for key in ("tier", "css", "avg_taste", "avg_overall", "profile", "avgs", "n"):
+        for key in ("tier", "css", "quality", "avg_overall", "profile", "avgs", "n"):
             assert key in result
 
     def test_outstanding_tier(self, tmp_db):
@@ -819,13 +1523,13 @@ class TestCoffeeRating:
         assert result["css"] == "tier-outstanding"
 
     def test_excellent_tier(self, tmp_db):
-        # avg_taste just at 3.8
+        # quality = (sweetness + balance + 2*overall) / 4
         conn = self._make_conn(tmp_db)
         coffee_id = self._seed(conn, scores={
-            "aroma": 4, "acidity": 4, "sweetness": 4, "body": 4, "balance": 3, "overall": 4
+            "aroma": 3, "acidity": 3, "sweetness": 4, "body": 3, "balance": 4, "overall": 4
         })
         result = coffee_rating(coffee_id, conn)
-        # avg_taste = (4+4+4+4+3)/5 = 3.8 → Excellent
+        # quality = (4 + 4 + 8) / 4 = 4.0 → Excellent
         assert result["tier"] == "Excellent"
 
     def test_very_good_tier(self, tmp_db):
@@ -834,6 +1538,7 @@ class TestCoffeeRating:
             "aroma": 3, "acidity": 3, "sweetness": 3, "body": 3, "balance": 3, "overall": 3
         })
         result = coffee_rating(coffee_id, conn)
+        # quality = (3 + 3 + 6) / 4 = 3.0 → Very Good
         assert result["tier"] == "Very Good"
 
     def test_good_tier(self, tmp_db):
@@ -842,7 +1547,7 @@ class TestCoffeeRating:
             "aroma": 2, "acidity": 3, "sweetness": 2, "body": 2, "balance": 3, "overall": 2
         })
         result = coffee_rating(coffee_id, conn)
-        # avg = (2+3+2+2+3)/5 = 2.4 → Good
+        # quality = (2 + 3 + 4) / 4 = 2.25 → Good
         assert result["tier"] == "Good"
 
     def test_below_average_tier(self, tmp_db):
@@ -851,7 +1556,7 @@ class TestCoffeeRating:
             "aroma": 1, "acidity": 1, "sweetness": 1, "body": 2, "balance": 2, "overall": 1
         })
         result = coffee_rating(coffee_id, conn)
-        # avg = (1+1+1+2+2)/5 = 1.4 → Below Average
+        # quality = (1 + 2 + 2) / 4 = 1.25 → Below Average
         assert result["tier"] == "Below Average"
 
     def test_profile_bright_when_acidity_high(self, tmp_db):
@@ -875,6 +1580,55 @@ class TestCoffeeRating:
         coffee_id = self._seed(conn)
         result = coffee_rating(coffee_id, conn)
         assert result["n"] == 1
+
+    def test_quality_with_taste_preferences(self, tmp_db):
+        """Taste preferences should shift quality score."""
+        conn = self._make_conn(tmp_db)
+        # High sweetness preference + high sweetness score = boost
+        coffee_id = self._seed(conn, scores={
+            "aroma": 3, "acidity": 3, "sweetness": 5, "body": 3, "balance": 3, "overall": 3
+        })
+        set_setting(conn, "taste_preferences", json.dumps({
+            "sweetness": 5, "acidity": 3, "body": 3, "aroma": 3
+        }))
+        conn.commit()
+        result = coffee_rating(coffee_id, conn)
+        # quality = (balance=3 + 2*overall=6 + 1.0*sweetness=5) / (3+1) = 14/4 = 3.5
+        assert result["quality"] > 3.0  # should be boosted above default
+
+    def test_quality_clamped_at_boundaries(self, tmp_db):
+        """Quality score should never exceed 1-5 range even with extreme preferences."""
+        conn = self._make_conn(tmp_db)
+        # All dimensions 1 (low), preferences set to 1 (dislike) → negative weight on low scores
+        coffee_id = self._seed(conn, scores={
+            "aroma": 1, "acidity": 1, "sweetness": 1, "body": 1, "balance": 1, "overall": 1
+        })
+        set_setting(conn, "taste_preferences", json.dumps({
+            "sweetness": 1, "acidity": 1, "body": 1, "aroma": 1
+        }))
+        conn.commit()
+        result = coffee_rating(coffee_id, conn)
+        assert result["quality"] >= 1.0
+        assert result["quality"] <= 5.0
+
+    def test_quality_negative_preference_hurts(self, tmp_db):
+        """A dimension the user dislikes should lower quality when scored high."""
+        conn = self._make_conn(tmp_db)
+        coffee_id_high_acid = self._seed(conn, scores={
+            "aroma": 3, "acidity": 5, "sweetness": 3, "body": 3, "balance": 3, "overall": 3
+        })
+        coffee_id_low_acid = self._seed(conn, scores={
+            "aroma": 3, "acidity": 1, "sweetness": 3, "body": 3, "balance": 3, "overall": 3
+        })
+        # User dislikes acidity
+        set_setting(conn, "taste_preferences", json.dumps({
+            "sweetness": 3, "acidity": 1, "body": 3, "aroma": 3
+        }))
+        conn.commit()
+        high_acid = coffee_rating(coffee_id_high_acid, conn)
+        low_acid = coffee_rating(coffee_id_low_acid, conn)
+        # Dislike acidity + high acidity → lower quality
+        assert high_acid["quality"] < low_acid["quality"]
 
 
 class TestRenderTastingNotes:
@@ -1123,15 +1877,16 @@ class TestRouteInsights:
 
     def _seed_coffee_with_eval(self, tmp_db, process="Washed", origin="Ethiopia",
                                 variety="Bourbon", bean_color="Medium", bag_price=None,
+                                bag_weight_g=None,
                                 grind=18.0, overall=4, acidity=3, sweetness=4, body=3,
                                 balance=4, aroma=4, representative=0):
         """Insert a coffee + sample + evaluation, return (coffee_id, sample_id)."""
         conn = _get_db(tmp_db)
         cur = conn.execute(
             """INSERT INTO coffees (label, process, origin_country, variety, bean_color,
-                                    bag_price, roast_date)
-               VALUES (?, ?, ?, ?, ?, ?, '2025-01-01')""",
-            (f"{process} {origin} {variety}", process, origin, variety, bean_color, bag_price),
+                                    bag_price, bag_weight_g, roast_date)
+               VALUES (?, ?, ?, ?, ?, ?, ?, '2025-01-01')""",
+            (f"{process} {origin} {variety}", process, origin, variety, bean_color, bag_price, bag_weight_g),
         )
         coffee_id = cur.lastrowid
         cur2 = conn.execute(
@@ -1292,14 +2047,15 @@ class TestRouteInsights:
         assert b"Dark roasts:" in resp.data
 
     def test_value_finding_with_two_priced_coffees(self, client, tmp_db):
-        self._seed_coffee_with_eval(tmp_db, bag_price=10, overall=4)
-        self._seed_coffee_with_eval(tmp_db, bag_price=30, overall=3,
+        self._seed_coffee_with_eval(tmp_db, bag_price=10, bag_weight_g=250, overall=4)
+        self._seed_coffee_with_eval(tmp_db, bag_price=30, bag_weight_g=250, overall=3,
                                      origin="Colombia", variety="Caturra")
         resp = client.get("/insights")
         assert b"Best value:" in resp.data
+        assert b"/shot" in resp.data
 
     def test_value_finding_absent_with_one_priced(self, client, tmp_db):
-        self._seed_coffee_with_eval(tmp_db, bag_price=10, overall=4)
+        self._seed_coffee_with_eval(tmp_db, bag_price=10, bag_weight_g=250, overall=4)
         resp = client.get("/insights")
         # Value requires >= 2 priced coffees
         assert b"Best value:" not in resp.data

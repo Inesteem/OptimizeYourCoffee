@@ -10,7 +10,7 @@
 <body>
     <header>
         <a href="/insights" class="settings-btn" title="Insights">&#9776;</a>
-        <h1>Coffee Sampler</h1>
+        <h1>{% if show_archived %}Archived Coffees{% else %}Select A Coffee{% endif %}</h1>
         <a href="/settings/tasting-notes" class="settings-btn" title="Settings">&#9881;</a>
     </header>
 
@@ -20,10 +20,6 @@
             <span>{{ undo_label }}</span>
             <button type="submit" class="undo-btn">Undo</button>
         </form>
-        {% endif %}
-
-        {% if coffees %}
-        <h2 class="section-title-center">{% if show_archived %}Archived Coffees{% else %}Select a Coffee{% endif %}</h2>
         {% endif %}
 
         <!-- Add new coffee -->
@@ -163,6 +159,17 @@
 
         <!-- Existing coffees -->
         {% if coffees %}
+        <div class="sort-bar">
+            {% set ap = "archived=1&" if show_archived else "" %}
+            {% set flip = "asc" if sort_dir == "desc" else "desc" %}
+            {% for opt in [("newest", "Newest"), ("rating", "Rating"), ("freshest", "Freshest"), ("opened", "Opened")] %}
+            {% if sort_by == opt[0] %}
+            <a href="?{{ ap }}sort={{ opt[0] }}&dir={{ flip }}" class="sort-btn active">{{ opt[1] }} {{ "&#9650;" if sort_dir == "asc" else "&#9660;" }}</a>
+            {% else %}
+            <a href="?{{ ap }}sort={{ opt[0] }}" class="sort-btn">{{ opt[1] }}</a>
+            {% endif %}
+            {% endfor %}
+        </div>
         <section class="coffee-list">
             {% for c in coffees %}
             <div class="coffee-card-wrap">
@@ -171,7 +178,7 @@
                         <div class="coffee-label">{{ c.label }}</div>
                         <div class="card-badges">
                             {% if c.rating %}
-                            <span class="rating-badge {{ c.rating.css }}">{{ c.rating.avg_taste }}/5</span>
+                            <span class="rating-badge {{ c.rating.css }}">{{ c.rating.quality }}/5</span>
                             {% endif %}
                             {% if c.freshness %}
                             <span class="freshness-badge {{ c.freshness.css }}">{{ c.freshness.stage }}</span>
