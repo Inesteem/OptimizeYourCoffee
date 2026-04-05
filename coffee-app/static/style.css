@@ -1190,7 +1190,7 @@ header h1 {
 }
 
 .origin-map-preview {
-    width: 130px;
+    width: 155px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -1199,16 +1199,16 @@ header h1 {
 }
 
 .origin-map-preview:empty {
-    height: 130px;
+    height: 155px;
     background: #2a2a2a;
     border-radius: var(--radius);
     border: 1px dashed #444;
 }
 
 .origin-map-preview img {
-    width: 130px;
+    width: 155px;
     height: auto;
-    max-height: 130px;
+    max-height: 155px;
     object-fit: contain;
     opacity: 0.9;
 }
