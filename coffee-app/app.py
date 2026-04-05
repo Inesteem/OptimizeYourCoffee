@@ -73,13 +73,13 @@ COFFEE_COLUMNS = {"roaster", "origin_country", "origin_city", "origin_producer",
                   "best_after_days", "consume_within_days", "bag_weight_g", "bag_price",
                   "default_grams_in", "default_grams_out", "default_brew_time_sec",
                   "bean_color", "bean_size", "altitude_min", "altitude_max",
-                  "opened_date", "archived", "created_at", "updated_at"}
+                  "opened_date", "archived", "created_at", "updated_at", "deleted_at"}
 SAMPLE_COLUMNS = {"coffee_id", "grind_size", "grams_in", "grams_out", "brew_time_sec",
-                  "brew_temp_c", "days_since_roast", "days_since_opened", "notes", "created_at"}
+                  "brew_temp_c", "days_since_roast", "days_since_opened", "notes", "created_at", "deleted_at"}
 EVALUATION_COLUMNS = {"sample_id", "aroma", "acidity", "sweetness", "body", "balance",
                       "overall", "grind_aroma", "aroma_descriptors", "brew_smell_descriptors", "taste_descriptors",
                       "preheat_portafilter", "preheat_cup",
-                      "preheat_machine", "eval_notes", "with_milk", "representative", "created_at"}
+                      "preheat_machine", "eval_notes", "with_milk", "representative", "created_at", "deleted_at"}
 
 PROCESS_OPTIONS = [
     "Washed", "Natural", "Honey", "Black Honey", "Red Honey", "Yellow Honey",
@@ -171,8 +171,12 @@ def inject_globals():
     undo = session.get("undo")
     undo_label = None
     if undo:
-        if undo["type"] == "coffee":
-            undo_label = f"Deleted coffee: {undo['coffee'].get('label', '?')}"
+        # Auto-clear undo when navigating away from pages that show the banner
+        endpoint = request.endpoint
+        if endpoint not in ("index", "new_sample", "undo_delete", "undo_dismiss", "static"):
+            session.pop("undo", None)
+        elif undo["type"] == "coffee":
+            undo_label = f"Deleted coffee: {undo.get('label', '?')}"
         elif undo["type"] == "sample":
             undo_label = "Deleted sample"
     return {"v": CACHE_BUST, "undo_label": undo_label, "process_options": PROCESS_OPTIONS,
@@ -248,6 +252,7 @@ def init_db():
             ("altitude_min", "INTEGER"),
             ("altitude_max", "INTEGER"),
             ("archived", "INTEGER DEFAULT 0"),
+            ("deleted_at", "TEXT"),
         ]:
             if col not in cols:
                 conn.execute(f"ALTER TABLE coffees ADD COLUMN {col} {definition}")
@@ -275,6 +280,8 @@ def init_db():
             conn.execute("ALTER TABLE samples ADD COLUMN days_since_roast INTEGER")
         if "days_since_opened" not in sample_cols:
             conn.execute("ALTER TABLE samples ADD COLUMN days_since_opened INTEGER")
+        if "deleted_at" not in sample_cols:
+            conn.execute("ALTER TABLE samples ADD COLUMN deleted_at TEXT")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS evaluations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -312,6 +319,7 @@ def init_db():
             ("taste_descriptors", "TEXT"),
             ("eval_notes", "TEXT"),
             ("with_milk", "INTEGER DEFAULT 0"),
+            ("deleted_at", "TEXT"),
         ]:
             if ecol not in eval_cols:
                 conn.execute(f"ALTER TABLE evaluations ADD COLUMN {ecol} {edef}")
@@ -600,7 +608,8 @@ def coffee_rating(coffee_id, conn):
         """SELECT e.aroma, e.acidity, e.sweetness, e.body, e.balance, e.overall
            FROM evaluations e JOIN samples s ON e.sample_id = s.id
            WHERE s.coffee_id = ? AND e.representative = 1
-             AND e.aroma IS NOT NULL AND e.overall IS NOT NULL""",
+             AND e.aroma IS NOT NULL AND e.overall IS NOT NULL
+             AND s.deleted_at IS NULL AND e.deleted_at IS NULL""",
         (coffee_id,),
     ).fetchall()
 
@@ -795,6 +804,7 @@ def _grind_rows(coffee_id, conn):
                   e.overall, e.aroma, e.acidity, e.sweetness, e.body, e.balance
            FROM samples s JOIN evaluations e ON e.sample_id = s.id
            WHERE s.coffee_id = ? AND e.overall IS NOT NULL
+             AND s.deleted_at IS NULL AND e.deleted_at IS NULL
            ORDER BY s.created_at""",
         (coffee_id,),
     ).fetchall()
@@ -885,7 +895,8 @@ def _cross_coffee_prior(coffee_id, conn):
             FROM samples s
             JOIN evaluations e ON e.sample_id = s.id
             JOIN coffees c ON s.coffee_id = c.id
-            WHERE s.coffee_id != ? AND e.overall IS NOT NULL {where_extra}
+            WHERE s.coffee_id != ? AND e.overall IS NOT NULL
+              AND c.deleted_at IS NULL AND s.deleted_at IS NULL AND e.deleted_at IS NULL {where_extra}
         """, [coffee_id] + params).fetchone()
 
         if rows and rows["n_shots"] >= 3 and rows["n_coffees"] >= 1:
@@ -1140,6 +1151,7 @@ def _suggest_grind_ratio(coffee_id, conn):
                   s.brew_time_sec, s.created_at
            FROM samples s JOIN evaluations e ON e.sample_id = s.id
            WHERE s.coffee_id = ? AND s.grams_out IS NOT NULL AND s.grind_size IS NOT NULL
+             AND s.deleted_at IS NULL AND e.deleted_at IS NULL
            ORDER BY s.created_at""",
         (coffee_id,),
     ).fetchall()
@@ -1250,16 +1262,16 @@ def index():
         card_design = get_setting(conn, "card_design", "modern")
         if show_archived:
             coffees = conn.execute(
-                "SELECT * FROM coffees WHERE archived = 1 ORDER BY updated_at DESC"
+                "SELECT * FROM coffees WHERE archived = 1 AND deleted_at IS NULL ORDER BY updated_at DESC"
             ).fetchall()
         else:
             coffees = conn.execute(
-                "SELECT * FROM coffees WHERE archived = 0 ORDER BY created_at DESC"
+                "SELECT * FROM coffees WHERE archived = 0 AND deleted_at IS NULL ORDER BY created_at DESC"
             ).fetchall()
         # Compute used grams per coffee
         usage = {}
         for row in conn.execute(
-            "SELECT coffee_id, SUM(grams_in) as total_used FROM samples GROUP BY coffee_id"
+            "SELECT coffee_id, SUM(grams_in) as total_used FROM samples WHERE deleted_at IS NULL GROUP BY coffee_id"
         ).fetchall():
             usage[row["coffee_id"]] = row["total_used"]
     coffee_data = []
@@ -1409,25 +1421,20 @@ def archive_coffee(coffee_id):
 
 @app.route("/coffee/<int:coffee_id>/delete", methods=["POST"])
 def delete_coffee(coffee_id):
+    now = datetime.now().isoformat()
     with get_db() as conn:
-        # Store for undo
-        coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (coffee_id,)).fetchone()
-        samples = conn.execute("SELECT * FROM samples WHERE coffee_id = ?", (coffee_id,)).fetchall()
-        evals = []
-        for s in samples:
-            ev = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (s["id"],)).fetchone()
-            if ev:
-                evals.append(dict(ev))
-        if coffee:
-            session["undo"] = {
-                "type": "coffee",
-                "coffee": {k: coffee[k] for k in coffee.keys()},
-                "samples": [{k: s[k] for k in s.keys()} for s in samples],
-                "evaluations": evals,
-            }
-        conn.execute("DELETE FROM evaluations WHERE sample_id IN (SELECT id FROM samples WHERE coffee_id = ?)", (coffee_id,))
-        conn.execute("DELETE FROM samples WHERE coffee_id = ?", (coffee_id,))
-        conn.execute("DELETE FROM coffees WHERE id = ?", (coffee_id,))
+        coffee = conn.execute("SELECT * FROM coffees WHERE id = ? AND deleted_at IS NULL", (coffee_id,)).fetchone()
+        if not coffee:
+            return redirect(url_for("index"))
+        session["undo"] = {
+            "type": "coffee",
+            "coffee_id": coffee_id,
+            "label": coffee["label"],
+            "deleted_at": now,
+        }
+        conn.execute("UPDATE evaluations SET deleted_at = ? WHERE deleted_at IS NULL AND sample_id IN (SELECT id FROM samples WHERE coffee_id = ?)", (now, coffee_id))
+        conn.execute("UPDATE samples SET deleted_at = ? WHERE coffee_id = ? AND deleted_at IS NULL", (now, coffee_id))
+        conn.execute("UPDATE coffees SET deleted_at = ? WHERE id = ?", (now, coffee_id))
     return redirect(url_for("index"))
 
 
@@ -1439,8 +1446,9 @@ def new_sample(coffee_id):
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (coffee_id,)).fetchone()
         samples = conn.execute(
             """SELECT s.*, e.aroma, e.acidity, e.sweetness, e.body, e.balance, e.overall
-               FROM samples s LEFT JOIN evaluations e ON e.sample_id = s.id
-               WHERE s.coffee_id = ? ORDER BY s.created_at DESC LIMIT 20""",
+               FROM samples s LEFT JOIN evaluations e ON e.sample_id = s.id AND e.deleted_at IS NULL
+               WHERE s.coffee_id = ? AND s.deleted_at IS NULL
+               ORDER BY s.created_at DESC LIMIT 20""",
             (coffee_id,),
         ).fetchall()
     if not coffee:
@@ -1458,6 +1466,7 @@ def new_sample(coffee_id):
             """SELECT e.grind_aroma, e.aroma_descriptors
                FROM evaluations e JOIN samples s ON e.sample_id = s.id
                WHERE s.coffee_id = ? AND e.grind_aroma IS NOT NULL
+                 AND s.deleted_at IS NULL AND e.deleted_at IS NULL
                ORDER BY e.created_at DESC LIMIT 1""",
             (coffee_id,),
         ).fetchone()
@@ -1520,18 +1529,20 @@ def add_sample(coffee_id):
 
 @app.route("/sample/<int:sample_id>/delete", methods=["POST"])
 def delete_sample(sample_id):
+    now = datetime.now().isoformat()
     with get_db() as conn:
-        sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
-        ev = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
-        if sample:
-            session["undo"] = {
-                "type": "sample",
-                "sample": {k: sample[k] for k in sample.keys()},
-                "evaluation": dict(ev) if ev else None,
-            }
-        coffee_id = sample["coffee_id"] if sample else None
-        conn.execute("DELETE FROM evaluations WHERE sample_id = ?", (sample_id,))
-        conn.execute("DELETE FROM samples WHERE id = ?", (sample_id,))
+        sample = conn.execute("SELECT * FROM samples WHERE id = ? AND deleted_at IS NULL", (sample_id,)).fetchone()
+        if not sample:
+            return redirect(url_for("index"))
+        session["undo"] = {
+            "type": "sample",
+            "sample_id": sample_id,
+            "coffee_id": sample["coffee_id"],
+            "deleted_at": now,
+        }
+        coffee_id = sample["coffee_id"]
+        conn.execute("UPDATE evaluations SET deleted_at = ? WHERE sample_id = ? AND deleted_at IS NULL", (now, sample_id))
+        conn.execute("UPDATE samples SET deleted_at = ? WHERE id = ?", (now, sample_id))
     if coffee_id:
         return redirect(url_for("new_sample", coffee_id=coffee_id))
     return redirect(url_for("index"))
@@ -1545,7 +1556,7 @@ def edit_sample(sample_id):
         if not sample:
             return redirect(url_for("index"))
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
-        all_coffees = conn.execute("SELECT id, label FROM coffees WHERE archived = 0 ORDER BY label").fetchall()
+        all_coffees = conn.execute("SELECT id, label FROM coffees WHERE archived = 0 AND deleted_at IS NULL ORDER BY label").fetchall()
     from_eval = request.args.get("from") == "eval"
     return render_template("edit_sample.html", sample=sample, coffee=coffee,
                            all_coffees=all_coffees, from_eval=from_eval)
@@ -1581,6 +1592,12 @@ def save_sample(sample_id):
     return redirect(url_for("new_sample", coffee_id=target))
 
 
+@app.route("/undo/dismiss", methods=["POST"])
+def undo_dismiss():
+    session.pop("undo", None)
+    return "", 204
+
+
 @app.route("/undo", methods=["POST"])
 def undo_delete():
     undo = session.pop("undo", None)
@@ -1589,48 +1606,20 @@ def undo_delete():
 
     with get_db() as conn:
         if undo["type"] == "coffee":
-            c = undo["coffee"]
-            cols = [k for k in c if k != "id" and k in COFFEE_COLUMNS]
-            placeholders = ",".join("?" for _ in cols)
-            conn.execute(
-                f"INSERT INTO coffees ({','.join(cols)}) VALUES ({placeholders})",
-                [c[k] for k in cols],
-            )
-            new_cid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-            for s in undo.get("samples", []):
-                old_sid = s["id"]
-                s_cols = [k for k in s if k not in ("id", "ratio") and k in SAMPLE_COLUMNS]
-                s_vals = [new_cid if k == "coffee_id" else s[k] for k in s_cols]
-                conn.execute(
-                    f"INSERT INTO samples ({','.join(s_cols)}) VALUES ({','.join('?' for _ in s_cols)})",
-                    s_vals,
-                )
-                new_sid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-                for ev in undo.get("evaluations", []):
-                    if ev.get("sample_id") == old_sid:
-                        ev_cols = [k for k in ev if k not in ("id", "sample_id") and k in EVALUATION_COLUMNS]
-                        conn.execute(
-                            f"INSERT INTO evaluations (sample_id,{','.join(ev_cols)}) VALUES (?,{','.join('?' for _ in ev_cols)})",
-                            [new_sid] + [ev[k] for k in ev_cols],
-                        )
-            return redirect(url_for("new_sample", coffee_id=new_cid))
+            cid = undo["coffee_id"]
+            ts = undo.get("deleted_at")
+            conn.execute("UPDATE coffees SET deleted_at = NULL WHERE id = ? AND deleted_at = ?", (cid, ts))
+            conn.execute("UPDATE samples SET deleted_at = NULL WHERE coffee_id = ? AND deleted_at = ?", (cid, ts))
+            conn.execute("""UPDATE evaluations SET deleted_at = NULL
+                            WHERE deleted_at = ? AND sample_id IN (SELECT id FROM samples WHERE coffee_id = ?)""", (ts, cid))
+            return redirect(url_for("new_sample", coffee_id=cid))
 
         elif undo["type"] == "sample":
-            s = undo["sample"]
-            s_cols = [k for k in s if k not in ("id", "ratio") and k in SAMPLE_COLUMNS]
-            conn.execute(
-                f"INSERT INTO samples ({','.join(s_cols)}) VALUES ({','.join('?' for _ in s_cols)})",
-                [s[k] for k in s_cols],
-            )
-            new_sid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-            ev = undo.get("evaluation")
-            if ev:
-                ev_cols = [k for k in ev if k not in ("id", "sample_id") and k in EVALUATION_COLUMNS]
-                conn.execute(
-                    f"INSERT INTO evaluations (sample_id,{','.join(ev_cols)}) VALUES (?,{','.join('?' for _ in ev_cols)})",
-                    [new_sid] + [ev[k] for k in ev_cols],
-                )
-            return redirect(url_for("new_sample", coffee_id=s["coffee_id"]))
+            sid = undo["sample_id"]
+            ts = undo.get("deleted_at")
+            conn.execute("UPDATE samples SET deleted_at = NULL WHERE id = ? AND deleted_at = ?", (sid, ts))
+            conn.execute("UPDATE evaluations SET deleted_at = NULL WHERE sample_id = ? AND deleted_at = ?", (sid, ts))
+            return redirect(url_for("new_sample", coffee_id=undo["coffee_id"]))
 
     return redirect(url_for("index"))
 
@@ -1665,7 +1654,9 @@ def insights():
             FROM coffees c
             JOIN samples s ON s.coffee_id = c.id
             JOIN evaluations e ON e.sample_id = s.id
-            WHERE e.overall IS NOT NULL {rep_filter} {score_filter}
+            WHERE e.overall IS NOT NULL
+              AND c.deleted_at IS NULL AND s.deleted_at IS NULL AND e.deleted_at IS NULL
+              {rep_filter} {score_filter}
             GROUP BY c.id
         """, query_params).fetchall()
 
@@ -1853,13 +1844,14 @@ def coffee_stats(coffee_id):
 
         samples = conn.execute(
             """SELECT s.*, e.aroma, e.acidity, e.sweetness, e.body, e.balance, e.overall, e.representative
-               FROM samples s LEFT JOIN evaluations e ON e.sample_id = s.id
-               WHERE s.coffee_id = ? ORDER BY s.created_at ASC""",
+               FROM samples s LEFT JOIN evaluations e ON e.sample_id = s.id AND e.deleted_at IS NULL
+               WHERE s.coffee_id = ? AND s.deleted_at IS NULL
+               ORDER BY s.created_at ASC""",
             (coffee_id,),
         ).fetchall()
 
         # All coffees for cross-coffee comparison (include archived)
-        all_coffees = conn.execute("SELECT id, label, process, archived FROM coffees").fetchall()
+        all_coffees = conn.execute("SELECT id, label, process, archived FROM coffees WHERE deleted_at IS NULL").fetchall()
         cross_data = []
         for ac in all_coffees:
             avgs = conn.execute(
@@ -1868,7 +1860,8 @@ def coffee_stats(coffee_id):
                           AVG(e.balance) as balance, AVG(e.overall) as overall,
                           COUNT(*) as n
                    FROM evaluations e JOIN samples s ON e.sample_id = s.id
-                   WHERE s.coffee_id = ? AND e.overall IS NOT NULL""",
+                   WHERE s.coffee_id = ? AND e.overall IS NOT NULL
+                     AND s.deleted_at IS NULL AND e.deleted_at IS NULL""",
                 (ac["id"],),
             ).fetchone()
             if avgs and avgs["n"] > 0:
@@ -1947,6 +1940,7 @@ def evaluate_sample(sample_id):
             """SELECT e.grind_aroma, e.aroma_descriptors
                FROM evaluations e JOIN samples s ON e.sample_id = s.id
                WHERE s.coffee_id = ? AND e.grind_aroma IS NOT NULL
+                 AND s.deleted_at IS NULL AND e.deleted_at IS NULL
                ORDER BY e.created_at DESC LIMIT 1""",
             (sample["coffee_id"],),
         ).fetchone()
@@ -1986,6 +1980,7 @@ def save_evaluation(sample_id):
         if not sample:
             return redirect(url_for("index"))
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
+        is_update = conn.execute("SELECT 1 FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone() is not None
 
         conn.execute("""
     INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall,
@@ -2010,6 +2005,10 @@ def save_evaluation(sample_id):
 
         evaluation = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
         freshness = freshness_status(coffee)
+
+    # Updates redirect to sample history; new evaluations show diagnostics
+    if is_update:
+        return redirect(url_for("new_sample", coffee_id=sample["coffee_id"]))
 
     # Compute ratio-based target output from actual input
     target_out = None
@@ -2138,6 +2137,33 @@ def save_design_settings():
     return jsonify({"ok": True})
 
 
+@app.route("/settings/maintenance")
+def settings_maintenance():
+    with get_db() as conn:
+        deleted_coffees = conn.execute(
+            "SELECT id, label, deleted_at FROM coffees WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC"
+        ).fetchall()
+        n_samples = conn.execute(
+            "SELECT COUNT(*) as n FROM samples WHERE deleted_at IS NOT NULL"
+        ).fetchone()["n"]
+        n_evals = conn.execute(
+            "SELECT COUNT(*) as n FROM evaluations WHERE deleted_at IS NOT NULL"
+        ).fetchone()["n"]
+    return render_template("settings_maintenance.html",
+                           deleted_coffees=deleted_coffees,
+                           n_samples=n_samples, n_evals=n_evals)
+
+
+@app.route("/settings/maintenance/purge", methods=["POST"])
+def purge_deleted():
+    with get_db() as conn:
+        conn.execute("DELETE FROM evaluations WHERE deleted_at IS NOT NULL")
+        conn.execute("DELETE FROM samples WHERE deleted_at IS NOT NULL")
+        conn.execute("DELETE FROM coffees WHERE deleted_at IS NOT NULL")
+    session.pop("undo", None)
+    return redirect(url_for("settings_maintenance"))
+
+
 @app.route("/settings/taste")
 def settings_taste():
     with get_db() as conn:
@@ -2247,16 +2273,16 @@ def api_grind_preview():
     mem = sqlite3.connect(":memory:")
     mem.row_factory = sqlite3.Row
     mem.execute("CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT)")
-    mem.execute("CREATE TABLE coffees (id INTEGER PRIMARY KEY, label TEXT, default_grams_out REAL, process TEXT, bean_color TEXT)")
+    mem.execute("CREATE TABLE coffees (id INTEGER PRIMARY KEY, label TEXT, default_grams_out REAL, process TEXT, bean_color TEXT, deleted_at TEXT)")
     mem.execute("""CREATE TABLE samples (
         id INTEGER PRIMARY KEY, coffee_id INTEGER, grind_size REAL,
         grams_in REAL, grams_out REAL, brew_time_sec INTEGER,
-        brew_temp_c REAL, created_at TIMESTAMP)""")
+        brew_temp_c REAL, created_at TIMESTAMP, deleted_at TEXT)""")
     mem.execute("""CREATE TABLE evaluations (
         id INTEGER PRIMARY KEY, sample_id INTEGER UNIQUE,
         aroma INTEGER, acidity INTEGER, sweetness INTEGER,
         body INTEGER, balance INTEGER, overall INTEGER,
-        created_at TIMESTAMP)""")
+        created_at TIMESTAMP, deleted_at TEXT)""")
 
     target_out = data.get("target_output", 36)
     mem.execute("INSERT INTO coffees (id, label, default_grams_out) VALUES (1, 'Preview', ?)", (target_out,))
@@ -2300,7 +2326,7 @@ def api_autocomplete():
     with get_db() as conn:
         for f in AUTOCOMPLETE_FIELDS:
             rows = conn.execute(
-                f"SELECT DISTINCT {f} FROM coffees WHERE {f} IS NOT NULL AND {f} != '' ORDER BY {f}"
+                f"SELECT DISTINCT {f} FROM coffees WHERE {f} IS NOT NULL AND {f} != '' AND deleted_at IS NULL ORDER BY {f}"
             ).fetchall()
             result[f] = [r[0] for r in rows]
     return jsonify(result)
@@ -2309,7 +2335,7 @@ def api_autocomplete():
 @app.route("/api/coffees")
 def api_coffees():
     with get_db() as conn:
-        rows = conn.execute("SELECT * FROM coffees ORDER BY created_at DESC").fetchall()
+        rows = conn.execute("SELECT * FROM coffees WHERE deleted_at IS NULL ORDER BY created_at DESC").fetchall()
     return jsonify([dict(r) for r in rows])
 
 
@@ -2321,7 +2347,8 @@ def api_samples():
                       e.aroma, e.acidity, e.sweetness, e.body, e.balance, e.overall
                FROM samples s
                JOIN coffees c ON s.coffee_id = c.id
-               LEFT JOIN evaluations e ON e.sample_id = s.id
+               LEFT JOIN evaluations e ON e.sample_id = s.id AND e.deleted_at IS NULL
+               WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL
                ORDER BY s.created_at DESC"""
         ).fetchall()
     return jsonify([dict(s) for s in samples])

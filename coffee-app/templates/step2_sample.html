@@ -16,10 +16,28 @@
 
     <main>
         {% if undo_label %}
-        <form action="/undo" method="POST" class="undo-banner">
+        <div class="undo-banner" id="undoBanner">
             <span>{{ undo_label }}</span>
-            <button type="submit" class="undo-btn">Undo</button>
-        </form>
+            <div class="undo-actions">
+                <form action="/undo" method="POST" class="inline">
+                    <button type="submit" class="undo-btn">Undo</button>
+                </form>
+                <button type="button" class="undo-dismiss" id="undoDismiss">&times;</button>
+            </div>
+        </div>
+        <script>
+        (function() {
+            var b = document.getElementById('undoBanner');
+            var key = 'undoDismissed';
+            var label = b.querySelector('span').textContent;
+            if (sessionStorage.getItem(key) === label) { b.remove(); return; }
+            document.getElementById('undoDismiss').addEventListener('click', function() {
+                sessionStorage.setItem(key, label);
+                b.remove();
+                fetch('/undo/dismiss', {method: 'POST'});
+            });
+        })();
+        </script>
         {% endif %}
 
         <!-- Coffee details -->
@@ -74,7 +92,7 @@
                 <div class="field">
                     <label for="brew_temp_c">Temp (&deg;C)</label>
                     <input type="number" id="brew_temp_c" name="brew_temp_c"
-                           step="0.5" min="70" max="100" value="91"
+                           step="0.1" min="70" max="100" value="91"
                            placeholder="91">
                 </div>
             </div>
@@ -87,7 +105,7 @@
                 </div>
                 <div class="eval-buttons">
                     {% for i in range(1, 6) %}
-                    <label class="eval-btn {% if prefill_grind_aroma == i %}selected{% endif %}">
+                    <label class="eval-btn">
                         <input type="radio" name="grind_aroma" value="{{ i }}"
                                {% if prefill_grind_aroma == i %}checked{% endif %}>
                         <span>{{ i }}</span>
@@ -100,7 +118,7 @@
             <h3 class="form-section-title">Grind Smell</h3>
             <div class="descriptor-chips">
                 {% for d in grind_smell_descriptors %}
-                <label class="descriptor-chip {% if d in prefill_grind_smell %}active{% endif %}">
+                <label class="descriptor-chip">
                     <input type="checkbox" name="grind_smell" value="{{ d }}"
                            {% if d in prefill_grind_smell %}checked{% endif %}>
                     <span>{{ d }}</span>
@@ -142,8 +160,8 @@
                             <td>{{ s.brew_time_sec }}s</td>
                             <td>{{ s.brew_temp_c or 91 }}&deg;</td>
                             <td>{% if s.overall %}<a href="/evaluate/{{ s.id }}" class="score-link">{{ s.overall }}/5</a>{% else %}<a href="/evaluate/{{ s.id }}" class="score-link dim">rate</a>{% endif %}</td>
-                            <td style="white-space:nowrap">
-                                <a href="/sample/{{ s.id }}/edit" class="score-link dim" title="Edit">&#9998;</a>
+                            <td class="sample-actions">
+                                <a href="/sample/{{ s.id }}/edit" class="btn-edit" title="Edit">&#9998;</a>
                                 <form action="/sample/{{ s.id }}/delete" method="POST" class="inline">
                                     <button type="submit" class="btn-del" title="Delete">x</button>
                                 </form>

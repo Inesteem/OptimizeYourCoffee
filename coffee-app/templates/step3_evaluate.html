@@ -9,7 +9,11 @@
 </head>
 <body>
     <header>
+        {% if evaluation %}
+        <span class="header-spacer" aria-hidden="true">&#9664;</span>
+        {% else %}
         <a href="/sample/{{ sample.id }}/edit?from=eval" class="back-btn">&#9664;</a>
+        {% endif %}
         <h1>Evaluate Shot</h1>
         <span class="header-spacer" aria-hidden="true">&#9664;</span>
     </header>
@@ -50,7 +54,7 @@
                 </div>
                 <div class="eval-buttons">
                     {% for i in range(1, 6) %}
-                    <label class="eval-btn {% if evaluation and evaluation[dim.key] == i %}selected{% endif %}">
+                    <label class="eval-btn">
                         <input type="radio" name="{{ dim.key }}" value="{{ i }}"
                                {% if evaluation and evaluation[dim.key] == i %}checked{% endif %}>
                         <span>{{ i }}</span>
@@ -69,7 +73,7 @@
                 <div class="eval-buttons">
                     {% set ga_val = evaluation.grind_aroma if evaluation and evaluation.grind_aroma else prefill_grind_aroma %}
                     {% for i in range(1, 6) %}
-                    <label class="eval-btn {% if ga_val == i %}selected{% endif %}">
+                    <label class="eval-btn">
                         <input type="radio" name="grind_aroma" value="{{ i }}"
                                {% if ga_val == i %}checked{% endif %}>
                         <span>{{ i }}</span>
@@ -83,7 +87,7 @@
             {% set saved_aroma = (evaluation.aroma_descriptors or '').split(',') if evaluation and evaluation.aroma_descriptors else (prefill_grind_smell or '').split(',') %}
             <div class="descriptor-chips">
                 {% for d in grind_smell_descriptors %}
-                <label class="descriptor-chip {% if d in saved_aroma %}active{% endif %}">
+                <label class="descriptor-chip">
                     <input type="checkbox" name="aroma_descriptors" value="{{ d }}"
                            {% if d in saved_aroma %}checked{% endif %}>
                     <span>{{ d }}</span>
@@ -96,7 +100,7 @@
             {% set saved_brew = (evaluation.brew_smell_descriptors or '').split(',') if evaluation and evaluation.brew_smell_descriptors else [] %}
             <div class="descriptor-chips">
                 {% for d in brew_smell_descriptors %}
-                <label class="descriptor-chip {% if d in saved_brew %}active{% endif %}">
+                <label class="descriptor-chip">
                     <input type="checkbox" name="brew_smell_descriptors" value="{{ d }}"
                            {% if d in saved_brew %}checked{% endif %}>
                     <span>{{ d }}</span>
@@ -109,7 +113,7 @@
             {% set saved_taste = (evaluation.taste_descriptors or '').split(',') if evaluation and evaluation.taste_descriptors else [] %}
             <div class="descriptor-chips">
                 {% for d in taste_descriptors %}
-                <label class="descriptor-chip {% if d in saved_taste %}active{% endif %}">
+                <label class="descriptor-chip">
                     <input type="checkbox" name="taste_descriptors" value="{{ d }}"
                            {% if d in saved_taste %}checked{% endif %}>
                     <span>{{ d }}</span>
@@ -166,11 +170,11 @@
 
             <div class="eval-actions">
                 {% if evaluation %}
+                <a href="/sample/{{ coffee.id }}" class="btn-cancel">Cancel</a>
                 <button type="submit" class="btn-add">Update</button>
-                <a href="/" class="btn-skip">Done</a>
                 {% else %}
-                <button type="submit" class="btn-add">Save Evaluation</button>
                 <a href="/sample/{{ coffee.id }}" class="btn-skip">Skip</a>
+                <button type="submit" class="btn-add">Save Evaluation</button>
                 {% endif %}
             </div>
         </form>

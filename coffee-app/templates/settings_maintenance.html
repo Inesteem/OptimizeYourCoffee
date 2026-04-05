@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Maintenance</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ v }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='simple-keyboard.css') }}">
+</head>
+<body>
+    <header>
+        <a href="/" class="back-btn">&#9664;</a>
+        <h1>Settings</h1>
+        <span class="header-spacer" aria-hidden="true">&#9664;</span>
+    </header>
+
+    <main>
+        <nav class="settings-tabs">
+            <a href="/settings/tasting-notes" class="settings-tab">Tasting Notes</a>
+            <a href="/settings/grind" class="settings-tab">Grind Optimizer</a>
+            <a href="/settings/taste" class="settings-tab">Taste Profile</a>
+            <a href="/settings/design" class="settings-tab">Design</a>
+            <a href="/settings/maintenance" class="settings-tab active">Maintenance</a>
+        </nav>
+
+        <div class="algo-assumption">Manage soft-deleted data. Deleted items can be undone until permanently purged.</div>
+
+        {% if deleted_coffees or n_samples > 0 or n_evals > 0 %}
+        <div class="maintenance-summary">
+            <p><strong>{{ deleted_coffees|length }}</strong> deleted coffee{{ "s" if deleted_coffees|length != 1 }},
+               <strong>{{ n_samples }}</strong> deleted sample{{ "s" if n_samples != 1 }},
+               <strong>{{ n_evals }}</strong> deleted evaluation{{ "s" if n_evals != 1 }}</p>
+        </div>
+
+        {% if deleted_coffees %}
+        <div class="maintenance-list">
+            {% for c in deleted_coffees %}
+            <div class="maintenance-item">
+                <span>{{ c.label }}</span>
+                <span class="maintenance-date">{{ c.deleted_at[:10] }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form action="/settings/maintenance/purge" method="POST" style="margin-top: 16px;">
+            <button type="submit" class="btn-delete-coffee"
+                    onclick="return confirm('Permanently delete all soft-deleted data? This cannot be undone.')">
+                Permanently Delete All
+            </button>
+        </form>
+        {% else %}
+        <div class="maintenance-summary">
+            <p>No deleted items to clean up.</p>
+        </div>
+        {% endif %}
+    </main>
+</body>
+</html>

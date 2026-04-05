@@ -370,26 +370,55 @@ class TestDeleteCoffee:
         conn.commit()
         return coffee_id, sample_id
 
-    def test_delete_coffee_removes_coffee(self, client, tmp_db):
+    def test_delete_coffee_soft_deletes(self, client, tmp_db):
         coffee_id, _ = self._seed_full(tmp_db)
         client.post(f"/coffee/{coffee_id}/delete")
         conn = _get_db(tmp_db)
         row = conn.execute("SELECT * FROM coffees WHERE id=?", (coffee_id,)).fetchone()
-        assert row is None
+        assert row is not None
+        assert row["deleted_at"] is not None
 
-    def test_delete_coffee_cascades_to_samples(self, client, tmp_db):
+    def test_delete_coffee_soft_deletes_samples(self, client, tmp_db):
         coffee_id, _ = self._seed_full(tmp_db)
         client.post(f"/coffee/{coffee_id}/delete")
         conn = _get_db(tmp_db)
         rows = conn.execute("SELECT * FROM samples WHERE coffee_id=?", (coffee_id,)).fetchall()
-        assert rows == []
+        assert len(rows) == 1
+        assert rows[0]["deleted_at"] is not None
 
-    def test_delete_coffee_cascades_to_evaluations(self, client, tmp_db):
+    def test_delete_coffee_soft_deletes_evaluations(self, client, tmp_db):
         coffee_id, sample_id = self._seed_full(tmp_db)
         client.post(f"/coffee/{coffee_id}/delete")
         conn = _get_db(tmp_db)
         rows = conn.execute("SELECT * FROM evaluations WHERE sample_id=?", (sample_id,)).fetchall()
-        assert rows == []
+        assert len(rows) == 1
+        assert rows[0]["deleted_at"] is not None
+
+    def test_delete_coffee_hidden_from_index(self, client, tmp_db):
+        coffee_id, _ = self._seed_full(tmp_db)
+        client.post(f"/coffee/{coffee_id}/delete")
+        # Dismiss the undo so the banner doesn't contain the label
+        client.post("/undo/dismiss")
+        resp = client.get("/")
+        assert b"Delete Me" not in resp.data
+
+    def test_undo_coffee_restores(self, client, tmp_db):
+        coffee_id, _ = self._seed_full(tmp_db)
+        client.post(f"/coffee/{coffee_id}/delete")
+        client.post("/undo")
+        conn = _get_db(tmp_db)
+        row = conn.execute("SELECT * FROM coffees WHERE id=?", (coffee_id,)).fetchone()
+        assert row["deleted_at"] is None
+        samples = conn.execute("SELECT * FROM samples WHERE coffee_id=?", (coffee_id,)).fetchall()
+        assert all(s["deleted_at"] is None for s in samples)
+
+    def test_purge_permanently_deletes(self, client, tmp_db):
+        coffee_id, _ = self._seed_full(tmp_db)
+        client.post(f"/coffee/{coffee_id}/delete")
+        client.post("/settings/maintenance/purge")
+        conn = _get_db(tmp_db)
+        row = conn.execute("SELECT * FROM coffees WHERE id=?", (coffee_id,)).fetchone()
+        assert row is None
 
     def test_delete_coffee_redirects(self, client, tmp_db):
         coffee_id, _ = self._seed_full(tmp_db)

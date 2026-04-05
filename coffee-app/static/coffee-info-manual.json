@@ -3,118 +3,79 @@
     "Red Bourbon": {
       "species": "Arabica",
       "desc": "A color variant of Bourbon with red-skinned cherries. Prized for its sweetness and complexity at high altitudes. Widely grown in Central and South America, Rwanda, and Burundi.",
-      "stature": "Tall",
-      "leaf_tip": "Green",
       "bean_size": "Average",
-      "yield_potential": "Medium",
       "optimal_altitude": "High"
     },
     "Yellow Bourbon": {
       "species": "Arabica",
       "desc": "A Bourbon mutation with yellow cherries, most associated with Brazilian specialty coffee. Often sweeter and less acidic than Red Bourbon.",
-      "stature": "Tall",
-      "leaf_tip": "Green",
       "bean_size": "Average",
-      "yield_potential": "Medium",
       "optimal_altitude": "High"
     },
     "Orange Bourbon": {
       "species": "Arabica",
       "desc": "A rare Bourbon mutation with orange-skinned cherries. Intermediate flavor profile between Red and Yellow Bourbon. Primarily found in Brazil and El Salvador.",
-      "stature": "Tall",
-      "leaf_tip": "Green",
       "bean_size": "Average",
-      "yield_potential": "Medium",
       "optimal_altitude": "High"
     },
     "Pink Bourbon": {
       "species": "Arabica",
       "desc": "A Bourbon variant with pink cherries, possibly a hybrid with Ethiopian varieties. Known for floral, tea-like complexity. Increasingly popular in Colombian specialty lots.",
-      "stature": "Tall",
-      "leaf_tip": "Green or Bronze",
       "bean_size": "Average",
-      "yield_potential": "Low",
       "optimal_altitude": "High"
     },
     "Heirloom": {
       "species": "Arabica",
       "desc": "Umbrella term for uncharacterized indigenous Ethiopian varieties, typically wild forest or semi-forest coffee. Genetically diverse — each lot may contain dozens of distinct landraces. Prized for complex fruit, floral, and tea-like cup profiles.",
-      "stature": "Tall",
-      "leaf_tip": "Bronze or Green",
       "bean_size": "Small to Average",
-      "yield_potential": "Low to Medium",
       "optimal_altitude": "High"
     },
     "Ethiopian Heirloom": {
       "species": "Arabica",
       "desc": "Synonym for Heirloom. Uncharacterized indigenous Ethiopian landraces grown in Yirgacheffe, Sidamo, Guji, and forest regions. Extreme genetic diversity within a single lot.",
-      "stature": "Tall",
-      "leaf_tip": "Bronze or Green",
       "bean_size": "Small to Average",
-      "yield_potential": "Low to Medium",
       "optimal_altitude": "High"
     },
     "Gesha": {
       "species": "Arabica",
       "desc": "Originally from the Gesha forest in Ethiopia, made famous by Panama's Hacienda La Esmeralda. Exceptionally floral and tea-like with jasmine, bergamot, and tropical fruit notes. Commands the highest auction prices in specialty coffee.",
-      "stature": "Tall",
-      "leaf_tip": "Bronze",
       "bean_size": "Large",
-      "yield_potential": "Low",
       "optimal_altitude": "High"
     },
     "Geisha": {
       "species": "Arabica",
       "desc": "Alternative spelling of Gesha. Same variety — named after the Gesha village/forest in southwestern Ethiopia. The 'Geisha' spelling became common through Panama but 'Gesha' is the original.",
-      "stature": "Tall",
-      "leaf_tip": "Bronze",
       "bean_size": "Large",
-      "yield_potential": "Low",
       "optimal_altitude": "High"
     },
     "Castillo": {
       "species": "Arabica",
       "desc": "Colombian hybrid bred by Cenicafé for leaf rust resistance. Combines Caturra with Timor Hybrid genetics. Once dismissed for cup quality, modern selections score competitively with traditional varieties at high altitudes.",
-      "stature": "Dwarf/Compact",
-      "leaf_tip": "Green or Bronze",
       "bean_size": "Large",
-      "yield_potential": "High",
       "optimal_altitude": "Medium , High"
     },
     "Sidra": {
       "species": "Arabica",
       "desc": "A rare Typica-Bourbon hybrid found primarily in Ecuador. Exceptional cup complexity with red fruit, floral, and wine-like characteristics. Increasingly sought after in competition lots.",
-      "stature": "Tall",
-      "leaf_tip": "Bronze",
       "bean_size": "Large",
-      "yield_potential": "Low",
       "optimal_altitude": "High"
     },
     "Robusta": {
       "species": "Canephora",
       "desc": "Coffea canephora — higher caffeine, more disease-resistant, and easier to grow than Arabica. Traditionally used for instant coffee and blends, but 'Fine Robusta' specialty movement is growing. Earthy, nutty, full-bodied.",
-      "stature": "Tall",
-      "leaf_tip": "Green",
       "bean_size": "Small",
-      "yield_potential": "High",
       "optimal_altitude": "Low"
     },
     "Maragogype": {
       "species": "Arabica",
       "desc": "A Typica mutation discovered in Maragogipe, Brazil. Known for exceptionally large beans ('elephant beans'). Mild, smooth cup with low acidity. Low yields limit commercial viability.",
-      "stature": "Tall",
-      "leaf_tip": "Green",
       "bean_size": "Very Large",
-      "yield_potential": "Low",
       "optimal_altitude": "Medium , High"
     },
     "Chiroso": {
       "species": "Arabica",
       "desc": "A Colombian landrace recently gaining specialty attention, primarily from Antioquia. Delicate, tea-like body with bright floral and citrus notes. Genetically related to Ethiopian varieties.",
-      "stature": "Tall",
-      "leaf_tip": "Bronze",
       "bean_size": "Average",
-      "yield_potential": "Low",
       "optimal_altitude": "High"
     }
   }

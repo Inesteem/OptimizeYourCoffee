@@ -16,10 +16,28 @@
 
     <main>
         {% if undo_label %}
-        <form action="/undo" method="POST" class="undo-banner">
+        <div class="undo-banner" id="undoBanner">
             <span>{{ undo_label }}</span>
-            <button type="submit" class="undo-btn">Undo</button>
-        </form>
+            <div class="undo-actions">
+                <form action="/undo" method="POST" class="inline">
+                    <button type="submit" class="undo-btn">Undo</button>
+                </form>
+                <button type="button" class="undo-dismiss" id="undoDismiss">&times;</button>
+            </div>
+        </div>
+        <script>
+        (function() {
+            var b = document.getElementById('undoBanner');
+            var key = 'undoDismissed';
+            var label = b.querySelector('span').textContent;
+            if (sessionStorage.getItem(key) === label) { b.remove(); return; }
+            document.getElementById('undoDismiss').addEventListener('click', function() {
+                sessionStorage.setItem(key, label);
+                b.remove();
+                fetch('/undo/dismiss', {method: 'POST'});
+            });
+        })();
+        </script>
         {% endif %}
 
         <!-- Add new coffee -->
