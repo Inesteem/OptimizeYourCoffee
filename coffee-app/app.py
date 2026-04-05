@@ -1153,18 +1153,21 @@ def _suggest_grind_ratio(coffee_id, conn):
 
     rows = _apply_recipe_filter(rows, filt)
 
-    latest = rows[-1]
-    latest_grind = latest["grind_size"]
-    latest_out = latest["grams_out"]
-    dev = latest_out - target_out
+    grinds = [r["grind_size"] for r in rows]
+    outputs = [r["grams_out"] for r in rows]
+    n = len(rows)
+
+    # Check if any past shot already hit the target — suggest that grind directly
+    best_shot = min(rows, key=lambda r: abs(r["grams_out"] - target_out))
+    best_dev = abs(best_shot["grams_out"] - target_out)
+    if best_dev <= 1:
+        return {"grind": round(best_shot["grind_size"], 1), "confidence": "high",
+                "detail": f"Best shot hit {best_shot['grams_out']:.0f}g (target {target_out:.0f}g) at grind {best_shot['grind_size']}. Use that grind."}
 
     # Estimate grind sensitivity from history (grams output change per grind step)
     sensitivity = DEFAULT_GRIND_SENSITIVITY
-    if len(rows) >= 2:
-        # Linear regression on (grind, output) — slope gives g per step
-        grinds = [r["grind_size"] for r in rows]
-        outputs = [r["grams_out"] for r in rows]
-        n = len(rows)
+    slope = None
+    if n >= 2:
         g_mean = sum(grinds) / n
         o_mean = sum(outputs) / n
         num = sum((g - g_mean) * (o - o_mean) for g, o in zip(grinds, outputs))
@@ -1174,29 +1177,34 @@ def _suggest_grind_ratio(coffee_id, conn):
             if abs(slope) > 0.1:
                 sensitivity = abs(slope)
 
-    # Compute adjustment: positive dev (too much output) → grind finer (decrease grind)
-    # Finer grind = lower grind number → less output
-    if abs(dev) <= 1:
-        return {"grind": round(latest_grind, 1), "confidence": "high",
-                "detail": f"On target! Last shot hit {latest_out:.0f}g (target {target_out:.0f}g). Keep grind at {latest_grind}."}
-
-    # Grinder direction: finer_is_lower means lower number = finer grind (default)
-    # For reversed grinders, the sign flips
+    # With 2+ shots and a valid regression, predict the grind for target output
+    # Otherwise fall back to adjusting from the last shot
     finer_is_lower = filt.get("finer_is_lower", True)
     sign = 1 if finer_is_lower else -1
-    steps = dev / sensitivity  # positive dev = too much output = need finer
-    suggested = latest_grind - sign * steps
-    suggested = round(suggested, 1)
 
-    direction = "finer" if dev > 0 else "coarser"
-    n = len(rows)
+    if slope is not None and abs(slope) > 0.1 and n >= 2:
+        # Use regression: target_out = slope * grind + intercept → grind = (target_out - intercept) / slope
+        g_mean = sum(grinds) / n
+        o_mean = sum(outputs) / n
+        intercept = o_mean - slope * g_mean
+        predicted_grind = (target_out - intercept) / slope
+        suggested = round(predicted_grind, 1)
+        latest_out = rows[-1]["grams_out"]
+        dev = latest_out - target_out
+        detail = f"Last shot: {latest_out:.0f}g (target {target_out:.0f}g, {dev:+.0f}g). Regression suggests grind {suggested} ({n} shots)."
+    else:
+        # Single shot or no valid slope — adjust from last shot
+        latest = rows[-1]
+        latest_grind = latest["grind_size"]
+        latest_out = latest["grams_out"]
+        dev = latest_out - target_out
+        steps = dev / sensitivity
+        suggested = round(latest_grind - sign * steps, 1)
+        direction = "finer" if dev > 0 else "coarser"
+        detail = f"Last shot: {latest_out:.0f}g (target {target_out:.0f}g, {dev:+.0f}g). Try {direction} by ~{abs(steps):.1f} steps."
+
     conf = "medium" if n < 4 else "high"
-
-    return {
-        "grind": suggested,
-        "confidence": conf,
-        "detail": f"Last shot: {latest_out:.0f}g (target {target_out:.0f}g, {dev:+.0f}g). Try {direction} by ~{abs(steps):.1f} steps.",
-    }
+    return {"grind": suggested, "confidence": conf, "detail": detail}
 
 
 # --- Step 1: Select or define coffee ---
