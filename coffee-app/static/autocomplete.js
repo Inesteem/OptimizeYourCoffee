@@ -7,16 +7,7 @@
 
     const DATA = {
         roaster: [],
-        origin_country: [
-            "Brazil","Colombia","Ethiopia","Guatemala","Honduras","Costa Rica",
-            "Kenya","Indonesia","Mexico","Peru","El Salvador","Nicaragua",
-            "Tanzania","Rwanda","Burundi","Uganda","Panama","Bolivia",
-            "India","Yemen","Jamaica","Hawaii","Papua New Guinea","Myanmar",
-            "Thailand","Vietnam","China","Laos","Philippines","Ecuador",
-            "Dominican Republic","Haiti","Cuba","Congo","Malawi","Zambia",
-            "Zimbabwe","Cameroon","Ivory Coast","Madagascar","Nepal",
-            "East Timor","Australia"
-        ],
+        origin_country: [],
         origin_city: [],
         origin_producer: [],
         variety: []
@@ -35,6 +26,25 @@
     fetch('/static/varieties.json')
         .then(r => r.json())
         .then(list => mergeUnique(DATA.variety, list))
+        .catch(() => {});
+
+    // Load countries from origin map index (single source of truth)
+    fetch('/static/maps/origin-map-index.json')
+        .then(r => r.json())
+        .then(index => {
+            // Keys are lowercase; capitalize for display, dedupe aliases
+            var seen = new Set();
+            var countries = [];
+            for (var key in index) {
+                var name = key.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                if (!seen.has(name.toLowerCase())) {
+                    seen.add(name.toLowerCase());
+                    countries.push(name);
+                }
+            }
+            countries.sort();
+            mergeUnique(DATA.origin_country, countries);
+        })
         .catch(() => {});
 
     fetch('/api/autocomplete')
