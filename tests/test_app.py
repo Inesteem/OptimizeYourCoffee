@@ -1502,15 +1502,14 @@ class TestSuggestGrindRatio(_GrindTestBase):
         assert result is None
 
     def test_on_target(self, tmp_db):
-        """Shot output within 1g of target → suggests that grind."""
+        """Shot output within 1g of target → keep that grind."""
         conn = self._make_conn(tmp_db)
         coffee_id = self._seed_coffee_with_target(conn, 36)
         self._seed_ratio_shot(conn, coffee_id, 18.0, 36)
         result = _suggest_grind_ratio(coffee_id, conn)
         assert result is not None
         assert result["grind"] == 18.0
-        assert "Use that grind" in result["detail"]
-        assert result["confidence"] == "high"
+        assert "Keep grind" in result["detail"]
 
     def test_output_too_high_suggests_finer(self, tmp_db):
         """Output 42g vs target 36g → suggested grind is lower than latest (finer)."""

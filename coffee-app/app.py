@@ -1157,47 +1157,61 @@ def _suggest_grind_ratio(coffee_id, conn):
     outputs = [r["grams_out"] for r in rows]
     n = len(rows)
 
-    # Check if any past shot already hit the target — suggest that grind directly
-    best_shot = min(rows, key=lambda r: abs(r["grams_out"] - target_out))
-    best_dev = abs(best_shot["grams_out"] - target_out)
-    if best_dev <= 1:
-        return {"grind": round(best_shot["grind_size"], 1), "confidence": "high",
-                "detail": f"Best shot hit {best_shot['grams_out']:.0f}g (target {target_out:.0f}g) at grind {best_shot['grind_size']}. Use that grind."}
+    # Check if a proven grind exists: 2+ shots at the same grind (±0.5) that
+    # average within ±1g of target. This filters out lucky one-off outliers.
+    from collections import defaultdict
+    grind_groups = defaultdict(list)
+    for r in rows:
+        # Round to nearest 0.5 to group similar grinds
+        key = round(r["grind_size"] * 2) / 2
+        grind_groups[key].append(r["grams_out"])
+    for grind_key, outs in grind_groups.items():
+        if len(outs) >= 2:
+            avg_out = sum(outs) / len(outs)
+            if abs(avg_out - target_out) <= 1:
+                return {"grind": round(grind_key, 1), "confidence": "high",
+                        "detail": f"Grind {grind_key} averages {avg_out:.0f}g across {len(outs)} shots (target {target_out:.0f}g). Proven setting."}
 
-    # Estimate grind sensitivity from history (grams output change per grind step)
+    # Linear regression on (grind, output) for sensitivity + prediction
     sensitivity = DEFAULT_GRIND_SENSITIVITY
     slope = None
+    g_mean = sum(grinds) / n
+    o_mean = sum(outputs) / n
     if n >= 2:
-        g_mean = sum(grinds) / n
-        o_mean = sum(outputs) / n
         num = sum((g - g_mean) * (o - o_mean) for g, o in zip(grinds, outputs))
         den = sum((g - g_mean) ** 2 for g in grinds)
         if abs(den) > 1e-9:
-            slope = num / den  # expected: negative (finer = less output)
+            slope = num / den
             if abs(slope) > 0.1:
                 sensitivity = abs(slope)
 
-    # With 2+ shots and a valid regression, predict the grind for target output
-    # Otherwise fall back to adjusting from the last shot
+    # Compute residual scatter to report reliability
+    scatter_note = ""
+    if slope is not None and n >= 3:
+        intercept = o_mean - slope * g_mean
+        residuals = [o - (slope * g + intercept) for g, o in zip(grinds, outputs)]
+        rmse = (sum(r ** 2 for r in residuals) / n) ** 0.5
+        if rmse > 3:
+            scatter_note = f" Output varies ±{rmse:.0f}g."
+
     finer_is_lower = filt.get("finer_is_lower", True)
     sign = 1 if finer_is_lower else -1
+    latest_out = rows[-1]["grams_out"]
+    latest_grind = rows[-1]["grind_size"]
+    dev = latest_out - target_out
+
+    # Latest shot is on target — keep that grind (even with 1 shot)
+    if abs(dev) <= 1:
+        return {"grind": round(latest_grind, 1), "confidence": "medium" if n < 4 else "high",
+                "detail": f"Last shot hit {latest_out:.0f}g (target {target_out:.0f}g). Keep grind at {latest_grind}."}
 
     if slope is not None and abs(slope) > 0.1 and n >= 2:
-        # Use regression: target_out = slope * grind + intercept → grind = (target_out - intercept) / slope
-        g_mean = sum(grinds) / n
-        o_mean = sum(outputs) / n
         intercept = o_mean - slope * g_mean
         predicted_grind = (target_out - intercept) / slope
         suggested = round(predicted_grind, 1)
-        latest_out = rows[-1]["grams_out"]
-        dev = latest_out - target_out
-        detail = f"Last shot: {latest_out:.0f}g (target {target_out:.0f}g, {dev:+.0f}g). Regression suggests grind {suggested} ({n} shots)."
+        detail = f"Last shot: {latest_out:.0f}g (target {target_out:.0f}g, {dev:+.0f}g). Regression suggests grind {suggested} ({n} shots).{scatter_note}"
     else:
-        # Single shot or no valid slope — adjust from last shot
-        latest = rows[-1]
-        latest_grind = latest["grind_size"]
-        latest_out = latest["grams_out"]
-        dev = latest_out - target_out
+        latest_grind = rows[-1]["grind_size"]
         steps = dev / sensitivity
         suggested = round(latest_grind - sign * steps, 1)
         direction = "finer" if dev > 0 else "coarser"
