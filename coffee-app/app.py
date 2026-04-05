@@ -1361,7 +1361,15 @@ def add_coffee():
             [fields[c] for c in cols],
         )
         coffee_id = cur.lastrowid
-    return redirect(url_for("new_sample", coffee_id=coffee_id))
+    return redirect(url_for("index"))
+
+
+@app.route("/coffee/new")
+def new_coffee():
+    # Empty dict with defaults — reuses edit_coffee.html in add mode
+    empty = {k: None for k in COFFEE_COLUMNS}
+    empty["bag_weight_g"] = 250  # sensible default
+    return render_template("edit_coffee.html", coffee=empty, is_new=True)
 
 
 @app.route("/coffee/<int:coffee_id>/edit")
@@ -1370,7 +1378,7 @@ def edit_coffee(coffee_id):
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (coffee_id,)).fetchone()
     if not coffee:
         return redirect(url_for("index"))
-    return render_template("edit_coffee.html", coffee=coffee)
+    return render_template("edit_coffee.html", coffee=coffee, is_new=False)
 
 
 @app.route("/coffee/<int:coffee_id>/edit", methods=["POST"])

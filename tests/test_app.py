@@ -1795,9 +1795,9 @@ class TestRouteCoffeeAdd:
         resp = _add_coffee(client)
         assert resp.status_code == 302
 
-    def test_redirect_goes_to_sample_route(self, client):
+    def test_redirect_goes_to_index(self, client):
         resp = _add_coffee(client)
-        assert "/sample/" in resp.headers["Location"]
+        assert resp.headers["Location"] == "/"
 
     def test_adds_coffee_to_db(self, client, tmp_db):
         _add_coffee(client, roaster="Route Test Roaster")

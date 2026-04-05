@@ -3,25 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Edit {{ coffee.label }}</title>
+    <title>{% if is_new %}New Coffee{% else %}Edit {{ coffee.label }}{% endif %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ v }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='simple-keyboard.css') }}">
 </head>
 <body>
     <header>
         <a href="/" class="back-btn">&#9664;</a>
-        <h1>Edit Coffee</h1>
+        <h1>{% if is_new %}New Coffee{% else %}Edit Coffee{% endif %}</h1>
         <span class="header-spacer" aria-hidden="true">&#9664;</span>
     </header>
 
     <main>
-        <form action="/coffee/{{ coffee.id }}/edit" method="POST" class="sample-form">
+        <form action="{% if is_new %}/coffee/add{% else %}/coffee/{{ coffee.id }}/edit{% endif %}" method="POST" class="sample-form">
             <div class="origin-group">
                 <div class="origin-map-preview" id="originMapPreview"></div>
                 <div class="origin-fields">
                     <div class="field">
                         <label for="label">Label</label>
-                        <input type="text" id="label" name="label" value="{{ coffee.label }}" placeholder="Auto: roaster - variety - process" autocomplete="off">
+                        <input type="text" id="label" name="label" value="{{ coffee.label or '' }}" placeholder="Auto: roaster - variety - process" autocomplete="off">
                     </div>
                     <div class="row">
                         <div class="field">
@@ -156,9 +156,10 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn-add">Save Changes</button>
+            <button type="submit" class="btn-add">{% if is_new %}Add Coffee{% else %}Save Changes{% endif %}</button>
         </form>
 
+        {% if not is_new %}
         <div class="edit-actions-row">
             <form action="/coffee/{{ coffee.id }}/archive" method="POST" class="inline">
                 <button type="submit" class="btn-archive">
@@ -169,6 +170,7 @@
                 <button type="submit" class="btn-delete-coffee" onclick="return confirm('Delete this coffee and all its samples?')">Delete</button>
             </form>
         </div>
+        {% endif %}
     </main>
 
     <div id="keyboard" class="kbd hidden">
