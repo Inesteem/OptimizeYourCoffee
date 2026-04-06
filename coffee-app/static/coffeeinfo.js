@@ -394,12 +394,16 @@
                     '<strong>' + esc(item[0]) + '</strong> ' +
                     '<span>' + esc(item[1]) + '</span></div>';
             });
-            html += '</div>' +
-                '<div class="roast-guide-hint">Tap anywhere to close</div></div>';
+            html += '</div></div>';
             overlay.innerHTML = html;
-            setTimeout(function() {
-                overlay.addEventListener('pointerdown', function() { closePopup(); });
-            }, 100);
+            var closeBtn = document.createElement('button');
+            closeBtn.className = 'info-popup-close';
+            closeBtn.textContent = '\u00d7';
+            closeBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                closePopup();
+            });
+            overlay.querySelector('.roast-guide-panel').insertBefore(closeBtn, overlay.querySelector('.info-popup-title'));
             document.body.appendChild(overlay);
             activePopup = overlay;
             popupOpenedAt = Date.now();

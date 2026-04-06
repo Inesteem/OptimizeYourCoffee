@@ -9,7 +9,8 @@
 </head>
 <body>
     <header>
-        {% if evaluation %}
+        {% set any_eval = existing_evals.values() | list %}
+        {% if any_eval %}
         <span class="header-spacer" aria-hidden="true">&#9664;</span>
         {% else %}
         <a href="/sample/{{ sample.id }}/edit?from=eval" class="back-btn">&#9664;</a>
@@ -32,91 +33,31 @@
             {% if freshness %}<span class="freshness-badge {{ freshness.css }}">{{ freshness.stage }}</span>{% endif %}
         </div>
 
-        {% if tips is not none %}
-        <!-- Diagnostic feedback -->
-        <div class="diagnostic">
-            {% for tip in tips %}
-            <p>{{ tip }}</p>
-            {% endfor %}
-            {% if not tips %}
-            <p>No specific issues detected.</p>
-            {% endif %}
-        </div>
-        {% endif %}
-
-        <!-- Drink type tab bar -->
-        <nav class="settings-tabs" style="margin-bottom:8px">
-            {% for dt in drink_types %}
-            <a href="?type={{ dt.name|lower }}{% if request.args.get('grind_aroma') %}&grind_aroma={{ request.args.get('grind_aroma') }}{% endif %}{% if request.args.get('grind_smell') %}&grind_smell={{ request.args.get('grind_smell') }}{% endif %}{% if request.args.get('preheat_pf') %}&preheat_pf={{ request.args.get('preheat_pf') }}{% endif %}{% if request.args.get('preheat_cup') %}&preheat_cup={{ request.args.get('preheat_cup') }}{% endif %}{% if request.args.get('preheat_machine') %}&preheat_machine={{ request.args.get('preheat_machine') }}{% endif %}"
-               class="settings-tab {% if eval_type == dt.name|lower %}active{% endif %}">{{ dt.name }}</a>
-            {% endfor %}
-        </nav>
-
-        <!-- Evaluation form -->
+        <!-- Evaluation form: single submit covers all drink type tabs -->
         <form action="/evaluate/{{ sample.id }}/save" method="POST" class="eval-form">
-            <input type="hidden" name="eval_type" value="{{ eval_type }}">
 
-            {% if is_milk_drink and milk_types %}
-            <!-- Milk type selector -->
-            <div class="field" style="margin-bottom:8px">
-                <label for="milk_type">Milk type</label>
-                <select id="milk_type" name="milk_type">
-                    <option value="">— select —</option>
-                    {% for mt in milk_types %}
-                    <option value="{{ mt.name }}"
-                        {% if evaluation and evaluation.milk_type == mt.name %}selected{% endif %}>{{ mt.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% endif %}
-
-            <!-- Grind Smell Descriptors -->
+            <!-- Shared: Grind section -->
             <h3 class="form-section-title descriptor-ref-link" data-ref="grind-smell">Grind Smell (ground coffee)</h3>
-            {% set saved_aroma = (evaluation.aroma_descriptors or '').split(',') if evaluation and evaluation.aroma_descriptors else (prefill_grind_smell or '').split(',') %}
+            {% set saved_aroma_desc = (existing_evals.get('black', {}).get('aroma_descriptors') or prefill_grind_smell or '') %}
+            {% set saved_aroma_list = saved_aroma_desc.split(',') if saved_aroma_desc else [] %}
             <div class="descriptor-chips">
                 {% for name, sentiment in grind_smell_descriptors %}
                 <label class="descriptor-chip chip-{{ sentiment }}">
                     <input type="checkbox" name="aroma_descriptors" value="{{ name }}"
-                           {% if name in saved_aroma %}checked{% endif %}>
+                           {% if name in saved_aroma_list %}checked{% endif %}>
                     <span>{{ name }}</span>
                 </label>
                 {% endfor %}
             </div>
 
-            <!-- Brew Smell Descriptors -->
-            <h3 class="form-section-title descriptor-ref-link" data-ref="brew-smell">Brew Smell (brewed coffee)</h3>
-            {% set saved_brew = (evaluation.brew_smell_descriptors or '').split(',') if evaluation and evaluation.brew_smell_descriptors else [] %}
-            <div class="descriptor-chips">
-                {% for name, sentiment in brew_smell_descriptors %}
-                <label class="descriptor-chip chip-{{ sentiment }}">
-                    <input type="checkbox" name="brew_smell_descriptors" value="{{ name }}"
-                           {% if name in saved_brew %}checked{% endif %}>
-                    <span>{{ name }}</span>
-                </label>
-                {% endfor %}
-            </div>
-
-            <!-- Taste Descriptors -->
-            <h3 class="form-section-title descriptor-ref-link" data-ref="taste-notes">Taste Notes (what you taste)</h3>
-            {% set saved_taste = (evaluation.taste_descriptors or '').split(',') if evaluation and evaluation.taste_descriptors else [] %}
-            <div class="descriptor-chips">
-                {% for name, sentiment in taste_descriptors %}
-                <label class="descriptor-chip chip-{{ sentiment }}">
-                    <input type="checkbox" name="taste_descriptors" value="{{ name }}"
-                           {% if name in saved_taste %}checked{% endif %}>
-                    <span>{{ name }}</span>
-                </label>
-                {% endfor %}
-            </div>
-
-            <!-- Grind Aroma -->
+            <!-- Grind Aroma (shared) -->
             <div class="eval-row">
                 <div class="eval-header">
                     <span class="eval-label">Grind Aroma</span>
                     <span class="eval-range">Faint &rarr; Intense</span>
                 </div>
                 <div class="eval-buttons">
-                    {% set ga_val = evaluation.grind_aroma if evaluation and evaluation.grind_aroma else prefill_grind_aroma %}
+                    {% set ga_val = existing_evals.get('black', {}).get('grind_aroma') or prefill_grind_aroma %}
                     {% for i in range(1, 6) %}
                     <label class="eval-btn">
                         <input type="radio" name="grind_aroma" value="{{ i }}"
@@ -127,52 +68,114 @@
                 </div>
             </div>
 
-            {% for dim in dimensions %}
-            <div class="eval-row">
-                <div class="eval-header">
-                    <span class="eval-label">{{ dim.label }}</span>
-                    <span class="eval-range">{{ dim.low }} &rarr; {{ dim.high }}</span>
+            <!-- Drink type tabs (client-side) -->
+            <nav class="settings-tabs" style="margin-top:12px;margin-bottom:8px">
+                {% for dt in drink_types %}
+                <a class="settings-tab drink-tab {% if loop.first %}active{% endif %}"
+                   data-tab="{{ dt.name|lower }}">{{ dt.name }}</a>
+                {% endfor %}
+            </nav>
+
+            <!-- Per-drink-type tab panels -->
+            {% for dt in drink_types %}
+            {% set prefix = dt.name|lower ~ '__' %}
+            {% set dt_eval = existing_evals.get(dt.name|lower) %}
+            {% set is_milk = dt.has_milk %}
+            <div class="drink-tab-panel" data-tab="{{ dt.name|lower }}"{% if not loop.first %} style="display:none"{% endif %}>
+
+                {% if is_milk and milk_types %}
+                <div class="field" style="margin-bottom:8px">
+                    <label>Milk type</label>
+                    {% set current_milk = (dt_eval.get('milk_type') if dt_eval else None) or (milk_types[0].name if milk_types else '') %}
+                    <select name="{{ prefix }}milk_type">
+                        {% for mt in milk_types %}
+                        <option value="{{ mt.name }}" {% if mt.name == current_milk %}selected{% endif %}>{{ mt.name }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
-                <div class="eval-buttons">
-                    {% for i in range(1, 6) %}
-                    <label class="eval-btn">
-                        <input type="radio" name="{{ dim.key }}" value="{{ i }}"
-                               {% if evaluation and evaluation[dim.key] == i %}checked{% endif %}>
-                        <span>{{ i }}</span>
+                {% endif %}
+
+                <!-- Brew Smell -->
+                <h3 class="form-section-title descriptor-ref-link" data-ref="brew-smell">Brew Smell (brewed coffee)</h3>
+                {% set saved_brew_str = dt_eval.get('brew_smell_descriptors') if dt_eval else '' %}
+                {% set saved_brew = saved_brew_str.split(',') if saved_brew_str else [] %}
+                <div class="descriptor-chips">
+                    {% for name, sentiment in brew_smell_descriptors %}
+                    <label class="descriptor-chip chip-{{ sentiment }}">
+                        <input type="checkbox" name="{{ prefix }}brew_smell_descriptors" value="{{ name }}"
+                               {% if name in saved_brew %}checked{% endif %}>
+                        <span>{{ name }}</span>
                     </label>
                     {% endfor %}
                 </div>
+
+                <!-- Taste Notes -->
+                <h3 class="form-section-title descriptor-ref-link" data-ref="taste-notes">Taste Notes (what you taste)</h3>
+                {% set saved_taste_str = dt_eval.get('taste_descriptors') if dt_eval else '' %}
+                {% set saved_taste = saved_taste_str.split(',') if saved_taste_str else [] %}
+                <div class="descriptor-chips">
+                    {% for name, sentiment in taste_descriptors %}
+                    <label class="descriptor-chip chip-{{ sentiment }}">
+                        <input type="checkbox" name="{{ prefix }}taste_descriptors" value="{{ name }}"
+                               {% if name in saved_taste %}checked{% endif %}>
+                        <span>{{ name }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+
+                <!-- Score dimensions (body excluded for milk drinks) -->
+                {% for dim in dimensions %}
+                {% if not is_milk or dim.key != 'body' %}
+                <div class="eval-row">
+                    <div class="eval-header">
+                        <span class="eval-label">{{ dim.label }}</span>
+                        <span class="eval-range">{{ dim.low }} &rarr; {{ dim.high }}</span>
+                    </div>
+                    <div class="eval-buttons">
+                        {% for i in range(1, 6) %}
+                        <label class="eval-btn">
+                            <input type="radio" name="{{ prefix }}{{ dim.key }}" value="{{ i }}"
+                                   {% if dt_eval and dt_eval.get(dim.key) == i %}checked{% endif %}>
+                            <span>{{ i }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+
             </div>
             {% endfor %}
 
-            <!-- Preheat carried from sample page as hidden inputs -->
+            <!-- Shared: Preheat (hidden, carried from sample page) -->
             {% set ph = prefill_preheat or {} %}
-            <input type="hidden" name="preheat_portafilter" value="{{ evaluation.preheat_portafilter if evaluation else ph.get('portafilter', 1) }}">
-            <input type="hidden" name="preheat_cup" value="{{ evaluation.preheat_cup if evaluation else ph.get('cup', 1) }}">
-            <input type="hidden" name="preheat_machine" value="{{ evaluation.preheat_machine if evaluation else ph.get('machine', 1) }}">
+            {% set black_eval = existing_evals.get('black') %}
+            <input type="hidden" name="preheat_portafilter" value="{{ black_eval.get('preheat_portafilter') if black_eval else ph.get('portafilter', 1) }}">
+            <input type="hidden" name="preheat_cup" value="{{ black_eval.get('preheat_cup') if black_eval else ph.get('cup', 1) }}">
+            <input type="hidden" name="preheat_machine" value="{{ black_eval.get('preheat_machine') if black_eval else ph.get('machine', 1) }}">
 
-            <!-- Notes -->
+            <!-- Shared: Notes -->
             <div class="field" style="margin-top:8px">
                 <label for="eval_notes">Notes</label>
+                {% set shared_notes = (black_eval.get('eval_notes') if black_eval else None) or '' %}
                 <input type="text" id="eval_notes" name="eval_notes"
-                       value="{{ evaluation.eval_notes or '' if evaluation else '' }}"
+                       value="{{ shared_notes }}"
                        placeholder="Additional observations..." autocomplete="off">
             </div>
 
-            <!-- Representative (hidden for milk drinks) -->
-            {% if not is_milk_drink %}
+            <!-- Shared: Representative checkbox -->
             <div class="preheat-row">
                 <label class="representative-toggle compact">
                     <input type="checkbox" name="representative" value="1"
-                           {% if not evaluation or evaluation.representative %}checked{% endif %}>
+                           {% if not black_eval or black_eval.get('representative') %}checked{% endif %}>
                     <span class="repr-check"></span>
                     <span>Representative</span>
                 </label>
             </div>
-            {% endif %}
 
             <div class="eval-actions">
-                {% if evaluation %}
+                {% set has_any_eval = existing_evals | length > 0 %}
+                {% if has_any_eval %}
                 <a href="/sample/{{ coffee.id }}" class="btn-cancel">Cancel</a>
                 <button type="submit" class="btn-add">Update</button>
                 {% else %}
@@ -189,5 +192,18 @@
     <script src="{{ url_for('static', filename='simple-keyboard.min.js') }}"></script>
     <script src="{{ url_for('static', filename='keyboard.js') }}?v={{ v }}"></script>
     <script src="{{ url_for('static', filename='coffeeinfo.js') }}?v={{ v }}"></script>
+    <script>
+    // Client-side drink type tab switching
+    document.querySelectorAll('.drink-tab').forEach(function(tab) {
+        tab.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.querySelectorAll('.drink-tab').forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.drink-tab-panel').forEach(function(p) { p.style.display = 'none'; });
+            this.classList.add('active');
+            var panel = document.querySelector('.drink-tab-panel[data-tab="' + this.dataset.tab + '"]');
+            if (panel) panel.style.display = '';
+        });
+    });
+    </script>
 </body>
 </html>

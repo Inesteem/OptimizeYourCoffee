@@ -273,8 +273,8 @@ class TestAddEvaluation:
     def test_save_evaluation_creates_record(self, client, tmp_db):
         _, sample_id = self._seed(tmp_db)
         client.post(f"/evaluate/{sample_id}/save", data={
-            "aroma": "4", "acidity": "3", "sweetness": "3",
-            "body": "3", "balance": "4", "overall": "4",
+            "black__aroma": "4", "black__acidity": "3", "black__sweetness": "3",
+            "black__body": "3", "black__balance": "4", "black__overall": "4",
         })
         conn = _get_db(tmp_db)
         row = conn.execute("SELECT * FROM evaluations WHERE sample_id=?", (sample_id,)).fetchone()
@@ -285,8 +285,8 @@ class TestAddEvaluation:
     def test_save_evaluation_representative_flag(self, client, tmp_db):
         _, sample_id = self._seed(tmp_db)
         client.post(f"/evaluate/{sample_id}/save", data={
-            "aroma": "5", "acidity": "4", "sweetness": "4",
-            "body": "4", "balance": "5", "overall": "5",
+            "black__aroma": "5", "black__acidity": "4", "black__sweetness": "4",
+            "black__body": "4", "black__balance": "5", "black__overall": "5",
             "representative": "1",
         })
         conn = _get_db(tmp_db)
@@ -296,8 +296,8 @@ class TestAddEvaluation:
     def test_save_evaluation_not_representative_by_default(self, client, tmp_db):
         _, sample_id = self._seed(tmp_db)
         client.post(f"/evaluate/{sample_id}/save", data={
-            "aroma": "3", "acidity": "3", "sweetness": "3",
-            "body": "3", "balance": "3", "overall": "3",
+            "black__aroma": "3", "black__acidity": "3", "black__sweetness": "3",
+            "black__body": "3", "black__balance": "3", "black__overall": "3",
         })
         conn = _get_db(tmp_db)
         row = conn.execute("SELECT * FROM evaluations WHERE sample_id=?", (sample_id,)).fetchone()
@@ -307,13 +307,13 @@ class TestAddEvaluation:
         _, sample_id = self._seed(tmp_db)
         # First save
         client.post(f"/evaluate/{sample_id}/save", data={
-            "aroma": "2", "acidity": "2", "sweetness": "2",
-            "body": "2", "balance": "2", "overall": "2",
+            "black__aroma": "2", "black__acidity": "2", "black__sweetness": "2",
+            "black__body": "2", "black__balance": "2", "black__overall": "2",
         })
         # Second save should update, not insert a duplicate
         client.post(f"/evaluate/{sample_id}/save", data={
-            "aroma": "5", "acidity": "5", "sweetness": "5",
-            "body": "5", "balance": "5", "overall": "5",
+            "black__aroma": "5", "black__acidity": "5", "black__sweetness": "5",
+            "black__body": "5", "black__balance": "5", "black__overall": "5",
         })
         conn = _get_db(tmp_db)
         rows = conn.execute("SELECT * FROM evaluations WHERE sample_id=?", (sample_id,)).fetchall()
@@ -1937,8 +1937,8 @@ class TestRouteEvaluateSave:
     def test_save_evaluation_redirects_to_results(self, client, tmp_db):
         _, sample_id = self._seed(tmp_db)
         resp = client.post(f"/evaluate/{sample_id}/save", data={
-            "aroma": "4", "acidity": "3", "sweetness": "4",
-            "body": "3", "balance": "4", "overall": "4",
+            "black__aroma": "4", "black__acidity": "3", "black__sweetness": "4",
+            "black__body": "3", "black__balance": "4", "black__overall": "4",
         })
         assert resp.status_code == 302
         assert f"/evaluate/{sample_id}/results" in resp.headers["Location"]
@@ -1946,8 +1946,8 @@ class TestRouteEvaluateSave:
     def test_save_evaluation_with_representative_flag(self, client, tmp_db):
         _, sample_id = self._seed(tmp_db)
         client.post(f"/evaluate/{sample_id}/save", data={
-            "aroma": "5", "acidity": "5", "sweetness": "5",
-            "body": "5", "balance": "5", "overall": "5",
+            "black__aroma": "5", "black__acidity": "5", "black__sweetness": "5",
+            "black__body": "5", "black__balance": "5", "black__overall": "5",
             "representative": "on",
         })
         conn = _get_db(tmp_db)
@@ -1956,8 +1956,8 @@ class TestRouteEvaluateSave:
 
     def test_save_evaluation_invalid_sample_redirects(self, client, tmp_db):
         resp = client.post("/evaluate/99999/save", data={
-            "aroma": "3", "acidity": "3", "sweetness": "3",
-            "body": "3", "balance": "3", "overall": "3",
+            "black__aroma": "3", "black__acidity": "3", "black__sweetness": "3",
+            "black__body": "3", "black__balance": "3", "black__overall": "3",
         })
         assert resp.status_code == 302
 
@@ -1970,8 +1970,8 @@ class TestRouteEvaluateSave:
     def test_evaluation_results_renders(self, client, tmp_db):
         _, sample_id = self._seed(tmp_db)
         client.post(f"/evaluate/{sample_id}/save", data={
-            "aroma": "4", "acidity": "3", "sweetness": "4",
-            "body": "3", "balance": "4", "overall": "4",
+            "black__aroma": "4", "black__acidity": "3", "black__sweetness": "4",
+            "black__body": "3", "black__balance": "4", "black__overall": "4",
         })
         resp = client.get(f"/evaluate/{sample_id}/results")
         assert resp.status_code == 200
@@ -2325,11 +2325,11 @@ class TestDrinkTypeEvaluation:
         return coffee_id, sample_id
 
     def test_black_eval_default(self, client, tmp_db):
-        """Saving without eval_type defaults to black."""
+        """Saving black prefixed fields creates a black eval."""
         _, sample_id = self._seed(tmp_db)
         client.post(f"/evaluate/{sample_id}/save", data={
-            "aroma": "4", "acidity": "3", "sweetness": "3",
-            "body": "3", "balance": "4", "overall": "4",
+            "black__aroma": "4", "black__acidity": "3", "black__sweetness": "3",
+            "black__body": "3", "black__balance": "4", "black__overall": "4",
         })
         conn = _get_db(tmp_db)
         row = conn.execute("SELECT * FROM evaluations WHERE sample_id=?", (sample_id,)).fetchone()
@@ -2337,19 +2337,13 @@ class TestDrinkTypeEvaluation:
         assert row["eval_type"] == "black"
 
     def test_milk_eval_separate(self, client, tmp_db):
-        """Can save both black and cappuccino evaluations for the same sample."""
+        """Single save with both black and cappuccino fields creates two evaluations."""
         _, sample_id = self._seed(tmp_db)
-        # Save black eval
         client.post(f"/evaluate/{sample_id}/save", data={
-            "eval_type": "black",
-            "aroma": "4", "acidity": "3", "sweetness": "3",
-            "body": "3", "balance": "4", "overall": "4",
-        })
-        # Save cappuccino eval
-        client.post(f"/evaluate/{sample_id}/save", data={
-            "eval_type": "cappuccino",
-            "aroma": "3", "acidity": "3", "sweetness": "4",
-            "body": "3", "balance": "3", "overall": "4",
+            "black__aroma": "4", "black__acidity": "3", "black__sweetness": "3",
+            "black__body": "3", "black__balance": "4", "black__overall": "4",
+            "cappuccino__aroma": "3", "cappuccino__acidity": "3", "cappuccino__sweetness": "4",
+            "cappuccino__balance": "3", "cappuccino__overall": "4",
         })
         conn = _get_db(tmp_db)
         rows = conn.execute(
@@ -2378,13 +2372,12 @@ class TestDrinkTypeEvaluation:
         assert rating is None
 
     def test_milk_eval_not_representative(self, client, tmp_db):
-        """Milk evals are forced to representative=0."""
+        """Milk evals are forced to representative=0 even when representative checkbox is set."""
         _, sample_id = self._seed(tmp_db)
         client.post(f"/evaluate/{sample_id}/save", data={
-            "eval_type": "cappuccino",
-            "aroma": "4", "acidity": "3", "sweetness": "4",
-            "body": "3", "balance": "3", "overall": "4",
-            "representative": "1",  # should be overridden
+            "cappuccino__aroma": "4", "cappuccino__acidity": "3", "cappuccino__sweetness": "4",
+            "cappuccino__balance": "3", "cappuccino__overall": "4",
+            "representative": "1",  # shared checkbox — should not apply to cappuccino
         })
         conn = _get_db(tmp_db)
         row = conn.execute(
@@ -2395,17 +2388,15 @@ class TestDrinkTypeEvaluation:
         assert row["representative"] == 0
 
     def test_save_eval_updates_existing_by_eval_type(self, client, tmp_db):
-        """Second save of same (sample, eval_type) updates, not inserts."""
+        """Second save of same sample updates black eval, not inserts duplicate."""
         _, sample_id = self._seed(tmp_db)
         client.post(f"/evaluate/{sample_id}/save", data={
-            "eval_type": "black",
-            "aroma": "2", "acidity": "2", "sweetness": "2",
-            "body": "2", "balance": "2", "overall": "2",
+            "black__aroma": "2", "black__acidity": "2", "black__sweetness": "2",
+            "black__body": "2", "black__balance": "2", "black__overall": "2",
         })
         client.post(f"/evaluate/{sample_id}/save", data={
-            "eval_type": "black",
-            "aroma": "5", "acidity": "5", "sweetness": "5",
-            "body": "5", "balance": "5", "overall": "5",
+            "black__aroma": "5", "black__acidity": "5", "black__sweetness": "5",
+            "black__body": "5", "black__balance": "5", "black__overall": "5",
         })
         conn = _get_db(tmp_db)
         rows = conn.execute(
@@ -2415,18 +2406,16 @@ class TestDrinkTypeEvaluation:
         assert len(rows) == 1
         assert rows[0]["overall"] == 5
 
-    def test_eval_type_validated_falls_back_to_black(self, client, tmp_db):
-        """Invalid eval_type in POST is ignored — falls back to black."""
+    def test_unprefixed_fields_do_not_create_eval(self, client, tmp_db):
+        """Posting unprefixed score fields (old format) creates no evaluation."""
         _, sample_id = self._seed(tmp_db)
         client.post(f"/evaluate/{sample_id}/save", data={
-            "eval_type": "nonexistent_type",
             "aroma": "3", "acidity": "3", "sweetness": "3",
             "body": "3", "balance": "3", "overall": "3",
         })
         conn = _get_db(tmp_db)
-        row = conn.execute("SELECT eval_type FROM evaluations WHERE sample_id=?", (sample_id,)).fetchone()
-        assert row is not None
-        assert row["eval_type"] == "black"
+        row = conn.execute("SELECT * FROM evaluations WHERE sample_id=?", (sample_id,)).fetchone()
+        assert row is None
 
     def test_evaluate_page_has_drink_type_tabs(self, client, tmp_db):
         """Evaluate page renders drink type tabs."""
@@ -2435,10 +2424,10 @@ class TestDrinkTypeEvaluation:
         assert resp.status_code == 200
         assert b"Black" in resp.data
 
-    def test_evaluate_page_with_type_param(self, client, tmp_db):
-        """Evaluate page respects ?type=cappuccino param."""
+    def test_evaluate_page_shows_all_drink_type_tabs(self, client, tmp_db):
+        """Evaluate page renders all drink type tabs (Black and Cappuccino)."""
         _, sample_id = self._seed(tmp_db)
-        resp = client.get(f"/evaluate/{sample_id}?type=cappuccino")
+        resp = client.get(f"/evaluate/{sample_id}")
         assert resp.status_code == 200
         assert b"cappuccino" in resp.data.lower()
 
@@ -2446,9 +2435,8 @@ class TestDrinkTypeEvaluation:
         """Results page shows the eval_type badge."""
         _, sample_id = self._seed(tmp_db)
         client.post(f"/evaluate/{sample_id}/save", data={
-            "eval_type": "black",
-            "aroma": "4", "acidity": "3", "sweetness": "3",
-            "body": "3", "balance": "4", "overall": "4",
+            "black__aroma": "4", "black__acidity": "3", "black__sweetness": "3",
+            "black__body": "3", "black__balance": "4", "black__overall": "4",
         })
         resp = client.get(f"/evaluate/{sample_id}/results?type=black")
         assert resp.status_code == 200
@@ -2457,17 +2445,12 @@ class TestDrinkTypeEvaluation:
     def test_results_page_shows_other_evals(self, client, tmp_db):
         """Results page lists links to other eval types for this sample."""
         _, sample_id = self._seed(tmp_db)
-        # Save black eval
+        # Single save with both black and cappuccino fields
         client.post(f"/evaluate/{sample_id}/save", data={
-            "eval_type": "black",
-            "aroma": "4", "acidity": "3", "sweetness": "3",
-            "body": "3", "balance": "4", "overall": "4",
-        })
-        # Save cappuccino eval
-        client.post(f"/evaluate/{sample_id}/save", data={
-            "eval_type": "cappuccino",
-            "aroma": "3", "acidity": "3", "sweetness": "4",
-            "body": "3", "balance": "3", "overall": "3",
+            "black__aroma": "4", "black__acidity": "3", "black__sweetness": "3",
+            "black__body": "3", "black__balance": "4", "black__overall": "4",
+            "cappuccino__aroma": "3", "cappuccino__acidity": "3", "cappuccino__sweetness": "4",
+            "cappuccino__balance": "3", "cappuccino__overall": "3",
         })
         # View black results — should show cappuccino link
         resp = client.get(f"/evaluate/{sample_id}/results?type=black")
@@ -2500,6 +2483,105 @@ class TestDrinkTypeEvaluation:
         with coffee_app.get_db() as c:
             rows = coffee_app._grind_rows(coffee_id, c)
         assert len(rows) == 0
+
+    def test_single_save_creates_both_evals(self, client, tmp_db):
+        """A single form POST with both black__ and cappuccino__ fields saves both evaluations."""
+        _, sample_id = self._seed(tmp_db)
+        resp = client.post(f"/evaluate/{sample_id}/save", data={
+            "black__aroma": "4", "black__acidity": "3", "black__sweetness": "3",
+            "black__body": "3", "black__balance": "4", "black__overall": "4",
+            "cappuccino__aroma": "3", "cappuccino__acidity": "4", "cappuccino__sweetness": "4",
+            "cappuccino__balance": "3", "cappuccino__overall": "3",
+        })
+        assert resp.status_code == 302
+        conn = _get_db(tmp_db)
+        rows = conn.execute(
+            "SELECT eval_type, overall FROM evaluations WHERE sample_id=? ORDER BY eval_type",
+            (sample_id,)
+        ).fetchall()
+        assert len(rows) == 2
+        types = {r["eval_type"]: r["overall"] for r in rows}
+        assert types["black"] == 4
+        assert types["cappuccino"] == 3
+
+    def test_empty_tab_creates_no_eval(self, client, tmp_db):
+        """Submitting with only black fields filled does not create a cappuccino eval."""
+        _, sample_id = self._seed(tmp_db)
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "black__aroma": "4", "black__acidity": "3", "black__sweetness": "3",
+            "black__body": "3", "black__balance": "4", "black__overall": "4",
+        })
+        conn = _get_db(tmp_db)
+        rows = conn.execute(
+            "SELECT eval_type FROM evaluations WHERE sample_id=?", (sample_id,)
+        ).fetchall()
+        types = [r["eval_type"] for r in rows]
+        assert "black" in types
+        assert "cappuccino" not in types
+
+    def test_shared_grind_aroma_stored_on_all_saved_evals(self, client, tmp_db):
+        """grind_aroma (shared field) is stored on every eval saved in a single submit."""
+        _, sample_id = self._seed(tmp_db)
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "grind_aroma": "4",
+            "black__aroma": "4", "black__acidity": "3", "black__sweetness": "3",
+            "black__body": "3", "black__balance": "4", "black__overall": "4",
+            "cappuccino__aroma": "3", "cappuccino__acidity": "3", "cappuccino__sweetness": "4",
+            "cappuccino__balance": "3", "cappuccino__overall": "3",
+        })
+        conn = _get_db(tmp_db)
+        rows = conn.execute(
+            "SELECT eval_type, grind_aroma FROM evaluations WHERE sample_id=?", (sample_id,)
+        ).fetchall()
+        assert len(rows) == 2
+        for row in rows:
+            assert row["grind_aroma"] == 4
+
+    def test_shared_eval_notes_stored_on_black_eval(self, client, tmp_db):
+        """eval_notes (shared field) is stored on the black eval."""
+        _, sample_id = self._seed(tmp_db)
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "eval_notes": "good shot",
+            "black__aroma": "4", "black__acidity": "3", "black__sweetness": "3",
+            "black__body": "3", "black__balance": "4", "black__overall": "4",
+        })
+        conn = _get_db(tmp_db)
+        row = conn.execute(
+            "SELECT eval_notes FROM evaluations WHERE sample_id=? AND eval_type='black'",
+            (sample_id,)
+        ).fetchone()
+        assert row is not None
+        assert row["eval_notes"] == "good shot"
+
+    def test_redirect_type_is_black_when_both_saved(self, client, tmp_db):
+        """When black and cappuccino are both saved, redirect uses black (first non-milk type)."""
+        _, sample_id = self._seed(tmp_db)
+        resp = client.post(f"/evaluate/{sample_id}/save", data={
+            "black__aroma": "4", "black__acidity": "3", "black__sweetness": "3",
+            "black__body": "3", "black__balance": "4", "black__overall": "4",
+            "cappuccino__aroma": "3", "cappuccino__acidity": "3", "cappuccino__sweetness": "4",
+            "cappuccino__balance": "3", "cappuccino__overall": "3",
+        })
+        assert "type=black" in resp.headers["Location"]
+
+    def test_evaluate_get_passes_all_existing_evals(self, client, tmp_db):
+        """GET /evaluate/<id> passes existing_evals dict with all saved eval types."""
+        _, sample_id = self._seed(tmp_db)
+        conn = _get_db(tmp_db)
+        conn.execute(
+            "INSERT INTO evaluations (sample_id, eval_type, overall) VALUES (?, 'black', 5)",
+            (sample_id,)
+        )
+        conn.execute(
+            "INSERT INTO evaluations (sample_id, eval_type, overall) VALUES (?, 'cappuccino', 4)",
+            (sample_id,)
+        )
+        conn.commit()
+        resp = client.get(f"/evaluate/{sample_id}")
+        assert resp.status_code == 200
+        # Both eval types should appear in the form (checked radio for overall=5 for black)
+        assert b"black" in resp.data.lower()
+        assert b"cappuccino" in resp.data.lower()
 
 
 class TestDrinkTypeSettings:
