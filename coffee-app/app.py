@@ -338,8 +338,9 @@ def init_db():
         # from (sample_id) to (sample_id, eval_type).
         if eval_type_was_missing:
             try:
+                conn.execute("DROP TABLE IF EXISTS evaluations_new")
                 conn.execute("""
-                    CREATE TABLE IF NOT EXISTS evaluations_new (
+                    CREATE TABLE evaluations_new (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         sample_id INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
                         eval_type TEXT DEFAULT 'black',
@@ -372,7 +373,7 @@ def init_db():
                          aroma_descriptors, brew_smell_descriptors, taste_descriptors,
                          eval_notes, with_milk, milk_type, representative, created_at, deleted_at)
                     SELECT id, sample_id,
-                           CASE WHEN with_milk = 1 THEN 'milk' ELSE 'black' END as eval_type,
+                           CASE WHEN with_milk = 1 THEN 'cappuccino' ELSE 'black' END as eval_type,
                            aroma, acidity, sweetness, body, balance, overall,
                            grind_aroma, preheat_portafilter, preheat_cup, preheat_machine,
                            aroma_descriptors, brew_smell_descriptors, taste_descriptors,
@@ -382,6 +383,7 @@ def init_db():
                 conn.execute("DROP TABLE evaluations")
                 conn.execute("ALTER TABLE evaluations_new RENAME TO evaluations")
             except Exception as e:
+                conn.execute("DROP TABLE IF EXISTS evaluations_new")
                 print(f"[init_db] evaluations rebuild failed: {e}")
 
         conn.execute("""
@@ -2192,7 +2194,7 @@ def save_evaluation(sample_id):
     preheat_cup = safe_int(data.get("preheat_cup"), 0)
     preheat_machine = safe_int(data.get("preheat_machine"), 0)
     eval_notes = data.get("eval_notes", "").strip() or None
-    with_milk = 1 if data.get("with_milk") else 0
+    with_milk = 0  # derived from eval_type below
     aroma_desc = ",".join(data.getlist("aroma_descriptors")) or None
     brew_smell_desc = ",".join(data.getlist("brew_smell_descriptors")) or None
     taste_desc = ",".join(data.getlist("taste_descriptors")) or None
@@ -2210,6 +2212,7 @@ def save_evaluation(sample_id):
             # Milk drinks are never representative; don't persist body score
             representative = 0
             scores["body"] = None
+            with_milk = 1
         else:
             representative = 1 if data.get("representative") else 0
             milk_type = None  # no milk_type for non-milk drinks
@@ -2252,7 +2255,7 @@ def evaluation_results(sample_id):
             return redirect(url_for("index"))
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
         evaluation = conn.execute(
-            "SELECT * FROM evaluations WHERE sample_id = ? AND eval_type = ?",
+            "SELECT * FROM evaluations WHERE sample_id = ? AND eval_type = ? AND deleted_at IS NULL",
             (sample_id, eval_type),
         ).fetchone()
         # Also fetch other evaluations for this sample (different eval_types)
@@ -2517,7 +2520,7 @@ def settings_drinks():
 
 @app.route("/settings/drinks/add-drink", methods=["POST"])
 def add_drink_type():
-    name = request.form.get("name", "").strip()
+    name = request.form.get("name", "").strip().title()
     has_milk = 1 if request.form.get("has_milk") else 0
     if name:
         with get_db() as conn:
@@ -2542,7 +2545,7 @@ def delete_drink_type(drink_id):
 
 @app.route("/settings/drinks/add-milk", methods=["POST"])
 def add_milk_type():
-    name = request.form.get("name", "").strip()
+    name = request.form.get("name", "").strip().title()
     if name:
         with get_db() as conn:
             try:
