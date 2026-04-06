@@ -27,6 +27,12 @@
             {% if sample.channeling == 'some' %}<span class="freshness-badge fresh-stale">Channeling</span>{% endif %}
         </div>
 
+        <!-- Drink type badge -->
+        <div style="margin-bottom:6px">
+            <span class="freshness-badge fresh-peak" style="font-size:0.85em">{{ eval_type|capitalize }}</span>
+            {% if evaluation.milk_type %}<span style="color:#a0906e;font-size:0.85em;margin-left:6px">{{ evaluation.milk_type }}</span>{% endif %}
+        </div>
+
         <!-- Scores -->
         <div class="results-scores">
             {% if evaluation.overall %}
@@ -41,7 +47,8 @@
             </div>
         </div>
 
-        <!-- Diagnostics -->
+        <!-- Diagnostics (black only) -->
+        {% if eval_type == 'black' %}
         <div class="diagnostic">
             {% for tip in tips %}
             <p>{{ tip }}</p>
@@ -50,11 +57,25 @@
             <p>No specific issues detected.</p>
             {% endif %}
         </div>
+        {% endif %}
+
+        <!-- Other evaluations for this sample -->
+        {% if other_evals %}
+        <div class="diagnostic" style="border-left-color:#6a8a6a;background:#2a3a2a;margin-top:8px">
+            <p style="margin:0 0 4px;font-weight:bold;color:#b0d0b0">Other evaluations for this shot:</p>
+            {% for oe in other_evals %}
+            <a href="/evaluate/{{ sample.id }}/results?type={{ oe.eval_type }}"
+               style="display:inline-block;margin:2px 4px 2px 0;padding:2px 8px;background:#3a4a3a;color:#c8e0c8;border-radius:4px;text-decoration:none;font-size:0.85em">
+                {{ oe.eval_type|capitalize }}{% if oe.overall %} — {{ oe.overall }}/5{% endif %}
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
 
         <!-- Actions -->
         <div class="eval-actions">
             <a href="/" class="btn-cancel">Leave</a>
-            <a href="/evaluate/{{ sample.id }}" class="btn-add results-update-btn">Update</a>
+            <a href="/evaluate/{{ sample.id }}?type={{ eval_type }}" class="btn-add results-update-btn">Update</a>
         </div>
     </main>
 </body>

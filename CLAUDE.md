@@ -7,9 +7,9 @@ Solves the problem of systematically tracking espresso shots, evaluating flavors
 **Stack:** Python 3 / Flask / SQLite / Chart.js / simple-keyboard. Runs as a Chromium kiosk on Wayland (800x480 DSI touchscreen).
 
 **Entry points:**
-- `coffee-app/app.py` — Flask application (~2500 lines), all routes and business logic
+- `coffee-app/app.py` — Flask application (~2680 lines), all routes and business logic
 - `./deploy.sh` — safe deploy to Raspberry Pi (backs up DB, stops Flask, syncs, restarts)
-- `python3 -m pytest tests/test_app.py` — test suite (229 tests)
+- `python3 -m pytest tests/test_app.py` — test suite (256 tests)
 
 ## Project Context
 
@@ -26,7 +26,7 @@ FLASK_DEBUG=1 python3 coffee-app/app.py  # with debug mode
 
 ### Run tests
 ```bash
-python3 -m pytest tests/test_app.py -v      # full suite (229 tests, ~8s)
+python3 -m pytest tests/test_app.py -v      # full suite (256 tests, ~16s)
 python3 -m pytest tests/test_app.py::TestFreshnessStatus -v  # single class
 ```
 

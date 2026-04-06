@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Drink Type Settings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ v }}">
+</head>
+<body>
+    <header>
+        <a href="/" class="back-btn">&#9664;</a>
+        <h1>Settings</h1>
+        <span class="header-spacer" aria-hidden="true">&#9664;</span>
+    </header>
+
+    <main>
+        <nav class="settings-tabs">
+            <a href="/settings/tasting-notes" class="settings-tab">Tasting Notes</a>
+            <a href="/settings/grind" class="settings-tab">Grind Optimizer</a>
+            <a href="/settings/taste" class="settings-tab">Taste Profile</a>
+            <a href="/settings/design" class="settings-tab">Design</a>
+            <a href="/settings/maintenance" class="settings-tab">Maintenance</a>
+            <a href="/settings/drinks" class="settings-tab active">Drinks</a>
+        </nav>
+
+        {% if request.args.get('error') == 'duplicate' %}
+        <div class="diagnostic" style="border-left-color:#e06060;background:#4a2020;margin-bottom:12px">
+            <p>That name already exists.</p>
+        </div>
+        {% elif request.args.get('error') == 'protected' %}
+        <div class="diagnostic" style="border-left-color:#e06060;background:#4a2020;margin-bottom:12px">
+            <p>The Black drink type cannot be deleted.</p>
+        </div>
+        {% endif %}
+
+        <!-- Drink Types -->
+        <section class="history" style="margin-top:8px">
+            <h2>Drink Types</h2>
+            {% for dt in drink_types %}
+            <div class="note-card">
+                <div class="note-edit-row">
+                    <span class="note-edit-name-fixed">{{ dt.name }}</span>
+                    {% if dt.has_milk %}<span class="freshness-badge fresh-peak" style="margin-left:8px">milk</span>{% endif %}
+                    {% if dt.name|lower != 'black' %}
+                    <form action="/settings/drinks/delete-drink/{{ dt.id }}" method="POST" style="margin-left:auto">
+                        <button type="submit" class="btn-del-note">Delete</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </section>
+
+        <form action="/settings/drinks/add-drink" method="POST" class="sample-form" style="margin-top:12px">
+            <div class="row">
+                <div class="field" style="flex:3">
+                    <label for="drink-name">Drink name</label>
+                    <input type="text" id="drink-name" name="name" required placeholder="e.g. Latte" autocomplete="off">
+                </div>
+                <div class="field" style="flex:1; align-self:flex-end; padding-bottom:4px">
+                    <label class="representative-toggle compact">
+                        <input type="checkbox" name="has_milk" value="1">
+                        <span class="repr-check"></span>
+                        <span>Has milk</span>
+                    </label>
+                </div>
+            </div>
+            <button type="submit" class="btn-add">Add Drink Type</button>
+        </form>
+
+        <!-- Milk Types -->
+        <section class="history" style="margin-top:20px">
+            <h2>Milk Types</h2>
+            {% if milk_types %}
+            {% for mt in milk_types %}
+            <div class="note-card">
+                <div class="note-edit-row">
+                    <span class="note-edit-name-fixed">{{ mt.name }}</span>
+                    <form action="/settings/drinks/delete-milk/{{ mt.id }}" method="POST" style="margin-left:auto">
+                        <button type="submit" class="btn-del-note">Delete</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p style="color:#a0906e;font-size:0.9em;margin:4px 0 8px">No milk types defined yet.</p>
+            {% endif %}
+        </section>
+
+        <form action="/settings/drinks/add-milk" method="POST" class="sample-form" style="margin-top:12px">
+            <div class="field">
+                <label for="milk-name">Milk type name</label>
+                <input type="text" id="milk-name" name="name" required placeholder="e.g. Oat" autocomplete="off">
+            </div>
+            <button type="submit" class="btn-add">Add Milk Type</button>
+        </form>
+    </main>
+</body>
+</html>

@@ -126,7 +126,7 @@
             </div>
 
             <!-- Grind smell descriptors -->
-            <h3 class="form-section-title">Grind Smell</h3>
+            <h3 class="form-section-title descriptor-ref-link" data-ref="grind-smell">Grind Smell</h3>
             <div class="descriptor-chips">
                 {% for name, sentiment in grind_smell_descriptors %}
                 <label class="descriptor-chip chip-{{ sentiment }}">
@@ -135,6 +135,29 @@
                     <span>{{ name }}</span>
                 </label>
                 {% endfor %}
+            </div>
+
+            <!-- Preheat -->
+            <h3 class="form-section-title">Preheat</h3>
+            <div class="preheat-row">
+                <label class="representative-toggle compact">
+                    <input type="checkbox" name="preheat_portafilter" value="1"
+                           {% if prefill_preheat.portafilter != 0 %}checked{% endif %}>
+                    <span class="repr-check"></span>
+                    <span>Portafilter</span>
+                </label>
+                <label class="representative-toggle compact">
+                    <input type="checkbox" name="preheat_cup" value="1"
+                           {% if prefill_preheat.cup != 0 %}checked{% endif %}>
+                    <span class="repr-check"></span>
+                    <span>Cup</span>
+                </label>
+                <label class="representative-toggle compact">
+                    <input type="checkbox" name="preheat_machine" value="1"
+                           {% if prefill_preheat.machine != 0 %}checked{% endif %}>
+                    <span class="repr-check"></span>
+                    <span>Machine</span>
+                </label>
             </div>
 
             <button type="submit" class="btn-add">Save Sample</button>

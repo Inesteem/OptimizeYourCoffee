@@ -81,7 +81,8 @@ SAMPLE_COLUMNS = {"coffee_id", "grind_size", "grams_in", "grams_out", "brew_time
 EVALUATION_COLUMNS = {"sample_id", "aroma", "acidity", "sweetness", "body", "balance",
                       "overall", "grind_aroma", "aroma_descriptors", "brew_smell_descriptors", "taste_descriptors",
                       "preheat_portafilter", "preheat_cup",
-                      "preheat_machine", "eval_notes", "with_milk", "representative", "created_at", "deleted_at"}
+                      "preheat_machine", "eval_notes", "with_milk", "representative", "created_at", "deleted_at",
+                      "eval_type", "milk_type"}
 
 PROCESS_OPTIONS = [
     "Washed", "Natural", "Honey", "Black Honey", "Red Honey", "Yellow Honey",
@@ -315,6 +316,7 @@ def init_db():
         eval_cols = [r["name"] for r in conn.execute("PRAGMA table_info(evaluations)").fetchall()]
         if "representative" not in eval_cols:
             conn.execute("ALTER TABLE evaluations ADD COLUMN representative INTEGER DEFAULT 0")
+        eval_type_was_missing = "eval_type" not in eval_cols
         for ecol, edef in [
             ("grind_aroma", "INTEGER"),
             ("preheat_portafilter", "INTEGER DEFAULT 1"),
@@ -326,9 +328,62 @@ def init_db():
             ("eval_notes", "TEXT"),
             ("with_milk", "INTEGER DEFAULT 0"),
             ("deleted_at", "TEXT"),
+            ("eval_type", "TEXT DEFAULT 'black'"),
+            ("milk_type", "TEXT"),
         ]:
             if ecol not in eval_cols:
                 conn.execute(f"ALTER TABLE evaluations ADD COLUMN {ecol} {edef}")
+
+        # If eval_type was just added, rebuild the table to change the UNIQUE constraint
+        # from (sample_id) to (sample_id, eval_type).
+        if eval_type_was_missing:
+            try:
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS evaluations_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        sample_id INTEGER NOT NULL REFERENCES samples(id) ON DELETE CASCADE,
+                        eval_type TEXT DEFAULT 'black',
+                        aroma INTEGER CHECK(aroma BETWEEN 1 AND 5),
+                        acidity INTEGER CHECK(acidity BETWEEN 1 AND 5),
+                        sweetness INTEGER CHECK(sweetness BETWEEN 1 AND 5),
+                        body INTEGER CHECK(body BETWEEN 1 AND 5),
+                        balance INTEGER CHECK(balance BETWEEN 1 AND 5),
+                        overall INTEGER CHECK(overall BETWEEN 1 AND 5),
+                        grind_aroma INTEGER CHECK(grind_aroma BETWEEN 1 AND 5),
+                        preheat_portafilter INTEGER DEFAULT 1,
+                        preheat_cup INTEGER DEFAULT 1,
+                        preheat_machine INTEGER DEFAULT 1,
+                        aroma_descriptors TEXT,
+                        brew_smell_descriptors TEXT,
+                        taste_descriptors TEXT,
+                        eval_notes TEXT,
+                        with_milk INTEGER DEFAULT 0,
+                        milk_type TEXT,
+                        representative INTEGER DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        deleted_at TEXT,
+                        UNIQUE(sample_id, eval_type)
+                    )
+                """)
+                conn.execute("""
+                    INSERT INTO evaluations_new
+                        (id, sample_id, eval_type, aroma, acidity, sweetness, body, balance, overall,
+                         grind_aroma, preheat_portafilter, preheat_cup, preheat_machine,
+                         aroma_descriptors, brew_smell_descriptors, taste_descriptors,
+                         eval_notes, with_milk, milk_type, representative, created_at, deleted_at)
+                    SELECT id, sample_id,
+                           CASE WHEN with_milk = 1 THEN 'milk' ELSE 'black' END as eval_type,
+                           aroma, acidity, sweetness, body, balance, overall,
+                           grind_aroma, preheat_portafilter, preheat_cup, preheat_machine,
+                           aroma_descriptors, brew_smell_descriptors, taste_descriptors,
+                           eval_notes, with_milk, NULL as milk_type, representative, created_at, deleted_at
+                    FROM evaluations
+                """)
+                conn.execute("DROP TABLE evaluations")
+                conn.execute("ALTER TABLE evaluations_new RENAME TO evaluations")
+            except Exception as e:
+                print(f"[init_db] evaluations rebuild failed: {e}")
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS custom_tasting_notes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -342,6 +397,25 @@ def init_db():
                 value TEXT
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS drink_types (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                has_milk INTEGER DEFAULT 0
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS milk_types (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT
+            )
+        """)
+        # Seed default drink/milk types idempotently
+        conn.execute("INSERT OR IGNORE INTO drink_types (name, has_milk) VALUES ('Black', 0)")
+        conn.execute("INSERT OR IGNORE INTO drink_types (name, description, has_milk) VALUES ('Cappuccino', 'Espresso with steamed milk and foam', 1)")
+        conn.execute("INSERT OR IGNORE INTO milk_types (name) VALUES ('Soja')")
 
 
 def get_setting(conn, key, default=None):
@@ -622,7 +696,8 @@ def coffee_rating(coffee_id, conn):
            FROM evaluations e JOIN samples s ON e.sample_id = s.id
            WHERE s.coffee_id = ? AND e.representative = 1
              AND e.aroma IS NOT NULL AND e.overall IS NOT NULL
-             AND s.deleted_at IS NULL AND e.deleted_at IS NULL""",
+             AND s.deleted_at IS NULL AND e.deleted_at IS NULL
+             AND (e.eval_type = 'black' OR e.eval_type IS NULL)""",
         (coffee_id,),
     ).fetchall()
 
@@ -818,6 +893,7 @@ def _grind_rows(coffee_id, conn):
            FROM samples s JOIN evaluations e ON e.sample_id = s.id
            WHERE s.coffee_id = ? AND e.overall IS NOT NULL
              AND s.deleted_at IS NULL AND e.deleted_at IS NULL
+             AND (e.eval_type = 'black' OR e.eval_type IS NULL)
            ORDER BY s.created_at""",
         (coffee_id,),
     ).fetchall()
@@ -955,7 +1031,8 @@ def _cross_coffee_prior(coffee_id, conn):
             JOIN evaluations e ON e.sample_id = s.id
             JOIN coffees c ON s.coffee_id = c.id
             WHERE s.coffee_id != ? AND e.overall IS NOT NULL
-              AND c.deleted_at IS NULL AND s.deleted_at IS NULL AND e.deleted_at IS NULL {where_extra}
+              AND c.deleted_at IS NULL AND s.deleted_at IS NULL AND e.deleted_at IS NULL
+              AND (e.eval_type = 'black' OR e.eval_type IS NULL) {where_extra}
         """, [coffee_id] + params).fetchone()
 
         if rows and rows["n_shots"] >= 3 and rows["n_coffees"] >= 1:
@@ -1215,6 +1292,7 @@ def _suggest_grind_ratio(coffee_id, conn):
            FROM samples s JOIN evaluations e ON e.sample_id = s.id
            WHERE s.coffee_id = ? AND s.grams_out IS NOT NULL AND s.grind_size IS NOT NULL
              AND s.deleted_at IS NULL AND e.deleted_at IS NULL
+             AND (e.eval_type = 'black' OR e.eval_type IS NULL)
            ORDER BY s.created_at""",
         (coffee_id,),
     ).fetchall()
@@ -1522,7 +1600,8 @@ def new_sample(coffee_id):
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (coffee_id,)).fetchone()
         samples = conn.execute(
             """SELECT s.*, e.aroma, e.acidity, e.sweetness, e.body, e.balance, e.overall
-               FROM samples s LEFT JOIN evaluations e ON e.sample_id = s.id AND e.deleted_at IS NULL
+               FROM samples s LEFT JOIN evaluations e ON e.sample_id = s.id
+                   AND e.deleted_at IS NULL AND (e.eval_type = 'black' OR e.eval_type IS NULL)
                WHERE s.coffee_id = ? AND s.deleted_at IS NULL
                ORDER BY s.created_at DESC LIMIT 20""",
             (coffee_id,),
@@ -1539,20 +1618,43 @@ def new_sample(coffee_id):
     with get_db() as conn:
         grind_hint = suggest_grind(coffee_id, conn)
         last_eval = conn.execute(
-            """SELECT e.grind_aroma, e.aroma_descriptors
+            """SELECT e.grind_aroma, e.aroma_descriptors,
+                      e.preheat_portafilter, e.preheat_cup, e.preheat_machine
                FROM evaluations e JOIN samples s ON e.sample_id = s.id
                WHERE s.coffee_id = ? AND e.grind_aroma IS NOT NULL
                  AND s.deleted_at IS NULL AND e.deleted_at IS NULL
+                 AND (e.eval_type = 'black' OR e.eval_type IS NULL)
                ORDER BY e.created_at DESC LIMIT 1""",
             (coffee_id,),
         ).fetchone()
     days_open = days_since(coffee["opened_date"])
     prefill_grind_aroma = last_eval["grind_aroma"] if last_eval else None
     prefill_grind_smell = (last_eval["aroma_descriptors"] or "").split(",") if last_eval and last_eval["aroma_descriptors"] else []
+    if last_eval:
+        prefill_preheat = {
+            "portafilter": last_eval["preheat_portafilter"],
+            "cup": last_eval["preheat_cup"],
+            "machine": last_eval["preheat_machine"],
+        }
+    else:
+        # No prior eval for this coffee — use last-used preheat from any coffee
+        with get_db() as conn3:
+            any_eval = conn3.execute(
+                """SELECT preheat_portafilter, preheat_cup, preheat_machine
+                   FROM evaluations WHERE deleted_at IS NULL
+                     AND (eval_type = 'black' OR eval_type IS NULL)
+                   ORDER BY created_at DESC LIMIT 1"""
+            ).fetchone()
+        prefill_preheat = {
+            "portafilter": any_eval["preheat_portafilter"] if any_eval else 1,
+            "cup": any_eval["preheat_cup"] if any_eval else 1,
+            "machine": any_eval["preheat_machine"] if any_eval else 1,
+        }
     return render_template("step2_sample.html", coffee=coffee, samples=samples,
                            freshness=freshness, grind_hint=grind_hint, days_open=days_open,
                            prefill_grind_aroma=prefill_grind_aroma,
-                           prefill_grind_smell=prefill_grind_smell)
+                           prefill_grind_smell=prefill_grind_smell,
+                           prefill_preheat=prefill_preheat)
 
 
 @app.route("/coffee/<int:coffee_id>/open", methods=["POST"])
@@ -1576,6 +1678,9 @@ def add_sample(coffee_id):
     # Not stored on samples — only persisted when the user saves the evaluation.
     grind_smell = ",".join(data.getlist("grind_smell")) or None
     grind_aroma = data.get("grind_aroma") or None
+    preheat_pf = "1" if data.get("preheat_portafilter") else "0"
+    preheat_cup = "1" if data.get("preheat_cup") else "0"
+    preheat_machine = "1" if data.get("preheat_machine") else "0"
     channeling = data.get("channeling") or None
     if channeling not in (None, "none", "some", "unsure"):
         channeling = None
@@ -1604,7 +1709,9 @@ def add_sample(coffee_id):
         )
         sample_id = cur.lastrowid
     return redirect(url_for("evaluate_sample", sample_id=sample_id,
-                            grind_smell=grind_smell, grind_aroma=grind_aroma))
+                            grind_smell=grind_smell, grind_aroma=grind_aroma,
+                            preheat_pf=preheat_pf, preheat_cup=preheat_cup,
+                            preheat_machine=preheat_machine))
 
 
 @app.route("/sample/<int:sample_id>/delete", methods=["POST"])
@@ -1738,6 +1845,7 @@ def insights():
             JOIN evaluations e ON e.sample_id = s.id
             WHERE e.overall IS NOT NULL
               AND c.deleted_at IS NULL AND s.deleted_at IS NULL AND e.deleted_at IS NULL
+              AND (e.eval_type = 'black' OR e.eval_type IS NULL)
               {rep_filter} {score_filter}
             GROUP BY c.id
         """, query_params).fetchall()
@@ -1926,7 +2034,8 @@ def coffee_stats(coffee_id):
 
         samples = conn.execute(
             """SELECT s.*, e.aroma, e.acidity, e.sweetness, e.body, e.balance, e.overall, e.representative
-               FROM samples s LEFT JOIN evaluations e ON e.sample_id = s.id AND e.deleted_at IS NULL
+               FROM samples s LEFT JOIN evaluations e ON e.sample_id = s.id
+                   AND e.deleted_at IS NULL AND (e.eval_type = 'black' OR e.eval_type IS NULL)
                WHERE s.coffee_id = ? AND s.deleted_at IS NULL
                ORDER BY s.created_at ASC""",
             (coffee_id,),
@@ -1943,7 +2052,8 @@ def coffee_stats(coffee_id):
                           COUNT(*) as n
                    FROM evaluations e JOIN samples s ON e.sample_id = s.id
                    WHERE s.coffee_id = ? AND e.overall IS NOT NULL
-                     AND s.deleted_at IS NULL AND e.deleted_at IS NULL""",
+                     AND s.deleted_at IS NULL AND e.deleted_at IS NULL
+                     AND (e.eval_type = 'black' OR e.eval_type IS NULL)""",
                 (ac["id"],),
             ).fetchone()
             if avgs and avgs["n"] > 0:
@@ -2008,34 +2118,63 @@ def coffee_stats(coffee_id):
 
 @app.route("/evaluate/<int:sample_id>")
 def evaluate_sample(sample_id):
+    eval_type = request.args.get("type", "black").lower()
     with get_db() as conn:
         sample = conn.execute("SELECT * FROM samples WHERE id = ? AND deleted_at IS NULL", (sample_id,)).fetchone()
         if not sample:
             return redirect(url_for("index"))
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
-        existing = conn.execute("SELECT * FROM evaluations WHERE sample_id = ? AND deleted_at IS NULL", (sample_id,)).fetchone()
+        # Validate eval_type against drink_types table
+        dt_row = conn.execute("SELECT * FROM drink_types WHERE LOWER(name) = ?", (eval_type,)).fetchone()
+        if not dt_row:
+            eval_type = "black"
+            dt_row = conn.execute("SELECT * FROM drink_types WHERE LOWER(name) = 'black'").fetchone()
+        is_milk_drink = bool(dt_row and dt_row["has_milk"])
+        existing = conn.execute(
+            "SELECT * FROM evaluations WHERE sample_id = ? AND eval_type = ? AND deleted_at IS NULL",
+            (sample_id, eval_type),
+        ).fetchone()
         # Grind aroma prefill priority chain:
         # 1. Existing evaluation (re-editing) — handled in template
         # 2. Query params from sample page (user's fresh selections)
-        # 3. Sticky: last evaluation of this coffee (same grind aroma carries forward)
+        # 3. Sticky: last evaluation of this coffee matching same eval_type (aroma carries forward)
         last_eval = conn.execute(
             """SELECT e.grind_aroma, e.aroma_descriptors
                FROM evaluations e JOIN samples s ON e.sample_id = s.id
                WHERE s.coffee_id = ? AND e.grind_aroma IS NOT NULL
                  AND s.deleted_at IS NULL AND e.deleted_at IS NULL
+                 AND e.eval_type = ?
                ORDER BY e.created_at DESC LIMIT 1""",
-            (sample["coffee_id"],),
+            (sample["coffee_id"], eval_type),
         ).fetchone()
+        drink_types = conn.execute("SELECT * FROM drink_types ORDER BY has_milk ASC, name ASC").fetchall()
+        milk_types = conn.execute("SELECT * FROM milk_types ORDER BY name ASC").fetchall()
     freshness = freshness_status(coffee)
     # Query params (from sample page) override sticky prefill (from last eval)
     prefill_grind_aroma = safe_int(request.args.get("grind_aroma")) or (last_eval["grind_aroma"] if last_eval else None)
     prefill_grind_smell = request.args.get("grind_smell") or (last_eval["aroma_descriptors"] if last_eval and last_eval["aroma_descriptors"] else None)
+    # Preheat prefill: query params from sample page, or sticky from last eval, or default on
+    prefill_preheat = {
+        "portafilter": safe_int(request.args.get("preheat_pf"), 1),
+        "cup": safe_int(request.args.get("preheat_cup"), 1),
+        "machine": safe_int(request.args.get("preheat_machine"), 1),
+    }
+    # For milk drinks, exclude body dimension
+    if is_milk_drink:
+        dims = [d for d in EVAL_DIMENSIONS if d["key"] != "body"]
+    else:
+        dims = EVAL_DIMENSIONS
     return render_template(
         "step3_evaluate.html",
         coffee=coffee, sample=sample, evaluation=existing,
-        dimensions=EVAL_DIMENSIONS, tips=None, freshness=freshness,
+        dimensions=dims, tips=None, freshness=freshness,
         prefill_grind_aroma=prefill_grind_aroma,
         prefill_grind_smell=prefill_grind_smell,
+        prefill_preheat=prefill_preheat,
+        eval_type=eval_type,
+        drink_types=drink_types,
+        milk_types=milk_types,
+        is_milk_drink=is_milk_drink,
     )
 
 
@@ -2046,28 +2185,43 @@ def save_evaluation(sample_id):
     for dim in EVAL_DIMENSIONS:
         val = data.get(dim["key"])
         scores[dim["key"]] = safe_int(val)
-    representative = 1 if data.get("representative") else 0
+    eval_type = (data.get("eval_type") or "black").lower()
+    milk_type = data.get("milk_type", "").strip() or None
     grind_aroma = safe_int(data.get("grind_aroma"))
-    preheat_pf = 1 if data.get("preheat_portafilter") else 0
-    preheat_cup = 1 if data.get("preheat_cup") else 0
-    preheat_machine = 1 if data.get("preheat_machine") else 0
+    preheat_pf = safe_int(data.get("preheat_portafilter"), 0)
+    preheat_cup = safe_int(data.get("preheat_cup"), 0)
+    preheat_machine = safe_int(data.get("preheat_machine"), 0)
     eval_notes = data.get("eval_notes", "").strip() or None
     with_milk = 1 if data.get("with_milk") else 0
     aroma_desc = ",".join(data.getlist("aroma_descriptors")) or None
     brew_smell_desc = ",".join(data.getlist("brew_smell_descriptors")) or None
     taste_desc = ",".join(data.getlist("taste_descriptors")) or None
 
+    # Validate eval_type; look up whether it's a milk drink
     with get_db() as conn:
         sample = conn.execute("SELECT * FROM samples WHERE id = ? AND deleted_at IS NULL", (sample_id,)).fetchone()
         if not sample:
             return redirect(url_for("index"))
+        dt_row = conn.execute("SELECT has_milk FROM drink_types WHERE LOWER(name) = ?", (eval_type,)).fetchone()
+        if not dt_row:
+            eval_type = "black"
+        is_milk_drink = bool(dt_row and dt_row["has_milk"])
+        if is_milk_drink:
+            # Milk drinks are never representative; don't persist body score
+            representative = 0
+            scores["body"] = None
+        else:
+            representative = 1 if data.get("representative") else 0
+            milk_type = None  # no milk_type for non-milk drinks
         conn.execute("""
-    INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall,
+    INSERT INTO evaluations (sample_id, eval_type, milk_type,
+       aroma, acidity, sweetness, body, balance, overall,
        grind_aroma, aroma_descriptors, brew_smell_descriptors, taste_descriptors,
        preheat_portafilter, preheat_cup, preheat_machine,
        eval_notes, with_milk, representative)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(sample_id) DO UPDATE SET
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(sample_id, eval_type) DO UPDATE SET
+       eval_type=excluded.eval_type, milk_type=excluded.milk_type,
        aroma=excluded.aroma, acidity=excluded.acidity, sweetness=excluded.sweetness,
        body=excluded.body, balance=excluded.balance, overall=excluded.overall,
        grind_aroma=excluded.grind_aroma, aroma_descriptors=excluded.aroma_descriptors,
@@ -2078,26 +2232,36 @@ def save_evaluation(sample_id):
        eval_notes=excluded.eval_notes, with_milk=excluded.with_milk,
        representative=excluded.representative,
        deleted_at=NULL
-""", (sample_id, scores["aroma"], scores["acidity"], scores["sweetness"],
+""", (sample_id, eval_type, milk_type,
+      scores["aroma"], scores["acidity"], scores["sweetness"],
       scores["body"], scores["balance"], scores["overall"],
       grind_aroma, aroma_desc, brew_smell_desc, taste_desc, preheat_pf, preheat_cup, preheat_machine,
       eval_notes, with_milk, representative))
 
     # Both new saves and updates redirect to results page
-    return redirect(url_for("evaluation_results", sample_id=sample_id))
+    return redirect(url_for("evaluation_results", sample_id=sample_id, type=eval_type))
 
 
 @app.route("/evaluate/<int:sample_id>/results")
 def evaluation_results(sample_id):
     """Show diagnostic results after saving an evaluation."""
+    eval_type = request.args.get("type", "black").lower()
     with get_db() as conn:
         sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
         if not sample:
             return redirect(url_for("index"))
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
-        evaluation = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
+        evaluation = conn.execute(
+            "SELECT * FROM evaluations WHERE sample_id = ? AND eval_type = ?",
+            (sample_id, eval_type),
+        ).fetchone()
+        # Also fetch other evaluations for this sample (different eval_types)
+        other_evals = conn.execute(
+            "SELECT * FROM evaluations WHERE sample_id = ? AND eval_type != ? AND deleted_at IS NULL",
+            (sample_id, eval_type),
+        ).fetchall()
     if not evaluation:
-        return redirect(url_for("evaluate_sample", sample_id=sample_id))
+        return redirect(url_for("evaluate_sample", sample_id=sample_id, type=eval_type))
 
     scores = {d["key"]: evaluation[d["key"]] for d in EVAL_DIMENSIONS}
     taste_desc = evaluation["taste_descriptors"]
@@ -2106,11 +2270,16 @@ def evaluation_results(sample_id):
         ratio = coffee["default_grams_out"] / coffee["default_grams_in"]
         target_out = sample["grams_in"] * ratio if sample["grams_in"] else None
     channeling = sample["channeling"] if sample else None
-    tips = diagnose(scores, taste_desc, sample["grams_out"], target_out,
-                    sample["brew_time_sec"], channeling)
+    # Only run diagnostics for black evaluations
+    if eval_type == "black":
+        tips = diagnose(scores, taste_desc, sample["grams_out"], target_out,
+                        sample["brew_time_sec"], channeling)
+    else:
+        tips = []
     freshness = freshness_status(coffee)
     return render_template("eval_results.html", coffee=coffee, sample=sample,
-                           evaluation=evaluation, tips=tips, freshness=freshness)
+                           evaluation=evaluation, tips=tips, freshness=freshness,
+                           eval_type=eval_type, other_evals=other_evals)
 
 
 # --- Settings: Custom tasting notes ---
@@ -2338,6 +2507,58 @@ def save_grind_settings():
     return redirect(url_for("settings_grind", saved="1"))
 
 
+@app.route("/settings/drinks")
+def settings_drinks():
+    with get_db() as conn:
+        drink_types = conn.execute("SELECT * FROM drink_types ORDER BY has_milk ASC, name ASC").fetchall()
+        milk_types = conn.execute("SELECT * FROM milk_types ORDER BY name ASC").fetchall()
+    return render_template("settings_drinks.html", drink_types=drink_types, milk_types=milk_types)
+
+
+@app.route("/settings/drinks/add-drink", methods=["POST"])
+def add_drink_type():
+    name = request.form.get("name", "").strip()
+    has_milk = 1 if request.form.get("has_milk") else 0
+    if name:
+        with get_db() as conn:
+            try:
+                conn.execute(
+                    "INSERT INTO drink_types (name, has_milk) VALUES (?, ?)", (name, has_milk)
+                )
+            except sqlite3.IntegrityError:
+                return redirect(url_for("settings_drinks", error="duplicate"))
+    return redirect(url_for("settings_drinks"))
+
+
+@app.route("/settings/drinks/delete-drink/<int:drink_id>", methods=["POST"])
+def delete_drink_type(drink_id):
+    with get_db() as conn:
+        row = conn.execute("SELECT name FROM drink_types WHERE id = ?", (drink_id,)).fetchone()
+        if row and row["name"].lower() == "black":
+            return redirect(url_for("settings_drinks", error="protected"))
+        conn.execute("DELETE FROM drink_types WHERE id = ?", (drink_id,))
+    return redirect(url_for("settings_drinks"))
+
+
+@app.route("/settings/drinks/add-milk", methods=["POST"])
+def add_milk_type():
+    name = request.form.get("name", "").strip()
+    if name:
+        with get_db() as conn:
+            try:
+                conn.execute("INSERT INTO milk_types (name) VALUES (?)", (name,))
+            except sqlite3.IntegrityError:
+                return redirect(url_for("settings_drinks", error="duplicate"))
+    return redirect(url_for("settings_drinks"))
+
+
+@app.route("/settings/drinks/delete-milk/<int:milk_id>", methods=["POST"])
+def delete_milk_type(milk_id):
+    with get_db() as conn:
+        conn.execute("DELETE FROM milk_types WHERE id = ?", (milk_id,))
+    return redirect(url_for("settings_drinks"))
+
+
 @app.route("/api/grind-preview", methods=["POST"])
 def api_grind_preview():
     """Run grind suggestion on example scenario data (for settings preview).
@@ -2366,10 +2587,12 @@ def api_grind_preview():
         grams_in REAL, grams_out REAL, brew_time_sec INTEGER,
         brew_temp_c REAL, created_at TIMESTAMP, deleted_at TEXT, channeling TEXT)""")
     mem.execute("""CREATE TABLE evaluations (
-        id INTEGER PRIMARY KEY, sample_id INTEGER UNIQUE,
+        id INTEGER PRIMARY KEY, sample_id INTEGER,
+        eval_type TEXT DEFAULT 'black',
         aroma INTEGER, acidity INTEGER, sweetness INTEGER,
         body INTEGER, balance INTEGER, overall INTEGER,
-        created_at TIMESTAMP, deleted_at TEXT)""")
+        created_at TIMESTAMP, deleted_at TEXT,
+        UNIQUE(sample_id, eval_type))""")
 
     target_out = data.get("target_output", 36)
     mem.execute("INSERT INTO coffees (id, label, default_grams_out) VALUES (1, 'Preview', ?)", (target_out,))
@@ -2435,6 +2658,7 @@ def api_samples():
                FROM samples s
                JOIN coffees c ON s.coffee_id = c.id
                LEFT JOIN evaluations e ON e.sample_id = s.id AND e.deleted_at IS NULL
+                   AND (e.eval_type = 'black' OR e.eval_type IS NULL)
                WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL
                ORDER BY s.created_at DESC"""
         ).fetchall()

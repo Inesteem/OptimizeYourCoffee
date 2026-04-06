@@ -44,25 +44,70 @@
         </div>
         {% endif %}
 
+        <!-- Drink type tab bar -->
+        <nav class="settings-tabs" style="margin-bottom:8px">
+            {% for dt in drink_types %}
+            <a href="?type={{ dt.name|lower }}{% if request.args.get('grind_aroma') %}&grind_aroma={{ request.args.get('grind_aroma') }}{% endif %}{% if request.args.get('grind_smell') %}&grind_smell={{ request.args.get('grind_smell') }}{% endif %}{% if request.args.get('preheat_pf') %}&preheat_pf={{ request.args.get('preheat_pf') }}{% endif %}{% if request.args.get('preheat_cup') %}&preheat_cup={{ request.args.get('preheat_cup') }}{% endif %}{% if request.args.get('preheat_machine') %}&preheat_machine={{ request.args.get('preheat_machine') }}{% endif %}"
+               class="settings-tab {% if eval_type == dt.name|lower %}active{% endif %}">{{ dt.name }}</a>
+            {% endfor %}
+        </nav>
+
         <!-- Evaluation form -->
         <form action="/evaluate/{{ sample.id }}/save" method="POST" class="eval-form">
-            {% for dim in dimensions %}
-            <div class="eval-row">
-                <div class="eval-header">
-                    <span class="eval-label">{{ dim.label }}</span>
-                    <span class="eval-range">{{ dim.low }} &rarr; {{ dim.high }}</span>
-                </div>
-                <div class="eval-buttons">
-                    {% for i in range(1, 6) %}
-                    <label class="eval-btn">
-                        <input type="radio" name="{{ dim.key }}" value="{{ i }}"
-                               {% if evaluation and evaluation[dim.key] == i %}checked{% endif %}>
-                        <span>{{ i }}</span>
-                    </label>
+            <input type="hidden" name="eval_type" value="{{ eval_type }}">
+
+            {% if is_milk_drink and milk_types %}
+            <!-- Milk type selector -->
+            <div class="field" style="margin-bottom:8px">
+                <label for="milk_type">Milk type</label>
+                <select id="milk_type" name="milk_type">
+                    <option value="">— select —</option>
+                    {% for mt in milk_types %}
+                    <option value="{{ mt.name }}"
+                        {% if evaluation and evaluation.milk_type == mt.name %}selected{% endif %}>{{ mt.name }}</option>
                     {% endfor %}
-                </div>
+                </select>
             </div>
-            {% endfor %}
+            {% endif %}
+
+            <!-- Grind Smell Descriptors -->
+            <h3 class="form-section-title descriptor-ref-link" data-ref="grind-smell">Grind Smell (ground coffee)</h3>
+            {% set saved_aroma = (evaluation.aroma_descriptors or '').split(',') if evaluation and evaluation.aroma_descriptors else (prefill_grind_smell or '').split(',') %}
+            <div class="descriptor-chips">
+                {% for name, sentiment in grind_smell_descriptors %}
+                <label class="descriptor-chip chip-{{ sentiment }}">
+                    <input type="checkbox" name="aroma_descriptors" value="{{ name }}"
+                           {% if name in saved_aroma %}checked{% endif %}>
+                    <span>{{ name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <!-- Brew Smell Descriptors -->
+            <h3 class="form-section-title descriptor-ref-link" data-ref="brew-smell">Brew Smell (brewed coffee)</h3>
+            {% set saved_brew = (evaluation.brew_smell_descriptors or '').split(',') if evaluation and evaluation.brew_smell_descriptors else [] %}
+            <div class="descriptor-chips">
+                {% for name, sentiment in brew_smell_descriptors %}
+                <label class="descriptor-chip chip-{{ sentiment }}">
+                    <input type="checkbox" name="brew_smell_descriptors" value="{{ name }}"
+                           {% if name in saved_brew %}checked{% endif %}>
+                    <span>{{ name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <!-- Taste Descriptors -->
+            <h3 class="form-section-title descriptor-ref-link" data-ref="taste-notes">Taste Notes (what you taste)</h3>
+            {% set saved_taste = (evaluation.taste_descriptors or '').split(',') if evaluation and evaluation.taste_descriptors else [] %}
+            <div class="descriptor-chips">
+                {% for name, sentiment in taste_descriptors %}
+                <label class="descriptor-chip chip-{{ sentiment }}">
+                    <input type="checkbox" name="taste_descriptors" value="{{ name }}"
+                           {% if name in saved_taste %}checked{% endif %}>
+                    <span>{{ name }}</span>
+                </label>
+                {% endfor %}
+            </div>
 
             <!-- Grind Aroma -->
             <div class="eval-row">
@@ -82,67 +127,29 @@
                 </div>
             </div>
 
-            <!-- Grind Smell Descriptors -->
-            <h3 class="form-section-title">Grind Smell (ground coffee)</h3>
-            {% set saved_aroma = (evaluation.aroma_descriptors or '').split(',') if evaluation and evaluation.aroma_descriptors else (prefill_grind_smell or '').split(',') %}
-            <div class="descriptor-chips">
-                {% for name, sentiment in grind_smell_descriptors %}
-                <label class="descriptor-chip chip-{{ sentiment }}">
-                    <input type="checkbox" name="aroma_descriptors" value="{{ name }}"
-                           {% if name in saved_aroma %}checked{% endif %}>
-                    <span>{{ name }}</span>
-                </label>
-                {% endfor %}
+            {% for dim in dimensions %}
+            <div class="eval-row">
+                <div class="eval-header">
+                    <span class="eval-label">{{ dim.label }}</span>
+                    <span class="eval-range">{{ dim.low }} &rarr; {{ dim.high }}</span>
+                </div>
+                <div class="eval-buttons">
+                    {% for i in range(1, 6) %}
+                    <label class="eval-btn">
+                        <input type="radio" name="{{ dim.key }}" value="{{ i }}"
+                               {% if evaluation and evaluation[dim.key] == i %}checked{% endif %}>
+                        <span>{{ i }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
             </div>
+            {% endfor %}
 
-            <!-- Brew Smell Descriptors -->
-            <h3 class="form-section-title">Brew Smell (brewed coffee)</h3>
-            {% set saved_brew = (evaluation.brew_smell_descriptors or '').split(',') if evaluation and evaluation.brew_smell_descriptors else [] %}
-            <div class="descriptor-chips">
-                {% for name, sentiment in brew_smell_descriptors %}
-                <label class="descriptor-chip chip-{{ sentiment }}">
-                    <input type="checkbox" name="brew_smell_descriptors" value="{{ name }}"
-                           {% if name in saved_brew %}checked{% endif %}>
-                    <span>{{ name }}</span>
-                </label>
-                {% endfor %}
-            </div>
-
-            <!-- Taste Descriptors -->
-            <h3 class="form-section-title">Taste Notes (what you taste)</h3>
-            {% set saved_taste = (evaluation.taste_descriptors or '').split(',') if evaluation and evaluation.taste_descriptors else [] %}
-            <div class="descriptor-chips">
-                {% for name, sentiment in taste_descriptors %}
-                <label class="descriptor-chip chip-{{ sentiment }}">
-                    <input type="checkbox" name="taste_descriptors" value="{{ name }}"
-                           {% if name in saved_taste %}checked{% endif %}>
-                    <span>{{ name }}</span>
-                </label>
-                {% endfor %}
-            </div>
-
-            <!-- Preheat checkboxes -->
-            <h3 class="form-section-title">Preheat</h3>
-            <div class="preheat-row">
-                <label class="representative-toggle compact">
-                    <input type="checkbox" name="preheat_portafilter" value="1"
-                           {% if not evaluation or evaluation.preheat_portafilter != 0 %}checked{% endif %}>
-                    <span class="repr-check"></span>
-                    <span>Portafilter</span>
-                </label>
-                <label class="representative-toggle compact">
-                    <input type="checkbox" name="preheat_cup" value="1"
-                           {% if not evaluation or evaluation.preheat_cup != 0 %}checked{% endif %}>
-                    <span class="repr-check"></span>
-                    <span>Cup</span>
-                </label>
-                <label class="representative-toggle compact">
-                    <input type="checkbox" name="preheat_machine" value="1"
-                           {% if not evaluation or evaluation.preheat_machine != 0 %}checked{% endif %}>
-                    <span class="repr-check"></span>
-                    <span>Machine</span>
-                </label>
-            </div>
+            <!-- Preheat carried from sample page as hidden inputs -->
+            {% set ph = prefill_preheat or {} %}
+            <input type="hidden" name="preheat_portafilter" value="{{ evaluation.preheat_portafilter if evaluation else ph.get('portafilter', 1) }}">
+            <input type="hidden" name="preheat_cup" value="{{ evaluation.preheat_cup if evaluation else ph.get('cup', 1) }}">
+            <input type="hidden" name="preheat_machine" value="{{ evaluation.preheat_machine if evaluation else ph.get('machine', 1) }}">
 
             <!-- Notes -->
             <div class="field" style="margin-top:8px">
@@ -152,14 +159,9 @@
                        placeholder="Additional observations..." autocomplete="off">
             </div>
 
-            <!-- Milk & Representative -->
+            <!-- Representative (hidden for milk drinks) -->
+            {% if not is_milk_drink %}
             <div class="preheat-row">
-                <label class="representative-toggle compact">
-                    <input type="checkbox" name="with_milk" value="1"
-                           {% if evaluation and evaluation.with_milk %}checked{% endif %}>
-                    <span class="repr-check"></span>
-                    <span>With milk</span>
-                </label>
                 <label class="representative-toggle compact">
                     <input type="checkbox" name="representative" value="1"
                            {% if not evaluation or evaluation.representative %}checked{% endif %}>
@@ -167,6 +169,7 @@
                     <span>Representative</span>
                 </label>
             </div>
+            {% endif %}
 
             <div class="eval-actions">
                 {% if evaluation %}

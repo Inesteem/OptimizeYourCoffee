@@ -287,4 +287,123 @@
             closePopup();
         }
     });
+
+    // Descriptor reference popups — clickable section headings
+    var DESCRIPTOR_REFS = {
+        'grind-smell': {
+            title: 'Grind Smell Reference',
+            items: [
+                ['Fruity', 'Bright, berry-like or tropical fruit aroma from the dry grounds'],
+                ['Citrus', 'Lemon, orange, or grapefruit zest — sharp and fresh'],
+                ['Berry', 'Blueberry, strawberry, or raspberry sweetness'],
+                ['Stone fruit', 'Peach, apricot, or plum — soft and sweet'],
+                ['Floral', 'Jasmine, lavender, or rose-like delicate scent'],
+                ['Jasmine', 'Specifically jasmine — common in Ethiopian coffees'],
+                ['Caramel', 'Cooked sugar, toffee, butterscotch warmth'],
+                ['Honey', 'Sweet, thick, floral sweetness'],
+                ['Vanilla', 'Warm, creamy, baking-spice sweetness'],
+                ['Nutty', 'Almond, hazelnut, or peanut — toasted and warm'],
+                ['Chocolate', 'Cocoa, dark chocolate, or milk chocolate richness'],
+                ['Cocoa', 'Raw cocoa powder — earthy and slightly bitter'],
+                ['Roasted', 'Toasted bread or grain — neutral, not burned'],
+                ['Toasted', 'Light roast warmth — like fresh toast'],
+                ['Smoky', 'Campfire or wood smoke — heavier roasts'],
+                ['Fresh', 'Clean, bright, recently roasted aroma'],
+                ['Flat', 'Little to no aroma — possibly stale beans'],
+                ['Faint', 'Very weak aroma — could indicate old or poorly stored coffee'],
+            ]
+        },
+        'brew-smell': {
+            title: 'Brew Smell Reference',
+            items: [
+                ['Fruity', 'Berry or tropical fruit notes in the steam'],
+                ['Citrus', 'Bright lemon/orange notes rising from the cup'],
+                ['Berry', 'Sweet berry aroma — blueberry, raspberry'],
+                ['Caramel', 'Sweet, cooked sugar warmth in the steam'],
+                ['Honey', 'Thick floral sweetness'],
+                ['Vanilla', 'Creamy, baking-spice aroma'],
+                ['Chocolate', 'Rich cocoa or dark chocolate'],
+                ['Cocoa', 'Raw cocoa earthiness'],
+                ['Nutty', 'Toasted nut warmth'],
+                ['Sweet', 'General pleasant sweetness'],
+                ['Rich', 'Full, complex, multi-layered aroma'],
+                ['Floral', 'Delicate flower notes'],
+                ['Roasted', 'Toasted grain — neutral warmth'],
+                ['Smoky', 'Wood smoke or charred notes'],
+                ['Sour', 'Sharp vinegar-like smell — possible under-extraction or defect'],
+                ['Acidic', 'Bright, tangy — can be positive (citric) or negative (acetic)'],
+                ['Burned', 'Charred, ashy smell — over-roasted or over-extracted'],
+                ['Flat', 'No aroma — stale or very old coffee'],
+            ]
+        },
+        'taste-notes': {
+            title: 'Taste Notes Reference',
+            items: [
+                ['Fruity', 'General fruit flavor — berries, tropical, stone fruit'],
+                ['Citrus', 'Lemon, orange, grapefruit — bright and tangy'],
+                ['Berry', 'Blueberry, strawberry, raspberry sweetness'],
+                ['Stone fruit', 'Peach, apricot, plum — soft and juicy'],
+                ['Caramel', 'Cooked sugar, toffee, butterscotch'],
+                ['Honey', 'Sweet, thick, floral — coats the palate'],
+                ['Brown sugar', 'Raw, molasses-like sweetness'],
+                ['Vanilla', 'Warm, creamy sweetness'],
+                ['Nutty', 'Almond, hazelnut, walnut — toasted and warm'],
+                ['Chocolate', 'Cocoa, dark or milk chocolate richness'],
+                ['Cocoa', 'Raw cocoa powder — earthy, slightly bitter'],
+                ['Almond', 'Specifically almond — marzipan-like'],
+                ['Creamy', 'Smooth, velvety mouthfeel'],
+                ['Silky', 'Delicate, refined texture'],
+                ['Clean', 'Clear flavors, no muddiness or off-notes'],
+                ['Wine-like', 'Fermented complexity, tannic structure'],
+                ['Spicy', 'General warm spice — clove, cardamom'],
+                ['Pepper', 'Black pepper bite or pungency'],
+                ['Cinnamon', 'Warm baking spice'],
+                ['Roasted', 'Toasted grain, bread crust — neutral'],
+                ['Smoky', 'Wood smoke or charred notes'],
+                ['Earthy', 'Soil, mushroom, wet leaves — can be positive in naturals'],
+                ['Sour', 'Sharp, vinegar-like acidity — usually under-extraction. Different from bright acidity (citrus, berry) which is pleasant.'],
+                ['Acidic', 'Bright and tangy. Pleasant acidity (citrus, malic) is desirable. Unpleasant acidity (acetic, sour) indicates problems.'],
+                ['Bitter', 'Dark, lingering bitterness — usually over-extraction or very dark roast'],
+                ['Burned', 'Charred, ashy taste — over-roasted or channeling'],
+                ['Ashy', 'Residual ash flavor — charred, dry'],
+                ['Dry', 'Mouth-drying sensation, like strong black tea'],
+                ['Astringent', 'Puckering, chalky feel — often from channeling'],
+                ['Thin', 'Watery, lacking body — under-extracted or too coarse grind'],
+                ['Watery', 'Very little dissolved flavor — weak extraction'],
+                ['Flat', 'No brightness or complexity — stale or over-extracted'],
+                ['Harsh', 'Rough, unpleasant sharpness — puck prep issues or defect'],
+            ]
+        }
+    };
+
+    document.querySelectorAll('.descriptor-ref-link').forEach(function(heading) {
+        heading.classList.add('info-link');
+        heading.addEventListener('pointerdown', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var ref = DESCRIPTOR_REFS[heading.dataset.ref];
+            if (!ref) return;
+            closePopup();
+            var overlay = document.createElement('div');
+            overlay.className = 'roast-guide-overlay';
+            var html = '<div class="roast-guide-panel descriptor-ref-panel">' +
+                '<div class="info-popup-title">' + esc(ref.title) + '</div>' +
+                '<div class="descriptor-ref-list">';
+            ref.items.forEach(function(item) {
+                html += '<div class="descriptor-ref-item">' +
+                    '<strong>' + esc(item[0]) + '</strong> ' +
+                    '<span>' + esc(item[1]) + '</span></div>';
+            });
+            html += '</div>' +
+                '<div class="roast-guide-hint">Tap anywhere to close</div></div>';
+            overlay.innerHTML = html;
+            setTimeout(function() {
+                overlay.addEventListener('pointerdown', function() { closePopup(); });
+            }, 100);
+            document.body.appendChild(overlay);
+            activePopup = overlay;
+            popupOpenedAt = Date.now();
+            void overlay.offsetHeight;
+        });
+    });
 })();

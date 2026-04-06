@@ -2305,3 +2305,306 @@ class TestRouteQuit:
         with patch("app.subprocess.Popen"):
             resp = client.post("/quit")
         assert b"html" in resp.data.lower()
+
+
+# ===========================================================================
+# Drink Type Evaluation Tests
+# ===========================================================================
+
+class TestDrinkTypeEvaluation:
+    def _seed(self, tmp_db):
+        conn = _get_db(tmp_db)
+        cur = conn.execute("INSERT INTO coffees (label) VALUES (?)", ("Drink Type Coffee",))
+        coffee_id = cur.lastrowid
+        cur2 = conn.execute(
+            "INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec) VALUES (?,?,?,?,?)",
+            (coffee_id, 18, 18, 36, 28),
+        )
+        sample_id = cur2.lastrowid
+        conn.commit()
+        return coffee_id, sample_id
+
+    def test_black_eval_default(self, client, tmp_db):
+        """Saving without eval_type defaults to black."""
+        _, sample_id = self._seed(tmp_db)
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "aroma": "4", "acidity": "3", "sweetness": "3",
+            "body": "3", "balance": "4", "overall": "4",
+        })
+        conn = _get_db(tmp_db)
+        row = conn.execute("SELECT * FROM evaluations WHERE sample_id=?", (sample_id,)).fetchone()
+        assert row is not None
+        assert row["eval_type"] == "black"
+
+    def test_milk_eval_separate(self, client, tmp_db):
+        """Can save both black and cappuccino evaluations for the same sample."""
+        _, sample_id = self._seed(tmp_db)
+        # Save black eval
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "eval_type": "black",
+            "aroma": "4", "acidity": "3", "sweetness": "3",
+            "body": "3", "balance": "4", "overall": "4",
+        })
+        # Save cappuccino eval
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "eval_type": "cappuccino",
+            "aroma": "3", "acidity": "3", "sweetness": "4",
+            "body": "3", "balance": "3", "overall": "4",
+        })
+        conn = _get_db(tmp_db)
+        rows = conn.execute(
+            "SELECT eval_type FROM evaluations WHERE sample_id=? ORDER BY eval_type",
+            (sample_id,)
+        ).fetchall()
+        eval_types = [r["eval_type"] for r in rows]
+        assert "black" in eval_types
+        assert "cappuccino" in eval_types
+        assert len(rows) == 2
+
+    def test_milk_eval_not_in_rating(self, client, tmp_db):
+        """coffee_rating ignores milk (cappuccino) evals."""
+        coffee_id, sample_id = self._seed(tmp_db)
+        # Save only a cappuccino eval (representative=1 should be forced to 0)
+        conn = _get_db(tmp_db)
+        conn.execute(
+            """INSERT INTO evaluations (sample_id, eval_type, aroma, acidity, sweetness, body, balance, overall, representative)
+               VALUES (?, 'cappuccino', 4, 3, 4, NULL, 3, 5, 0)""",
+            (sample_id,),
+        )
+        conn.commit()
+        with coffee_app.get_db() as c:
+            rating = coffee_app.coffee_rating(coffee_id, c)
+        # No black evals — rating should be None
+        assert rating is None
+
+    def test_milk_eval_not_representative(self, client, tmp_db):
+        """Milk evals are forced to representative=0."""
+        _, sample_id = self._seed(tmp_db)
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "eval_type": "cappuccino",
+            "aroma": "4", "acidity": "3", "sweetness": "4",
+            "body": "3", "balance": "3", "overall": "4",
+            "representative": "1",  # should be overridden
+        })
+        conn = _get_db(tmp_db)
+        row = conn.execute(
+            "SELECT representative, eval_type FROM evaluations WHERE sample_id=? AND eval_type='cappuccino'",
+            (sample_id,)
+        ).fetchone()
+        assert row is not None
+        assert row["representative"] == 0
+
+    def test_save_eval_updates_existing_by_eval_type(self, client, tmp_db):
+        """Second save of same (sample, eval_type) updates, not inserts."""
+        _, sample_id = self._seed(tmp_db)
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "eval_type": "black",
+            "aroma": "2", "acidity": "2", "sweetness": "2",
+            "body": "2", "balance": "2", "overall": "2",
+        })
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "eval_type": "black",
+            "aroma": "5", "acidity": "5", "sweetness": "5",
+            "body": "5", "balance": "5", "overall": "5",
+        })
+        conn = _get_db(tmp_db)
+        rows = conn.execute(
+            "SELECT * FROM evaluations WHERE sample_id=? AND eval_type='black'",
+            (sample_id,)
+        ).fetchall()
+        assert len(rows) == 1
+        assert rows[0]["overall"] == 5
+
+    def test_eval_type_validated_falls_back_to_black(self, client, tmp_db):
+        """Invalid eval_type in POST is ignored — falls back to black."""
+        _, sample_id = self._seed(tmp_db)
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "eval_type": "nonexistent_type",
+            "aroma": "3", "acidity": "3", "sweetness": "3",
+            "body": "3", "balance": "3", "overall": "3",
+        })
+        conn = _get_db(tmp_db)
+        row = conn.execute("SELECT eval_type FROM evaluations WHERE sample_id=?", (sample_id,)).fetchone()
+        assert row is not None
+        assert row["eval_type"] == "black"
+
+    def test_evaluate_page_has_drink_type_tabs(self, client, tmp_db):
+        """Evaluate page renders drink type tabs."""
+        _, sample_id = self._seed(tmp_db)
+        resp = client.get(f"/evaluate/{sample_id}")
+        assert resp.status_code == 200
+        assert b"Black" in resp.data
+
+    def test_evaluate_page_with_type_param(self, client, tmp_db):
+        """Evaluate page respects ?type=cappuccino param."""
+        _, sample_id = self._seed(tmp_db)
+        resp = client.get(f"/evaluate/{sample_id}?type=cappuccino")
+        assert resp.status_code == 200
+        assert b"cappuccino" in resp.data.lower()
+
+    def test_results_page_shows_eval_type(self, client, tmp_db):
+        """Results page shows the eval_type badge."""
+        _, sample_id = self._seed(tmp_db)
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "eval_type": "black",
+            "aroma": "4", "acidity": "3", "sweetness": "3",
+            "body": "3", "balance": "4", "overall": "4",
+        })
+        resp = client.get(f"/evaluate/{sample_id}/results?type=black")
+        assert resp.status_code == 200
+        assert b"black" in resp.data.lower() or b"Black" in resp.data
+
+    def test_results_page_shows_other_evals(self, client, tmp_db):
+        """Results page lists links to other eval types for this sample."""
+        _, sample_id = self._seed(tmp_db)
+        # Save black eval
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "eval_type": "black",
+            "aroma": "4", "acidity": "3", "sweetness": "3",
+            "body": "3", "balance": "4", "overall": "4",
+        })
+        # Save cappuccino eval
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "eval_type": "cappuccino",
+            "aroma": "3", "acidity": "3", "sweetness": "4",
+            "body": "3", "balance": "3", "overall": "3",
+        })
+        # View black results — should show cappuccino link
+        resp = client.get(f"/evaluate/{sample_id}/results?type=black")
+        assert resp.status_code == 200
+        assert b"cappuccino" in resp.data.lower()
+
+    def test_black_eval_in_grind_optimizer(self, client, tmp_db):
+        """Grind optimizer only uses black evals."""
+        coffee_id, sample_id = self._seed(tmp_db)
+        # Insert black eval directly
+        conn = _get_db(tmp_db)
+        conn.execute(
+            """INSERT INTO evaluations (sample_id, eval_type, overall) VALUES (?, 'black', 5)""",
+            (sample_id,),
+        )
+        conn.commit()
+        with coffee_app.get_db() as c:
+            rows = coffee_app._grind_rows(coffee_id, c)
+        assert len(rows) == 1
+
+    def test_cappuccino_eval_excluded_from_grind_optimizer(self, client, tmp_db):
+        """Cappuccino evals do not feed the grind optimizer."""
+        coffee_id, sample_id = self._seed(tmp_db)
+        conn = _get_db(tmp_db)
+        conn.execute(
+            """INSERT INTO evaluations (sample_id, eval_type, overall) VALUES (?, 'cappuccino', 5)""",
+            (sample_id,),
+        )
+        conn.commit()
+        with coffee_app.get_db() as c:
+            rows = coffee_app._grind_rows(coffee_id, c)
+        assert len(rows) == 0
+
+
+class TestDrinkTypeSettings:
+    def test_settings_drinks_page_renders(self, client, tmp_db):
+        resp = client.get("/settings/drinks")
+        assert resp.status_code == 200
+        assert b"Drink Types" in resp.data
+
+    def test_default_drink_types_seeded(self, client, tmp_db):
+        """Black and Cappuccino are seeded by init_db."""
+        conn = _get_db(tmp_db)
+        rows = conn.execute("SELECT name FROM drink_types ORDER BY name").fetchall()
+        names = [r["name"] for r in rows]
+        assert "Black" in names
+        assert "Cappuccino" in names
+
+    def test_default_milk_type_seeded(self, client, tmp_db):
+        """Soja is seeded by init_db."""
+        conn = _get_db(tmp_db)
+        rows = conn.execute("SELECT name FROM milk_types ORDER BY name").fetchall()
+        names = [r["name"] for r in rows]
+        assert "Soja" in names
+
+    def test_drink_type_settings_add(self, client, tmp_db):
+        """Adding a drink type stores it in the DB."""
+        resp = client.post("/settings/drinks/add-drink", data={"name": "Latte", "has_milk": "1"})
+        assert resp.status_code == 302
+        conn = _get_db(tmp_db)
+        row = conn.execute("SELECT * FROM drink_types WHERE name='Latte'").fetchone()
+        assert row is not None
+        assert row["has_milk"] == 1
+
+    def test_drink_type_settings_delete(self, client, tmp_db):
+        """Adding and then deleting a drink type removes it."""
+        client.post("/settings/drinks/add-drink", data={"name": "Ristretto"})
+        conn = _get_db(tmp_db)
+        row = conn.execute("SELECT id FROM drink_types WHERE name='Ristretto'").fetchone()
+        assert row is not None
+        drink_id = row["id"]
+        resp = client.post(f"/settings/drinks/delete-drink/{drink_id}")
+        assert resp.status_code == 302
+        row2 = conn.execute("SELECT id FROM drink_types WHERE name='Ristretto'").fetchone()
+        assert row2 is None
+
+    def test_milk_type_settings_add(self, client, tmp_db):
+        """Adding a milk type stores it in the DB."""
+        resp = client.post("/settings/drinks/add-milk", data={"name": "Oat"})
+        assert resp.status_code == 302
+        conn = _get_db(tmp_db)
+        row = conn.execute("SELECT * FROM milk_types WHERE name='Oat'").fetchone()
+        assert row is not None
+
+    def test_milk_type_settings_delete(self, client, tmp_db):
+        """Adding and then deleting a milk type removes it."""
+        client.post("/settings/drinks/add-milk", data={"name": "Almond"})
+        conn = _get_db(tmp_db)
+        row = conn.execute("SELECT id FROM milk_types WHERE name='Almond'").fetchone()
+        assert row is not None
+        milk_id = row["id"]
+        resp = client.post(f"/settings/drinks/delete-milk/{milk_id}")
+        assert resp.status_code == 302
+        row2 = conn.execute("SELECT id FROM milk_types WHERE name='Almond'").fetchone()
+        assert row2 is None
+
+    def test_cannot_delete_black(self, client, tmp_db):
+        """Deleting the Black drink type is prevented."""
+        conn = _get_db(tmp_db)
+        black_row = conn.execute("SELECT id FROM drink_types WHERE name='Black'").fetchone()
+        assert black_row is not None
+        black_id = black_row["id"]
+        resp = client.post(f"/settings/drinks/delete-drink/{black_id}")
+        assert resp.status_code == 302
+        # Black must still exist
+        still_there = conn.execute("SELECT id FROM drink_types WHERE name='Black'").fetchone()
+        assert still_there is not None
+
+    def test_duplicate_drink_type_redirects_with_error(self, client, tmp_db):
+        """Adding a duplicate drink type name redirects with error param."""
+        resp = client.post("/settings/drinks/add-drink", data={"name": "Black"})
+        assert resp.status_code == 302
+        assert "error=duplicate" in resp.headers["Location"]
+
+    def test_duplicate_milk_type_redirects_with_error(self, client, tmp_db):
+        """Adding a duplicate milk type name redirects with error param."""
+        resp = client.post("/settings/drinks/add-milk", data={"name": "Soja"})
+        assert resp.status_code == 302
+        assert "error=duplicate" in resp.headers["Location"]
+
+    def test_drink_type_has_milk_flag(self, client, tmp_db):
+        """Cappuccino seeded drink type has has_milk=1."""
+        conn = _get_db(tmp_db)
+        row = conn.execute("SELECT has_milk FROM drink_types WHERE name='Cappuccino'").fetchone()
+        assert row is not None
+        assert row["has_milk"] == 1
+
+    def test_black_drink_type_no_milk(self, client, tmp_db):
+        """Black seeded drink type has has_milk=0."""
+        conn = _get_db(tmp_db)
+        row = conn.execute("SELECT has_milk FROM drink_types WHERE name='Black'").fetchone()
+        assert row is not None
+        assert row["has_milk"] == 0
+
+    def test_drink_settings_tab_present_on_other_settings_pages(self, client, tmp_db):
+        """Drinks tab is present in other settings page navs."""
+        for url in ["/settings/tasting-notes", "/settings/taste", "/settings/design", "/settings/maintenance"]:
+            resp = client.get(url)
+            assert resp.status_code == 200
+            assert b"/settings/drinks" in resp.data, f"Drinks tab missing from {url}"

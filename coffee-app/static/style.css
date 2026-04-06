@@ -1375,6 +1375,34 @@ header h1 {
     max-width: 460px;
 }
 
+.descriptor-ref-panel {
+    text-align: left;
+    max-width: 480px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.descriptor-ref-list {
+    margin: 8px 0;
+}
+
+.descriptor-ref-item {
+    padding: 6px 0;
+    border-bottom: 1px solid #333;
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.descriptor-ref-item strong {
+    color: var(--accent);
+    display: inline;
+    margin-right: 4px;
+}
+
+.descriptor-ref-link {
+    cursor: pointer;
+}
+
 .bean-size-hint {
     font-size: 0.7rem;
     color: var(--text-muted);
