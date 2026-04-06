@@ -57,6 +57,16 @@
                 </div>
             </div>
 
+            <div class="field">
+                <label for="channeling">Channeling</label>
+                <select id="channeling" name="channeling" class="field-select">
+                    <option value="">Unknown</option>
+                    <option value="none" {% if sample.channeling == 'none' %}selected{% endif %}>None</option>
+                    <option value="some" {% if sample.channeling == 'some' %}selected{% endif %}>Some</option>
+                    <option value="unsure" {% if sample.channeling == 'unsure' %}selected{% endif %}>Unsure</option>
+                </select>
+            </div>
+
             <div class="coffee-detail" style="margin:8px 0">
                 <span>Created {{ sample.created_at[:10] }}</span>
                 {% if sample.days_since_roast is not none %}<span>Day {{ sample.days_since_roast }}</span>{% endif %}

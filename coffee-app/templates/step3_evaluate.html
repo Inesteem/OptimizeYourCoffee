@@ -86,11 +86,11 @@
             <h3 class="form-section-title">Grind Smell (ground coffee)</h3>
             {% set saved_aroma = (evaluation.aroma_descriptors or '').split(',') if evaluation and evaluation.aroma_descriptors else (prefill_grind_smell or '').split(',') %}
             <div class="descriptor-chips">
-                {% for d in grind_smell_descriptors %}
-                <label class="descriptor-chip">
-                    <input type="checkbox" name="aroma_descriptors" value="{{ d }}"
-                           {% if d in saved_aroma %}checked{% endif %}>
-                    <span>{{ d }}</span>
+                {% for name, sentiment in grind_smell_descriptors %}
+                <label class="descriptor-chip chip-{{ sentiment }}">
+                    <input type="checkbox" name="aroma_descriptors" value="{{ name }}"
+                           {% if name in saved_aroma %}checked{% endif %}>
+                    <span>{{ name }}</span>
                 </label>
                 {% endfor %}
             </div>
@@ -99,11 +99,11 @@
             <h3 class="form-section-title">Brew Smell (brewed coffee)</h3>
             {% set saved_brew = (evaluation.brew_smell_descriptors or '').split(',') if evaluation and evaluation.brew_smell_descriptors else [] %}
             <div class="descriptor-chips">
-                {% for d in brew_smell_descriptors %}
-                <label class="descriptor-chip">
-                    <input type="checkbox" name="brew_smell_descriptors" value="{{ d }}"
-                           {% if d in saved_brew %}checked{% endif %}>
-                    <span>{{ d }}</span>
+                {% for name, sentiment in brew_smell_descriptors %}
+                <label class="descriptor-chip chip-{{ sentiment }}">
+                    <input type="checkbox" name="brew_smell_descriptors" value="{{ name }}"
+                           {% if name in saved_brew %}checked{% endif %}>
+                    <span>{{ name }}</span>
                 </label>
                 {% endfor %}
             </div>
@@ -112,11 +112,11 @@
             <h3 class="form-section-title">Taste Notes (what you taste)</h3>
             {% set saved_taste = (evaluation.taste_descriptors or '').split(',') if evaluation and evaluation.taste_descriptors else [] %}
             <div class="descriptor-chips">
-                {% for d in taste_descriptors %}
-                <label class="descriptor-chip">
-                    <input type="checkbox" name="taste_descriptors" value="{{ d }}"
-                           {% if d in saved_taste %}checked{% endif %}>
-                    <span>{{ d }}</span>
+                {% for name, sentiment in taste_descriptors %}
+                <label class="descriptor-chip chip-{{ sentiment }}">
+                    <input type="checkbox" name="taste_descriptors" value="{{ name }}"
+                           {% if name in saved_taste %}checked{% endif %}>
+                    <span>{{ name }}</span>
                 </label>
                 {% endfor %}
             </div>

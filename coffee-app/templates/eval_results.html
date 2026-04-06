@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Shot Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v={{ v }}">
+</head>
+<body>
+    <header>
+        <span class="header-spacer" aria-hidden="true">&#9664;</span>
+        <h1>Shot Results</h1>
+        <span class="header-spacer" aria-hidden="true">&#9664;</span>
+    </header>
+
+    <main>
+        <!-- Shot summary -->
+        <div class="coffee-detail">
+            <span><strong>{{ coffee.label }}</strong></span>
+            <span>{{ sample.grams_in }}g &rarr; {{ sample.grams_out }}g</span>
+            <span>1:{{ "%.1f"|format(sample.ratio) if sample.ratio else "?" }}</span>
+            <span>{{ sample.brew_time_sec }}s</span>
+            <span>{{ sample.brew_temp_c or 91 }}&deg;C</span>
+            <span>Grind {{ sample.grind_size }}</span>
+            {% if sample.days_since_roast is not none %}<span>Day {{ sample.days_since_roast }}</span>{% endif %}
+            {% if freshness %}<span class="freshness-badge {{ freshness.css }}">{{ freshness.stage }}</span>{% endif %}
+            {% if sample.channeling == 'some' %}<span class="freshness-badge fresh-stale">Channeling</span>{% endif %}
+        </div>
+
+        <!-- Scores -->
+        <div class="results-scores">
+            {% if evaluation.overall %}
+            <div class="results-overall">{{ evaluation.overall }}<span>/5</span></div>
+            {% endif %}
+            <div class="results-dims">
+                {% for dim in [("Aroma", evaluation.aroma), ("Acidity", evaluation.acidity), ("Sweet", evaluation.sweetness), ("Body", evaluation.body), ("Balance", evaluation.balance)] %}
+                {% if dim[1] %}
+                <span class="results-dim">{{ dim[0] }} {{ dim[1] }}</span>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Diagnostics -->
+        <div class="diagnostic">
+            {% for tip in tips %}
+            <p>{{ tip }}</p>
+            {% endfor %}
+            {% if not tips %}
+            <p>No specific issues detected.</p>
+            {% endif %}
+        </div>
+
+        <!-- Actions -->
+        <div class="eval-actions">
+            <a href="/" class="btn-cancel">Leave</a>
+            <a href="/evaluate/{{ sample.id }}" class="btn-add results-update-btn">Update</a>
+        </div>
+    </main>
+</body>
+</html>

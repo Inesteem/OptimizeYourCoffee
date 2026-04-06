@@ -44,6 +44,8 @@ from app import (  # noqa: E402
     _extract_score,
     _grind_rows,
     _cross_coffee_prior,
+    _shot_reliability,
+    CHANNELING_WEIGHTS,
 )
 
 
@@ -1372,6 +1374,56 @@ class TestCrossCoffeePrior(_GrindTestBase):
         assert result is None
 
 
+class TestShotReliability:
+    def test_no_channeling_all_weight_1(self):
+        rows = [{"grind_size": 18, "grams_out": 36, "channeling": None},
+                {"grind_size": 18, "grams_out": 37, "channeling": None}]
+        assert _shot_reliability(rows) == [1.0, 1.0]
+
+    def test_channeling_some_low_weight(self):
+        rows = [{"grind_size": 18, "grams_out": 36, "channeling": "some"}]
+        assert _shot_reliability(rows) == [0.3]
+
+    def test_channeling_unsure_mid_weight(self):
+        rows = [{"grind_size": 18, "grams_out": 36, "channeling": "unsure"}]
+        assert _shot_reliability(rows) == [0.7]
+
+    def test_channeling_none_explicit(self):
+        rows = [{"grind_size": 18, "grams_out": 36, "channeling": "none"}]
+        assert _shot_reliability(rows) == [1.0]
+
+    def test_small_variance_no_outlier(self):
+        """2 shots within 5g of median — no outlier penalty."""
+        rows = [{"grind_size": 18, "grams_out": 36, "channeling": None},
+                {"grind_size": 18, "grams_out": 40, "channeling": None}]
+        assert _shot_reliability(rows) == [1.0, 1.0]
+
+    def test_outlier_over_5g_from_median(self):
+        """Shot >5g from group median gets penalized."""
+        rows = [{"grind_size": 18, "grams_out": 36, "channeling": None},
+                {"grind_size": 18, "grams_out": 37, "channeling": None},
+                {"grind_size": 18, "grams_out": 50, "channeling": None}]
+        weights = _shot_reliability(rows)
+        # median=37, 50 deviates by 13g > 5g threshold
+        assert weights[0] == 1.0
+        assert weights[1] == 1.0
+        assert weights[2] == 0.5
+
+    def test_combined_channeling_and_outlier(self):
+        """Channeled outlier gets both penalties multiplied."""
+        rows = [{"grind_size": 18, "grams_out": 36, "channeling": None},
+                {"grind_size": 18, "grams_out": 37, "channeling": None},
+                {"grind_size": 18, "grams_out": 50, "channeling": "some"}]
+        weights = _shot_reliability(rows)
+        assert weights[2] == pytest.approx(0.3 * 0.5)
+
+    def test_mixed_grinds_no_cross_group_outlier(self):
+        """Shots at different grinds don't interfere with each other."""
+        rows = [{"grind_size": 16, "grams_out": 40, "channeling": None},
+                {"grind_size": 18, "grams_out": 36, "channeling": None}]
+        assert _shot_reliability(rows) == [1.0, 1.0]
+
+
 class TestPreviewAPI:
     """Tests for the /api/grind-preview endpoint."""
 
@@ -1882,13 +1934,14 @@ class TestRouteEvaluateSave:
         conn.commit()
         return coffee_id, sample_id
 
-    def test_save_evaluation_returns_200(self, client, tmp_db):
+    def test_save_evaluation_redirects_to_results(self, client, tmp_db):
         _, sample_id = self._seed(tmp_db)
         resp = client.post(f"/evaluate/{sample_id}/save", data={
             "aroma": "4", "acidity": "3", "sweetness": "4",
             "body": "3", "balance": "4", "overall": "4",
         })
-        assert resp.status_code == 200
+        assert resp.status_code == 302
+        assert f"/evaluate/{sample_id}/results" in resp.headers["Location"]
 
     def test_save_evaluation_with_representative_flag(self, client, tmp_db):
         _, sample_id = self._seed(tmp_db)
@@ -1912,7 +1965,22 @@ class TestRouteEvaluateSave:
         """Submitting the eval form without selecting any radio buttons should not crash."""
         _, sample_id = self._seed(tmp_db)
         resp = client.post(f"/evaluate/{sample_id}/save", data={})
+        assert resp.status_code == 302
+
+    def test_evaluation_results_renders(self, client, tmp_db):
+        _, sample_id = self._seed(tmp_db)
+        client.post(f"/evaluate/{sample_id}/save", data={
+            "aroma": "4", "acidity": "3", "sweetness": "4",
+            "body": "3", "balance": "4", "overall": "4",
+        })
+        resp = client.get(f"/evaluate/{sample_id}/results")
         assert resp.status_code == 200
+        assert b"Shot Results" in resp.data
+
+    def test_evaluation_results_no_eval_redirects(self, client, tmp_db):
+        _, sample_id = self._seed(tmp_db)
+        resp = client.get(f"/evaluate/{sample_id}/results")
+        assert resp.status_code == 302
 
 
 class TestGrindSmellPrefill:

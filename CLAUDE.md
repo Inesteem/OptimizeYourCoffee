@@ -7,9 +7,9 @@ Solves the problem of systematically tracking espresso shots, evaluating flavors
 **Stack:** Python 3 / Flask / SQLite / Chart.js / simple-keyboard. Runs as a Chromium kiosk on Wayland (800x480 DSI touchscreen).
 
 **Entry points:**
-- `coffee-app/app.py` — Flask application (~2310 lines), all routes and business logic
+- `coffee-app/app.py` — Flask application (~2500 lines), all routes and business logic
 - `./deploy.sh` — safe deploy to Raspberry Pi (backs up DB, stops Flask, syncs, restarts)
-- `python3 -m pytest tests/test_app.py` — test suite (218 tests)
+- `python3 -m pytest tests/test_app.py` — test suite (229 tests)
 
 ## Project Context
 
@@ -26,7 +26,7 @@ FLASK_DEBUG=1 python3 coffee-app/app.py  # with debug mode
 
 ### Run tests
 ```bash
-python3 -m pytest tests/test_app.py -v      # full suite (218 tests, ~8s)
+python3 -m pytest tests/test_app.py -v      # full suite (229 tests, ~8s)
 python3 -m pytest tests/test_app.py::TestFreshnessStatus -v  # single class
 ```
 
@@ -51,7 +51,7 @@ cp deploy.conf.example deploy.conf   # fill in PI_USER, PI_HOST, PI_APP_DIR
 ```
 coffee-settings/
 ├── coffee-app/           # Flask application
-│   ├── app.py            # ALL routes, models, helpers, migrations (~1440 lines)
+│   ├── app.py            # ALL routes, models, helpers, migrations (~2500 lines)
 │   ├── static/           # CSS, JS modules, Chart.js, data files, icons
 │   │   ├── keyboard.js       # Virtual keyboard (wraps simple-keyboard)
 │   │   ├── autocomplete.js   # Inline chip autocomplete for form fields
@@ -80,9 +80,10 @@ coffee-settings/
 1. Coffee overview (step1) → tap card → sample form (step2, pre-filled from recipe)
 2. Sample saved with `days_since_roast` snapshot → redirect to evaluation (step3)
 3. User can navigate back from eval to edit sample brew params, and forward again (loop via `from=eval` context)
-4. Evaluation saved with UPSERT → diagnostics computed from taste descriptors + brew params → shown immediately
-5. Stats page: per-coffee charts from aggregated query data
-6. Insights page: cross-coffee groupings (process, origin, roast level) with Chart.js
+4. Evaluation saved with UPSERT → redirect to `/evaluate/<id>/results` (dedicated results page showing diagnostics + scores)
+5. Results page has Update (re-open eval form) and Leave (go to coffee overview) buttons
+6. Stats page: per-coffee charts from aggregated query data
+7. Insights page: cross-coffee groupings (process, origin, roast level) with Chart.js
 
 ### Grind aroma prefill
 Grind aroma (1-5 score) and grind smell descriptors are captured on the sample page and carried to the evaluation page. They are **not stored on the `samples` table** — only persisted when the user saves the evaluation (to `evaluations.grind_aroma` and `evaluations.aroma_descriptors`).
@@ -97,6 +98,8 @@ This means grind aroma "sticks" across shots of the same coffee, while fresh sel
 ### Database
 Single SQLite file (`coffee.db`, WAL mode, foreign keys). 5 tables: `coffees`, `samples`, `evaluations`, `custom_tasting_notes`, `app_settings`. Schema migrations via `ALTER TABLE` in `init_db()` — **never drop/recreate tables** (user has real data).
 
+**Soft-delete:** `coffees`, `samples`, and `evaluations` all have a `deleted_at` TEXT column (ISO timestamp or NULL). Delete routes set this timestamp rather than removing rows. Undo routes clear it (matching by timestamp). A maintenance page in Settings allows permanent purge of soft-deleted rows. All normal queries filter `WHERE deleted_at IS NULL`.
+
 ### Grind optimizer
 Three selectable algorithms in Settings → Grind Optimizer, all dispatched via `suggest_grind()`:
 - **Best Shots** (`weighted_centroid`): Weighted average of top-scoring shots with time-decay. Default.
@@ -107,7 +110,15 @@ All share:
 - Configurable score source (overall, taste avg, ratio accuracy, single dimension)
 - Recipe-matching filter (temp/dose tolerance to exclude shots from different brew setups)
 - Cross-coffee prior for sparse data (fallback grind from similar coffees on the same grinder)
+- Shot reliability weighting (channeling down-weighted, output outliers penalized)
 - Settings stored in `app_settings` table as JSON via `get_setting()`/`set_setting()`
+
+**Sparse data constraint:** A 250g bag yields ~14 shots at 18g dose. Algorithms must produce useful results with as few as 1-3 data points per coffee. This means:
+- Never discard shots entirely — weight them down instead (channeled shots get 0.3, not 0)
+- Cross-coffee prior is essential for new coffees (no single-coffee data yet)
+- Outlier detection needs very low thresholds (2+ shots at same grind, not 3+)
+- Prefer robust methods (weighted averages, ridge regression) over methods needing large samples
+- All algorithmic improvements must be evaluated against this sparsity reality
 
 Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in-memory SQLite DB.
 
@@ -117,12 +128,18 @@ Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in
 - **Static data** — `coffee-info.json`, `varieties.json`, `maps/*.svg` + `origin-map-index.json` (checked in, loaded client-side/server-side)
 
 ### Key design decisions
-- **Monolithic app.py** — deliberate for a single-developer kiosk project. At ~2310 lines; consider splitting if it grows past ~2500.
+- **Monolithic app.py** — deliberate for a single-developer kiosk project. At ~2500 lines; consider splitting if it grows significantly further.
 - **Inline chart JS** — server renders JSON into template `<script>` blocks. Avoids extra API calls.
 - **Autocomplete as inline chips** (not floating dropdown) — Chromium/Wayland repaint bug prevents `position: fixed` elements toggled via display.
 - **`days_since_roast` snapshot on samples** — frozen at creation time, not computed live. Shows bean age when that specific shot was pulled.
 - **Grind aroma lives on evaluations, not samples** — captured on the sample page for UX but only persisted to `evaluations` on save. Carried between pages via query params, with sticky prefill from the last eval of the same coffee.
-- **Sample↔eval navigation loop** — back arrow on eval goes to edit sample (`?from=eval`), save returns to eval. User escapes via the edit page's back arrow or eval's "Done" button.
+- **Eval results page** — saving an evaluation redirects to `/evaluate/<id>/results`, a dedicated page showing diagnostics and scores. Update returns to the eval form; Leave goes to coffee overview.
+- **Unified edit UX** — editing a sample or evaluation uses Cancel (red) + Update buttons; no back arrows on edit pages.
+- **Undo banner** — dismissible with × button. State stored in `sessionStorage` so it persists across the redirect after a delete. Cleared automatically on navigation away from the affected coffee.
+- **Channeling field on samples** — `samples.channeling` TEXT column captures (none/some/unsure/unknown). Used as a reliability signal by all grind algorithms via `_shot_reliability()`.
+- **Descriptor sentiment** — grind smell, brew smell, and taste descriptors carry good/neutral/bad sentiment. Chips are color-coded: green (good), default (neutral), red (bad).
+- **Temp step** — temperature input increments by 0.1°C (previously 0.5°C) for finer control.
+- **Sample history buttons** — Edit (yellow) and Delete (red) buttons in the history table, 8px gap between them.
 - **Timestamped backups** — every Flask startup creates `coffee-YYYY-MM-DD_HHMMSS.db`. Pruned after 60 days.
 - **Settings auto-save** — grind optimizer settings page saves on every change via debounced fetch (no save button). Route returns JSON for auto-save (`X-Auto-Save` header), redirect for manual POST.
 - **Score-source-dependent UI** — grind settings page swaps algorithm cards based on selected score source. Ratio accuracy shows a dedicated "Directed Search" algorithm; all taste-based sources show the 3 generic algorithms.
@@ -198,7 +215,7 @@ Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in
 
 - **Framework:** pytest
 - **Runner:** `python3 -m pytest tests/test_app.py -v`
-- **Structure:** `tests/test_app.py` — single file, 218 tests in 34 test classes
+- **Structure:** `tests/test_app.py` — single file, 229 tests in 34 test classes
 - **Naming:** `TestClassName` classes, `test_descriptive_name` methods
 - **Fixtures:** `client` (Flask test client), `tmp_db` (temp SQLite file via `tmp_path`)
 - **Mocking:** `unittest.mock.patch` for `subprocess.Popen` (quit route), no date mocking (uses relative dates)
@@ -220,7 +237,7 @@ Preview API (`/api/grind-preview`) runs algorithms on example scenarios in an in
 
 ### Project-specific patterns a newcomer would get wrong
 - Using `innerHTML` with DB data → must use `esc()` helper or DOM methods
-- Adding a coffee field → must update: schema, migration, `parse_coffee_form()`, `COFFEE_COLUMNS` allowlist, both templates (add + edit), and tests
+- Adding a coffee field → must update: schema, migration, `parse_coffee_form()`, `COFFEE_COLUMNS` allowlist, both templates (add + edit), and tests. If the field supports soft-delete semantics, add `deleted_at` handling to delete/undo routes and the maintenance purge query.
 - Deploying with `scp` instead of `./deploy.sh` → can corrupt the live database
 - Using `display: none/block` for dynamic UI → won't work on Chromium/Wayland, use `:empty` or opacity
 - Adding a new grind algorithm → must add: algorithm function, dispatch case in `suggest_grind()`, algorithm card in `settings_grind.html`, preview support, tests

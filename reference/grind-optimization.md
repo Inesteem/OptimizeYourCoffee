@@ -140,6 +140,43 @@ Requires at least 3 evaluated shots across at least 1 other coffee to fire.
 | Medium | 3-5 shots, reasonable suggestion but could shift with more data |
 | High | 6+ shots (4+ for ratio accuracy), stable suggestion |
 
+## Shot Reliability Weighting
+
+All four algorithms apply a per-shot reliability weight before fitting or averaging. This weight is computed by `_shot_reliability()` and multiplied into each shot's effective contribution.
+
+### Channeling penalty
+
+The `samples.channeling` column records whether channeling was observed for that shot:
+
+| channeling value | reliability weight |
+|------------------|--------------------|
+| `none` | 1.0 (full weight) |
+| `unsure` | 0.7 |
+| `some` | 0.3 (heavy penalty) |
+| `unknown` / NULL | 1.0 (no penalty — benefit of the doubt) |
+
+Channeled shots are never discarded entirely. Down-weighting them rather than excluding them is intentional: with only 14 shots per bag, losing even bad data points would leave some coffees with too few samples for any algorithm to run.
+
+### Output outlier penalty
+
+Shots whose output (grams out) deviates significantly from the median output for that coffee are penalized:
+
+- Compute the median output across all shots for that coffee.
+- If a shot's output differs from the median by more than 5g, its reliability weight is halved (multiplied by 0.5).
+- The channeling and outlier penalties are applied multiplicatively: a channeled + outlier shot gets `0.3 × 0.5 = 0.15` effective weight.
+
+The 5g threshold was chosen to catch genuine outliers (knocked portafilter, wrong dose) while tolerating normal shot-to-shot variation (~1-2g).
+
+### Interaction with other weights
+
+For Best Shots and Smart Curve, reliability weight is combined with recency and score weights:
+
+```
+effective_weight = reliability × score_weight × recency_weight
+```
+
+For Directed Search, reliability weight reduces a shot's influence on the grind-sensitivity regression.
+
 ## Edge Cases
 
 - If quadratic coefficient `c` is positive (U-shape), falls back to best-scoring shot

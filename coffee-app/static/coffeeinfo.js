@@ -212,6 +212,7 @@
         overlay.innerHTML =
             '<div class="roast-guide-panel bean-size-panel">' +
                 '<div class="info-popup-title">Bean Size Guide</div>' +
+                '<div class="bean-size-hint">Screen = industry sieve size used to sort beans by width (in 1/64 inch increments).</div>' +
                 '<table class="bean-size-table">' +
                     '<tr><th>Size</th><th>Screen</th><th>Diameter</th><th>Typical</th></tr>' +
                     '<tr><td><strong>Small</strong></td><td>14–15</td><td>&lt; 6 mm</td><td>Robusta, some Ethiopian</td></tr>' +
@@ -219,7 +220,7 @@
                     '<tr><td><strong>Large</strong></td><td>18–20</td><td>7–8 mm</td><td>Kenya AA, Colombia Supremo</td></tr>' +
                     '<tr><td><strong>Peaberry</strong></td><td>varies</td><td>round</td><td>Single seed, any origin</td></tr>' +
                 '</table>' +
-                '<div class="bean-size-hint">Screen number = diameter in 1/64 inch. Most specialty bags list the screen size or grade (AA, Supremo, etc).</div>' +
+                '<div class="bean-size-hint">Grades like AA or Supremo correspond to screen size ranges.</div>' +
                 '<div class="roast-guide-hint">Tap anywhere to close</div>' +
             '</div>';
         setTimeout(function() {

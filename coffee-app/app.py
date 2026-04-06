@@ -5,6 +5,7 @@ import shutil
 import sqlite3
 import subprocess
 import time
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
@@ -75,7 +76,8 @@ COFFEE_COLUMNS = {"roaster", "origin_country", "origin_city", "origin_producer",
                   "bean_color", "bean_size", "altitude_min", "altitude_max",
                   "opened_date", "archived", "created_at", "updated_at", "deleted_at"}
 SAMPLE_COLUMNS = {"coffee_id", "grind_size", "grams_in", "grams_out", "brew_time_sec",
-                  "brew_temp_c", "days_since_roast", "days_since_opened", "notes", "created_at", "deleted_at"}
+                  "brew_temp_c", "days_since_roast", "days_since_opened", "notes",
+                  "channeling", "created_at", "deleted_at"}
 EVALUATION_COLUMNS = {"sample_id", "aroma", "acidity", "sweetness", "body", "balance",
                       "overall", "grind_aroma", "aroma_descriptors", "brew_smell_descriptors", "taste_descriptors",
                       "preheat_portafilter", "preheat_cup",
@@ -91,33 +93,35 @@ PROCESS_OPTIONS = [
 AUTOCOMPLETE_FIELDS = frozenset(["roaster", "origin_country", "origin_city",
                                   "origin_producer", "variety"])
 
+# Descriptor groups: (label, sentiment) where sentiment is "good", "neutral", or "bad"
 GRIND_SMELL_DESCRIPTORS = [
-    "Fruity", "Citrus", "Berry", "Stone fruit",
-    "Nutty", "Chocolate", "Cocoa",
-    "Floral", "Jasmine",
-    "Caramel", "Honey", "Vanilla",
-    "Roasted", "Toasted", "Smoky",
-    "Green", "Fresh", "Flat", "Faint",
+    ("Fruity", "good"), ("Citrus", "good"), ("Berry", "good"), ("Stone fruit", "good"),
+    ("Floral", "good"), ("Jasmine", "good"),
+    ("Caramel", "good"), ("Honey", "good"), ("Vanilla", "good"),
+    ("Nutty", "good"), ("Chocolate", "good"), ("Cocoa", "good"),
+    ("Roasted", "neutral"), ("Toasted", "neutral"), ("Smoky", "neutral"),
+    ("Fresh", "neutral"),
+    ("Flat", "bad"), ("Faint", "bad"),
 ]
 
 BREW_SMELL_DESCRIPTORS = [
-    "Fruity", "Citrus", "Berry",
-    "Chocolate", "Cocoa", "Nutty",
-    "Caramel", "Honey", "Vanilla",
-    "Floral", "Roasted", "Smoky",
-    "Burned", "Sour", "Acidic",
-    "Sweet", "Rich", "Flat",
+    ("Fruity", "good"), ("Citrus", "good"), ("Berry", "good"),
+    ("Caramel", "good"), ("Honey", "good"), ("Vanilla", "good"),
+    ("Chocolate", "good"), ("Cocoa", "good"), ("Nutty", "good"),
+    ("Sweet", "good"), ("Rich", "good"),
+    ("Floral", "good"), ("Roasted", "neutral"), ("Smoky", "neutral"),
+    ("Sour", "bad"), ("Acidic", "bad"), ("Burned", "bad"), ("Flat", "bad"),
 ]
 
 TASTE_DESCRIPTORS = [
-    "Fruity", "Citrus", "Berry", "Stone fruit",
-    "Nutty", "Chocolate", "Cocoa", "Almond",
-    "Caramel", "Honey", "Brown sugar", "Vanilla",
-    "Spicy", "Pepper", "Cinnamon",
-    "Roasted", "Smoky", "Earthy",
-    "Creamy", "Silky", "Clean", "Wine-like",
-    "Sour", "Acidic", "Bitter", "Burned", "Ashy",
-    "Dry", "Astringent", "Thin", "Watery", "Flat", "Harsh",
+    ("Fruity", "good"), ("Citrus", "good"), ("Berry", "good"), ("Stone fruit", "good"),
+    ("Caramel", "good"), ("Honey", "good"), ("Brown sugar", "good"), ("Vanilla", "good"),
+    ("Nutty", "good"), ("Chocolate", "good"), ("Cocoa", "good"), ("Almond", "good"),
+    ("Creamy", "good"), ("Silky", "good"), ("Clean", "good"), ("Wine-like", "good"),
+    ("Spicy", "neutral"), ("Pepper", "neutral"), ("Cinnamon", "neutral"),
+    ("Roasted", "neutral"), ("Smoky", "neutral"), ("Earthy", "neutral"),
+    ("Sour", "bad"), ("Acidic", "bad"), ("Bitter", "bad"), ("Burned", "bad"), ("Ashy", "bad"),
+    ("Dry", "bad"), ("Astringent", "bad"), ("Thin", "bad"), ("Watery", "bad"), ("Flat", "bad"), ("Harsh", "bad"),
 ]
 
 # =============================================================================
@@ -282,6 +286,8 @@ def init_db():
             conn.execute("ALTER TABLE samples ADD COLUMN days_since_opened INTEGER")
         if "deleted_at" not in sample_cols:
             conn.execute("ALTER TABLE samples ADD COLUMN deleted_at TEXT")
+        if "channeling" not in sample_cols:
+            conn.execute("ALTER TABLE samples ADD COLUMN channeling TEXT")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS evaluations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -528,7 +534,7 @@ def freshness_status(coffee):
                 "detail": f"Past prime by {over} day{'s' if over != 1 else ''}{open_note}"}
 
 
-def diagnose(ev, taste_desc=None, actual_out=None, target_out=None, brew_time=None):
+def diagnose(ev, taste_desc=None, actual_out=None, target_out=None, brew_time=None, channeling=None):
     """Return diagnostic tips based on scores and taste descriptors.
 
     Focuses on identifying extraction problems and puck prep issues.
@@ -541,12 +547,19 @@ def diagnose(ev, taste_desc=None, actual_out=None, target_out=None, brew_time=No
     body = ev.get("body") or 3
     taste_tags = set(t.strip().lower() for t in (taste_desc or "").split(",") if t.strip())
 
+    # Channeling diagnostic (user-reported)
+    if channeling == "some":
+        tips.append("Channeling observed — water found shortcuts through the puck. Focus on puck prep: use WDT, distribute evenly, tamp level.")
+
     # Taste descriptor-based diagnostics (work even with 0 prior shots)
     under_signs = taste_tags & {"sour", "acidic", "thin", "watery", "flat"}
     over_signs = taste_tags & {"bitter", "burned", "ashy", "dry", "astringent", "harsh"}
 
     if under_signs and over_signs:
-        tips.append("Sour AND bitter — likely channeling. Fix puck prep first: use WDT, distribute evenly, tamp consistently.")
+        if channeling != "some":
+            tips.append("Sour AND bitter — likely channeling. Fix puck prep first: use WDT, distribute evenly, tamp consistently.")
+        else:
+            tips.append(f"Sour AND bitter taste confirms channeling ({', '.join(under_signs | over_signs)}).")
     elif len(under_signs) >= 3 or (len(under_signs) >= 2 and acidity >= 4):
         tips.append(f"Strongly under-extracted ({', '.join(under_signs)}).")
     elif under_signs:
@@ -800,7 +813,7 @@ def _grind_rows(coffee_id, conn):
 
     all_rows = conn.execute(
         """SELECT s.grind_size, s.grams_in, s.grams_out, s.brew_time_sec,
-                  s.brew_temp_c, s.created_at,
+                  s.brew_temp_c, s.created_at, s.channeling,
                   e.overall, e.aroma, e.acidity, e.sweetness, e.body, e.balance
            FROM samples s JOIN evaluations e ON e.sample_id = s.id
            WHERE s.coffee_id = ? AND e.overall IS NOT NULL
@@ -828,6 +841,7 @@ def _grind_rows(coffee_id, conn):
                 "brew_time_sec": r["brew_time_sec"],
                 "brew_temp_c": r["brew_temp_c"],
                 "created_at": r["created_at"],
+                "channeling": r["channeling"],
             })
     return result
 
@@ -844,6 +858,51 @@ def _time_weights(rows, decay_rate):
             days_ago = 365  # unknown timestamp gets minimal weight
         weights.append(math.exp(-decay_rate * days_ago))
     return weights
+
+
+CHANNELING_WEIGHTS = {"some": 0.3, "unsure": 0.7, "none": 1.0}
+
+
+def _row_get(r, key, default=None):
+    """Safe key access for both dicts and sqlite3.Row (which lacks .get())."""
+    try:
+        return r[key]
+    except (KeyError, IndexError):
+        return default
+
+
+def _shot_reliability(rows):
+    """Compute per-shot reliability weights based on channeling and output variance.
+
+    Returns a list of weights (0.0-1.0) parallel to rows.
+    Channeled shots are down-weighted. Shots with output far from
+    their grind-group mean are penalized (needs 2+ shots at same grind,
+    kept low because a 250g bag yields only ~14 shots).
+    """
+    # Channeling weight (handle both dicts and sqlite3.Row objects)
+    ch_w = [CHANNELING_WEIGHTS.get(_row_get(r, "channeling") or "none", 1.0) for r in rows]
+
+    # Output outlier detection within grind groups (2+ shots threshold for sparse data).
+    # Uses median-based deviation: shots >5g from group median get penalized.
+    # SD-based approaches fail with sparse data because a single outlier inflates SD.
+    grind_groups = defaultdict(list)
+    for i, r in enumerate(rows):
+        if _row_get(r, "grams_out") is not None:
+            key = round(r["grind_size"] * 2) / 2
+            grind_groups[key].append((i, r["grams_out"]))
+
+    outlier_w = [1.0] * len(rows)
+    for members in grind_groups.values():
+        if len(members) < 2:
+            continue
+        outs_list = sorted(m[1] for m in members)
+        mid = len(outs_list) // 2
+        median = (outs_list[mid] + outs_list[~mid]) / 2
+        for idx, out in members:
+            if abs(out - median) > 5:
+                outlier_w[idx] = 0.5
+
+    return [c * o for c, o in zip(ch_w, outlier_w)]
 
 
 def _cross_coffee_prior(coffee_id, conn):
@@ -952,9 +1011,10 @@ def _suggest_grind_quadratic(coffee_id, conn):
 
     grinds = np.array([r["grind_size"] for r in rows], dtype=float)
     scores = np.array([r["score"] for r in rows], dtype=float)
+    rel_w = np.array(_shot_reliability(rows), dtype=float)
 
     try:
-        coeffs = np.polyfit(grinds, scores, 2)
+        coeffs = np.polyfit(grinds, scores, 2, w=rel_w)
     except (np.linalg.LinAlgError, ValueError):
         best = max(rows, key=lambda r: r["score"])
         return {"grind": best["grind_size"], "confidence": "low",
@@ -1006,12 +1066,13 @@ def _suggest_grind_centroid(coffee_id, conn):
     score_power = float(params.get("score_weight_power", CENTROID_DEFAULTS["score_weight_power"]))
 
     time_w = _time_weights(rows, decay_rate)
+    rel_w = _shot_reliability(rows)
 
-    # Combine score and time into a ranking weight
+    # Combine score, time, and reliability into a ranking weight
     ranked = []
     for i, r in enumerate(rows):
         score = r["score"]
-        w = (score ** score_power) * time_w[i]
+        w = (score ** score_power) * time_w[i] * rel_w[i]
         ranked.append((r["grind_size"], score, w))
 
     # Sort by combined weight descending, take top_n
@@ -1059,7 +1120,9 @@ def _suggest_grind_bayesian(coffee_id, conn):
 
     grinds = [r["grind_size"] for r in rows]
     scores = [r["score"] for r in rows]
-    weights = _time_weights(rows, decay_rate) if use_recency else [1.0] * len(rows)
+    time_w = _time_weights(rows, decay_rate) if use_recency else [1.0] * len(rows)
+    rel_w = _shot_reliability(rows)
+    weights = [t * r for t, r in zip(time_w, rel_w)]
 
     # Weighted ridge regression: minimize sum(w_i * (y_i - f(x_i))^2) + λ * (a^2 + b^2)
     # Normal equations: (X^T W X + λI) β = X^T W y
@@ -1148,7 +1211,7 @@ def _suggest_grind_ratio(coffee_id, conn):
     filt = _grind_filter_params(conn)
     rows = conn.execute(
         """SELECT s.grind_size, s.grams_out, s.grams_in, s.brew_temp_c,
-                  s.brew_time_sec, s.created_at
+                  s.brew_time_sec, s.created_at, s.channeling
            FROM samples s JOIN evaluations e ON e.sample_id = s.id
            WHERE s.coffee_id = ? AND s.grams_out IS NOT NULL AND s.grind_size IS NOT NULL
              AND s.deleted_at IS NULL AND e.deleted_at IS NULL
@@ -1167,31 +1230,35 @@ def _suggest_grind_ratio(coffee_id, conn):
 
     grinds = [r["grind_size"] for r in rows]
     outputs = [r["grams_out"] for r in rows]
+    rel_w = _shot_reliability(rows)
     n = len(rows)
 
-    # Check if a proven grind exists: 2+ shots at the same grind (±0.5) that
-    # average within ±1g of target. This filters out lucky one-off outliers.
-    from collections import defaultdict
+    # Check if a proven grind exists: 2+ non-channeled shots at the same grind
+    # (±0.5) that average within ±1g of target.
     grind_groups = defaultdict(list)
     for r in rows:
-        # Round to nearest 0.5 to group similar grinds
+        if (_row_get(r, "channeling") or "none") == "some":
+            continue  # channeled shots don't count toward proven grind
         key = round(r["grind_size"] * 2) / 2
         grind_groups[key].append(r["grams_out"])
     for grind_key, outs in grind_groups.items():
         if len(outs) >= 2:
             avg_out = sum(outs) / len(outs)
             if abs(avg_out - target_out) <= 1:
+                spread = max(outs) - min(outs)
+                spread_note = f", spread {spread:.0f}g" if spread > 1 else ""
                 return {"grind": round(grind_key, 1), "confidence": "high",
-                        "detail": f"Grind {grind_key} averages {avg_out:.0f}g across {len(outs)} shots (target {target_out:.0f}g). Proven setting."}
+                        "detail": f"Grind {grind_key} averages {avg_out:.0f}g across {len(outs)} shots (target {target_out:.0f}g{spread_note}). Proven setting."}
 
-    # Linear regression on (grind, output) for sensitivity + prediction
+    # Weighted linear regression on (grind, output) for sensitivity + prediction
     sensitivity = DEFAULT_GRIND_SENSITIVITY
     slope = None
-    g_mean = sum(grinds) / n
-    o_mean = sum(outputs) / n
+    wsum = sum(rel_w)
+    g_mean = sum(g * w for g, w in zip(grinds, rel_w)) / wsum if wsum > 0 else sum(grinds) / n
+    o_mean = sum(o * w for o, w in zip(outputs, rel_w)) / wsum if wsum > 0 else sum(outputs) / n
     if n >= 2:
-        num = sum((g - g_mean) * (o - o_mean) for g, o in zip(grinds, outputs))
-        den = sum((g - g_mean) ** 2 for g in grinds)
+        num = sum(w * (g - g_mean) * (o - o_mean) for g, o, w in zip(grinds, outputs, rel_w))
+        den = sum(w * (g - g_mean) ** 2 for g, w in zip(grinds, rel_w))
         if abs(den) > 1e-9:
             slope = num / den
             if abs(slope) > 0.1:
@@ -1208,26 +1275,35 @@ def _suggest_grind_ratio(coffee_id, conn):
 
     finer_is_lower = filt.get("finer_is_lower", True)
     sign = 1 if finer_is_lower else -1
-    latest_out = rows[-1]["grams_out"]
-    latest_grind = rows[-1]["grind_size"]
-    dev = latest_out - target_out
 
-    # Latest shot is on target — keep that grind (even with 1 shot)
+    # Use most recent non-channeled shot for deviation; fall back to latest if all channeled
+    ref_shot = rows[-1]
+    for r in reversed(rows):
+        if (_row_get(r, "channeling") or "none") != "some":
+            ref_shot = r
+            break
+    latest_out = ref_shot["grams_out"]
+    latest_grind = ref_shot["grind_size"]
+    dev = latest_out - target_out
+    channeled_note = ""
+    if ref_shot is not rows[-1]:
+        channeled_note = " (latest shot had channeling, using prior)"
+
+    # Reference shot is on target — keep that grind
     if abs(dev) <= 1:
         return {"grind": round(latest_grind, 1), "confidence": "medium" if n < 4 else "high",
-                "detail": f"Last shot hit {latest_out:.0f}g (target {target_out:.0f}g). Keep grind at {latest_grind}."}
+                "detail": f"Shot hit {latest_out:.0f}g (target {target_out:.0f}g). Keep grind at {latest_grind}.{channeled_note}"}
 
     if slope is not None and abs(slope) > 0.1 and n >= 2:
         intercept = o_mean - slope * g_mean
         predicted_grind = (target_out - intercept) / slope
         suggested = round(predicted_grind, 1)
-        detail = f"Last shot: {latest_out:.0f}g (target {target_out:.0f}g, {dev:+.0f}g). Regression suggests grind {suggested} ({n} shots).{scatter_note}"
+        detail = f"Shot: {latest_out:.0f}g (target {target_out:.0f}g, {dev:+.0f}g). Regression suggests grind {suggested} ({n} shots).{scatter_note}{channeled_note}"
     else:
-        latest_grind = rows[-1]["grind_size"]
         steps = dev / sensitivity
         suggested = round(latest_grind - sign * steps, 1)
         direction = "finer" if dev > 0 else "coarser"
-        detail = f"Last shot: {latest_out:.0f}g (target {target_out:.0f}g, {dev:+.0f}g). Try {direction} by ~{abs(steps):.1f} steps."
+        detail = f"Shot: {latest_out:.0f}g (target {target_out:.0f}g, {dev:+.0f}g). Try {direction} by ~{abs(steps):.1f} steps.{channeled_note}"
 
     conf = "medium" if n < 4 else "high"
     return {"grind": suggested, "confidence": conf, "detail": detail}
@@ -1500,6 +1576,9 @@ def add_sample(coffee_id):
     # Not stored on samples — only persisted when the user saves the evaluation.
     grind_smell = ",".join(data.getlist("grind_smell")) or None
     grind_aroma = data.get("grind_aroma") or None
+    channeling = data.get("channeling") or None
+    if channeling not in (None, "none", "some", "unsure"):
+        channeling = None
 
     with get_db() as conn:
 
@@ -1508,8 +1587,8 @@ def add_sample(coffee_id):
         days_since_opened = days_since(coffee["opened_date"]) if coffee else None
 
         cur = conn.execute(
-            """INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec, brew_temp_c, days_since_roast, days_since_opened, notes)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO samples (coffee_id, grind_size, grams_in, grams_out, brew_time_sec, brew_temp_c, days_since_roast, days_since_opened, notes, channeling)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 coffee_id,
                 safe_float(data["grind_size"], 0),
@@ -1520,6 +1599,7 @@ def add_sample(coffee_id):
                 days_since_roast,
                 days_since_opened,
                 data.get("notes", ""),
+                channeling,
             ),
         )
         sample_id = cur.lastrowid
@@ -1552,7 +1632,7 @@ def delete_sample(sample_id):
 def edit_sample(sample_id):
     """Show edit form for a sample's brew parameters."""
     with get_db() as conn:
-        sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
+        sample = conn.execute("SELECT * FROM samples WHERE id = ? AND deleted_at IS NULL", (sample_id,)).fetchone()
         if not sample:
             return redirect(url_for("index"))
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
@@ -1568,14 +1648,17 @@ def save_sample(sample_id):
     data = request.form
     new_coffee_id = safe_int(data.get("coffee_id"))
     with get_db() as conn:
-        sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
+        sample = conn.execute("SELECT * FROM samples WHERE id = ? AND deleted_at IS NULL", (sample_id,)).fetchone()
         if not sample:
             return redirect(url_for("index"))
         if new_coffee_id and not conn.execute("SELECT id FROM coffees WHERE id = ?", (new_coffee_id,)).fetchone():
             return redirect(url_for("new_sample", coffee_id=sample["coffee_id"]))
+        channeling = data.get("channeling") or None
+        if channeling not in (None, "none", "some", "unsure"):
+            channeling = None
         conn.execute(
             """UPDATE samples SET coffee_id=?, grind_size=?, grams_in=?, grams_out=?,
-               brew_time_sec=?, brew_temp_c=? WHERE id=?""",
+               brew_time_sec=?, brew_temp_c=?, channeling=? WHERE id=?""",
             (
                 new_coffee_id or sample["coffee_id"],
                 safe_float(data.get("grind_size"), sample["grind_size"]),
@@ -1583,11 +1666,10 @@ def save_sample(sample_id):
                 safe_float(data.get("grams_out"), sample["grams_out"]),
                 safe_int(data.get("brew_sec"), sample["brew_time_sec"]),
                 safe_float(data.get("brew_temp_c"), sample["brew_temp_c"]),
+                channeling,
                 sample_id,
             ),
         )
-    if data.get("from_eval"):
-        return redirect(url_for("evaluate_sample", sample_id=sample_id))
     target = new_coffee_id or sample["coffee_id"]
     return redirect(url_for("new_sample", coffee_id=target))
 
@@ -1927,11 +2009,11 @@ def coffee_stats(coffee_id):
 @app.route("/evaluate/<int:sample_id>")
 def evaluate_sample(sample_id):
     with get_db() as conn:
-        sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
+        sample = conn.execute("SELECT * FROM samples WHERE id = ? AND deleted_at IS NULL", (sample_id,)).fetchone()
         if not sample:
             return redirect(url_for("index"))
         coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
-        existing = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
+        existing = conn.execute("SELECT * FROM evaluations WHERE sample_id = ? AND deleted_at IS NULL", (sample_id,)).fetchone()
         # Grind aroma prefill priority chain:
         # 1. Existing evaluation (re-editing) — handled in template
         # 2. Query params from sample page (user's fresh selections)
@@ -1976,12 +2058,9 @@ def save_evaluation(sample_id):
     taste_desc = ",".join(data.getlist("taste_descriptors")) or None
 
     with get_db() as conn:
-        sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
+        sample = conn.execute("SELECT * FROM samples WHERE id = ? AND deleted_at IS NULL", (sample_id,)).fetchone()
         if not sample:
             return redirect(url_for("index"))
-        coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
-        is_update = conn.execute("SELECT 1 FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone() is not None
-
         conn.execute("""
     INSERT INTO evaluations (sample_id, aroma, acidity, sweetness, body, balance, overall,
        grind_aroma, aroma_descriptors, brew_smell_descriptors, taste_descriptors,
@@ -1997,33 +2076,41 @@ def save_evaluation(sample_id):
        preheat_portafilter=excluded.preheat_portafilter,
        preheat_cup=excluded.preheat_cup, preheat_machine=excluded.preheat_machine,
        eval_notes=excluded.eval_notes, with_milk=excluded.with_milk,
-       representative=excluded.representative
+       representative=excluded.representative,
+       deleted_at=NULL
 """, (sample_id, scores["aroma"], scores["acidity"], scores["sweetness"],
       scores["body"], scores["balance"], scores["overall"],
       grind_aroma, aroma_desc, brew_smell_desc, taste_desc, preheat_pf, preheat_cup, preheat_machine,
       eval_notes, with_milk, representative))
 
+    # Both new saves and updates redirect to results page
+    return redirect(url_for("evaluation_results", sample_id=sample_id))
+
+
+@app.route("/evaluate/<int:sample_id>/results")
+def evaluation_results(sample_id):
+    """Show diagnostic results after saving an evaluation."""
+    with get_db() as conn:
+        sample = conn.execute("SELECT * FROM samples WHERE id = ?", (sample_id,)).fetchone()
+        if not sample:
+            return redirect(url_for("index"))
+        coffee = conn.execute("SELECT * FROM coffees WHERE id = ?", (sample["coffee_id"],)).fetchone()
         evaluation = conn.execute("SELECT * FROM evaluations WHERE sample_id = ?", (sample_id,)).fetchone()
-        freshness = freshness_status(coffee)
+    if not evaluation:
+        return redirect(url_for("evaluate_sample", sample_id=sample_id))
 
-    # Updates redirect to sample history; new evaluations show diagnostics
-    if is_update:
-        return redirect(url_for("new_sample", coffee_id=sample["coffee_id"]))
-
-    # Compute ratio-based target output from actual input
+    scores = {d["key"]: evaluation[d["key"]] for d in EVAL_DIMENSIONS}
+    taste_desc = evaluation["taste_descriptors"]
     target_out = None
     if coffee and coffee["default_grams_in"] and coffee["default_grams_out"] and sample:
         ratio = coffee["default_grams_out"] / coffee["default_grams_in"]
         target_out = sample["grams_in"] * ratio if sample["grams_in"] else None
-    actual_out = sample["grams_out"] if sample else None
-    brew_time = sample["brew_time_sec"] if sample else None
-    tips = diagnose(scores, taste_desc, actual_out, target_out, brew_time)
-    return render_template(
-        "step3_evaluate.html",
-        coffee=coffee, sample=sample, evaluation=evaluation,
-        dimensions=EVAL_DIMENSIONS, tips=tips, freshness=freshness,
-        prefill_grind_aroma=None, prefill_grind_smell=None,
-    )
+    channeling = sample["channeling"] if sample else None
+    tips = diagnose(scores, taste_desc, sample["grams_out"], target_out,
+                    sample["brew_time_sec"], channeling)
+    freshness = freshness_status(coffee)
+    return render_template("eval_results.html", coffee=coffee, sample=sample,
+                           evaluation=evaluation, tips=tips, freshness=freshness)
 
 
 # --- Settings: Custom tasting notes ---
@@ -2277,7 +2364,7 @@ def api_grind_preview():
     mem.execute("""CREATE TABLE samples (
         id INTEGER PRIMARY KEY, coffee_id INTEGER, grind_size REAL,
         grams_in REAL, grams_out REAL, brew_time_sec INTEGER,
-        brew_temp_c REAL, created_at TIMESTAMP, deleted_at TEXT)""")
+        brew_temp_c REAL, created_at TIMESTAMP, deleted_at TEXT, channeling TEXT)""")
     mem.execute("""CREATE TABLE evaluations (
         id INTEGER PRIMARY KEY, sample_id INTEGER UNIQUE,
         aroma INTEGER, acidity INTEGER, sweetness INTEGER,

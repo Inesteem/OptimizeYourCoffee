@@ -97,6 +97,17 @@
                 </div>
             </div>
 
+            <!-- Channeling -->
+            <div class="field">
+                <label for="channeling">Channeling</label>
+                <select id="channeling" name="channeling" class="field-select">
+                    <option value="">Unknown</option>
+                    <option value="none">None</option>
+                    <option value="some">Some</option>
+                    <option value="unsure">Unsure</option>
+                </select>
+            </div>
+
             <!-- Grind aroma intensity -->
             <div class="eval-row">
                 <div class="eval-header">
@@ -117,11 +128,11 @@
             <!-- Grind smell descriptors -->
             <h3 class="form-section-title">Grind Smell</h3>
             <div class="descriptor-chips">
-                {% for d in grind_smell_descriptors %}
-                <label class="descriptor-chip">
-                    <input type="checkbox" name="grind_smell" value="{{ d }}"
-                           {% if d in prefill_grind_smell %}checked{% endif %}>
-                    <span>{{ d }}</span>
+                {% for name, sentiment in grind_smell_descriptors %}
+                <label class="descriptor-chip chip-{{ sentiment }}">
+                    <input type="checkbox" name="grind_smell" value="{{ name }}"
+                           {% if name in prefill_grind_smell %}checked{% endif %}>
+                    <span>{{ name }}</span>
                 </label>
                 {% endfor %}
             </div>
