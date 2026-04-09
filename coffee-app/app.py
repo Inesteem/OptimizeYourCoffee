@@ -2187,7 +2187,9 @@ def save_evaluation(sample_id):
             return redirect(url_for("index"))
         drink_types = conn.execute("SELECT * FROM drink_types ORDER BY has_milk ASC, name ASC").fetchall()
 
-        saved_type = None  # first drink type saved (for redirect)
+        saved_type = None
+        saved_types = set()
+        skipped_types = set()
         for dt in drink_types:
             eval_type = dt["name"].lower()
             prefix = eval_type + "__"
@@ -2212,11 +2214,15 @@ def save_evaluation(sample_id):
                 with_milk = 0
                 milk_type = None
 
-            # Only save if at least one score or descriptor was provided for this drink type
+            # Only save if at least one score or descriptor was provided for this drink type.
+            # milk_type intentionally excluded — milk selects have no empty option,
+            # so they always submit a value even for untouched tabs.
             has_data = any(v is not None for v in scores.values()) or brew_smell or taste_desc
             if not has_data:
+                skipped_types.add(eval_type)
                 continue
 
+            saved_types.add(eval_type)
             if saved_type is None:
                 saved_type = eval_type
 
@@ -2245,6 +2251,13 @@ def save_evaluation(sample_id):
                   grind_aroma, grind_smell, brew_smell, taste_desc,
                   preheat_pf, preheat_cup, preheat_machine,
                   eval_notes, with_milk, dt_representative))
+
+        # Soft-delete evals for tabs that were emptied (had data before, none now)
+        for et in skipped_types:
+            conn.execute(
+                "UPDATE evaluations SET deleted_at = datetime('now') WHERE sample_id = ? AND eval_type = ? AND deleted_at IS NULL",
+                (sample_id, et),
+            )
 
     # Redirect to results for the first saved drink type (default black)
     return redirect(url_for("evaluation_results", sample_id=sample_id, type=saved_type or "black"))

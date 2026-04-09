@@ -38,7 +38,8 @@
 
             <!-- Shared: Grind section -->
             <h3 class="form-section-title descriptor-ref-link" data-ref="grind-smell">Grind Smell (ground coffee)</h3>
-            {% set saved_aroma_desc = (existing_evals.get('black', {}).get('aroma_descriptors') or prefill_grind_smell or '') %}
+            {% set shared_eval = existing_evals.get('black') or (existing_evals.values() | first) if existing_evals else {} %}
+            {% set saved_aroma_desc = ((shared_eval or {}).get('aroma_descriptors') or prefill_grind_smell or '') %}
             {% set saved_aroma_list = saved_aroma_desc.split(',') if saved_aroma_desc else [] %}
             <div class="descriptor-chips">
                 {% for name, sentiment in grind_smell_descriptors %}
@@ -57,7 +58,7 @@
                     <span class="eval-range">Faint &rarr; Intense</span>
                 </div>
                 <div class="eval-buttons">
-                    {% set ga_val = existing_evals.get('black', {}).get('grind_aroma') or prefill_grind_aroma %}
+                    {% set ga_val = (shared_eval or {}).get('grind_aroma') or prefill_grind_aroma %}
                     {% for i in range(1, 6) %}
                     <label class="eval-btn">
                         <input type="radio" name="grind_aroma" value="{{ i }}"
@@ -149,10 +150,9 @@
 
             <!-- Shared: Preheat (hidden, carried from sample page) -->
             {% set ph = prefill_preheat or {} %}
-            {% set black_eval = existing_evals.get('black') %}
-            <input type="hidden" name="preheat_portafilter" value="{{ black_eval.get('preheat_portafilter') if black_eval else ph.get('portafilter', 1) }}">
-            <input type="hidden" name="preheat_cup" value="{{ black_eval.get('preheat_cup') if black_eval else ph.get('cup', 1) }}">
-            <input type="hidden" name="preheat_machine" value="{{ black_eval.get('preheat_machine') if black_eval else ph.get('machine', 1) }}">
+            <input type="hidden" name="preheat_portafilter" value="{{ (shared_eval or {}).get('preheat_portafilter') or ph.get('portafilter', 1) }}">
+            <input type="hidden" name="preheat_cup" value="{{ (shared_eval or {}).get('preheat_cup') or ph.get('cup', 1) }}">
+            <input type="hidden" name="preheat_machine" value="{{ (shared_eval or {}).get('preheat_machine') or ph.get('machine', 1) }}">
 
             <!-- Shared: Notes -->
             <div class="field" style="margin-top:8px">
